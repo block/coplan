@@ -1,12 +1,12 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::DiffToOperations do
+RSpec.describe Coplan::Plans::DiffToOperations do
   # Property: applying the produced ops to old_content via ApplyOperations
   # MUST yield new_content exactly. This is the hard invariant the diffing
   # logic exists to satisfy.
   def assert_roundtrip(old_content, new_content)
     ops = described_class.call(old_content: old_content, new_content: new_content)
-    result = CoPlan::Plans::ApplyOperations.call(content: old_content, operations: ops)
+    result = Coplan::Plans::ApplyOperations.call(content: old_content, operations: ops)
     expect(result[:content]).to eq(new_content), -> {
       "Roundtrip failed.\nOld:\n#{old_content.inspect}\nNew:\n#{new_content.inspect}\n" \
       "Got:\n#{result[:content].inspect}\nOps:\n#{ops.inspect}"
@@ -18,7 +18,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
     original = "Café alpha and beta."
     updated = "Café ALPHA and BETA."
     operations = described_class.call(old_content: original, new_content: updated, granularity: :character)
-    result = CoPlan::Plans::ApplyOperations.call(content: original, operations: operations)
+    result = Coplan::Plans::ApplyOperations.call(content: original, operations: operations)
     expect(result[:content]).to eq(updated)
     expect(operations.map { |operation| operation["old_text"] }).to eq([ "alpha", "beta" ])
   end
@@ -281,8 +281,8 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       ops, _ = assert_roundtrip(old, new)
 
       # Anchor on "alpha" at [0, 5] — unchanged, should survive
-      version = double(operations_json: CoPlan::Plans::ApplyOperations.call(content: old, operations: ops)[:applied])
-      transformed = CoPlan::Plans::TransformRange.transform_through_versions([ 0, 5 ], [ version ])
+      version = double(operations_json: Coplan::Plans::ApplyOperations.call(content: old, operations: ops)[:applied])
+      transformed = Coplan::Plans::TransformRange.transform_through_versions([ 0, 5 ], [ version ])
       expect(transformed).to eq([ 0, 5 ])
     end
 
@@ -292,9 +292,9 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       ops, _ = assert_roundtrip(old, new)
 
       # Anchor on "c" at [4, 5] in old — should shift +5 to [9, 10] in new
-      applied = CoPlan::Plans::ApplyOperations.call(content: old, operations: ops)[:applied]
+      applied = Coplan::Plans::ApplyOperations.call(content: old, operations: ops)[:applied]
       version = double(operations_json: applied)
-      transformed = CoPlan::Plans::TransformRange.transform_through_versions([ 4, 5 ], [ version ])
+      transformed = Coplan::Plans::TransformRange.transform_through_versions([ 4, 5 ], [ version ])
       expect(transformed).to eq([ 9, 10 ])
     end
 
@@ -304,11 +304,11 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       ops, _ = assert_roundtrip(old, new)
 
       # Anchor on "beta" at [2, 6] — overlaps the changed range, must conflict
-      applied = CoPlan::Plans::ApplyOperations.call(content: old, operations: ops)[:applied]
+      applied = Coplan::Plans::ApplyOperations.call(content: old, operations: ops)[:applied]
       version = double(operations_json: applied)
       expect {
-        CoPlan::Plans::TransformRange.transform_through_versions([ 2, 6 ], [ version ])
-      }.to raise_error(CoPlan::Plans::TransformRange::Conflict)
+        Coplan::Plans::TransformRange.transform_through_versions([ 2, 6 ], [ version ])
+      }.to raise_error(Coplan::Plans::TransformRange::Conflict)
     end
   end
 

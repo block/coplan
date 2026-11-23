@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :comment_thread, class: "CoPlan::CommentThread" do
+  factory :comment_thread, class: "Coplan::CommentThread" do
     plan
     plan_version { plan.current_plan_version }
     created_by_user { association(:coplan_user) }

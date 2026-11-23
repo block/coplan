@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     class Withdraw
       def self.call(request:, actor:, api_token: nil)

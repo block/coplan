@@ -346,7 +346,7 @@ export default class extends Controller {
         if (input.value !== value) input.value = value
       }
       if (remote.url) this.backTarget.href = remote.url
-      if (this.inlineValue) document.title = `${remote.title} — CoPlan`
+      if (this.inlineValue) document.title = `${remote.title} — Coplan`
     }
     this.base = { content: remote.content, title: remote.title, tags: remote.tags, revision: remote.revision }
     this.revisionValue = remote.revision

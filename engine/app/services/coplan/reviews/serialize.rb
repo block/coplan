@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     class Serialize
       def self.call(request)

@@ -17,7 +17,7 @@
       data-action="coplan:microphone-change@document->coplan--voice#microphoneChanged coplan:dictation-start@document->coplan--voice#otherCapture keydown@document->coplan--voice#keyDown keyup@document->coplan--voice#keyUp blur@window->coplan--voice#interrupt coplan--keyboard-shortcuts:open@document->coplan--voice#interrupt"
       data-coplan--voice-url-value="<%= plan_comment_threads_path(plan) %>"
       data-coplan--voice-dictation-url-value="<%= plan_dictations_path(plan) %>"
-      data-coplan--voice-transcription-value="<%= CoPlan::Ai.available? %>"
+      data-coplan--voice-transcription-value="<%= Coplan::Ai.available? %>"
       data-coplan--voice-hotkey-value="<%= current_user.voice_hotkey %>"
       class="voice-control">
   <%# The tooltip and label name the push-to-talk key, which is a per-user

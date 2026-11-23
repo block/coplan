@@ -24,9 +24,9 @@ RSpec.describe "CommentThreads", type: :request do
           body_markdown: "This needs work."
         }
       }
-    }.to change(CoPlan::CommentThread, :count).by(1).and change(CoPlan::Comment, :count).by(1)
+    }.to change(Coplan::CommentThread, :count).by(1).and change(Coplan::Comment, :count).by(1)
     expect(response).to redirect_to(plan_page_path(plan))
-    thread = CoPlan::CommentThread.last
+    thread = Coplan::CommentThread.last
     expect(thread.anchor_text).to eq("world domination")
     expect(thread.anchor_start).to be_present # resolved at the door
     expect(thread.status).to eq("open")
@@ -72,7 +72,7 @@ RSpec.describe "CommentThreads", type: :request do
         post plan_comment_threads_path(plan), params: {
           comment_thread: { anchor_text: "the", anchor_occurrence: 3, anchor_occurrence_source: "rendered", body_markdown: "No third visible match." }
         }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
-      }.not_to change(CoPlan::CommentThread, :count)
+      }.not_to change(Coplan::CommentThread, :count)
 
       expect(response).to have_http_status(:unprocessable_content)
     end
@@ -127,7 +127,7 @@ RSpec.describe "CommentThreads", type: :request do
       post plan_comment_threads_path(plan), params: {
         comment_thread: { anchor_text: "Hello", anchor_occurrence_source: "rendered", body_markdown: "Do not guess." }
       }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
-    }.not_to change(CoPlan::CommentThread, :count)
+    }.not_to change(Coplan::CommentThread, :count)
     expect(response).to have_http_status(:unprocessable_content)
   end
 
@@ -139,7 +139,7 @@ RSpec.describe "CommentThreads", type: :request do
       post plan_comment_threads_path(plan), params: {
         comment_thread: { anchor_text: "foo|bar baz", anchor_occurrence_source: "rendered", body_markdown: "Both cells." }
       }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
-    }.not_to change(CoPlan::CommentThread, :count)
+    }.not_to change(Coplan::CommentThread, :count)
     expect(response).to have_http_status(:unprocessable_content)
   end
 
@@ -180,7 +180,7 @@ RSpec.describe "CommentThreads", type: :request do
         post plan_comment_threads_path(plan), params: {
           comment_thread: { anchor_text: "text the plan never says", body_markdown: "Lost forever." }
         }
-      }.not_to change { [ CoPlan::CommentThread.count, CoPlan::Comment.count ] }
+      }.not_to change { [ Coplan::CommentThread.count, Coplan::Comment.count ] }
 
       expect(response).to redirect_to(plan_page_path(plan))
       expect(flash[:alert]).to include("nowhere to appear")
@@ -200,7 +200,7 @@ RSpec.describe "CommentThreads", type: :request do
   it "broadcasts the popover via requestless partial render, never request-scoped HTML" do
     # The popover contains reply/action forms; request-rendered HTML embeds
     # the actor's session authenticity token, which must not be broadcast.
-    expect(CoPlan::Broadcaster).to receive(:append_to) do |_streamable, **kwargs|
+    expect(Coplan::Broadcaster).to receive(:append_to) do |_streamable, **kwargs|
       expect(kwargs[:partial]).to eq("coplan/comment_threads/thread_popover")
       expect(kwargs[:html]).to be_nil
     end
@@ -213,7 +213,7 @@ RSpec.describe "CommentThreads", type: :request do
   it "broadcasts thread status changes via requestless partial render" do
     thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
     partials = []
-    expect(CoPlan::Broadcaster).to receive(:replace_to).twice do |_streamable, **kwargs|
+    expect(Coplan::Broadcaster).to receive(:replace_to).twice do |_streamable, **kwargs|
       partials << kwargs[:partial]
       expect(kwargs[:html]).to be_nil
     end
@@ -241,8 +241,8 @@ RSpec.describe "CommentThreads", type: :request do
       post plan_comment_threads_path(plan),
         params: { comment_thread: { body_markdown: "General feedback." } },
         headers: { "Accept" => "text/vnd.turbo-stream.html, text/html" }
-    }.to change(CoPlan::CommentThread, :count).by(1)
-    thread = CoPlan::CommentThread.last
+    }.to change(Coplan::CommentThread, :count).by(1)
+    thread = Coplan::CommentThread.last
     expect(thread.anchor_text).to be_nil
     expect(response.body).to include("plan-general-comment-list", "General feedback.", "comment_thread_#{thread.id}_popover")
 
@@ -298,7 +298,7 @@ RSpec.describe "Source-backed element comments", type: :request do
   end
   let(:targets) do
     html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
-    CoPlan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
+    Coplan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
       .css("[data-source-target]").map { |cell| JSON.parse(cell["data-source-target"]) }
   end
 
@@ -331,15 +331,15 @@ RSpec.describe "Source-backed element comments", type: :request do
     old_token = targets[3]["token"]
     version = create(:plan_version, plan: plan, revision: 3, content_markdown: "prefix\n\n#{content}")
     plan.update!(current_plan_version: version, current_revision: 3)
-    expect { post_target(old_token) }.not_to change(CoPlan::CommentThread, :count)
+    expect { post_target(old_token) }.not_to change(Coplan::CommentThread, :count)
     expect(response).to have_http_status(:unprocessable_content)
     expect(response.body).to include("source-comment-error", "no longer valid")
   end
 
   it "rejects tampered tokens and rolls back empty comments" do
-    expect { post_target(targets.last["token"] + "x") }.not_to change(CoPlan::CommentThread, :count)
+    expect { post_target(targets.last["token"] + "x") }.not_to change(Coplan::CommentThread, :count)
     expect(response).to have_http_status(:unprocessable_content)
-    expect { post_target(targets.last["token"], body: "") }.not_to change(CoPlan::CommentThread, :count)
+    expect { post_target(targets.last["token"], body: "") }.not_to change(Coplan::CommentThread, :count)
     expect(response).to have_http_status(:unprocessable_content)
   end
 end

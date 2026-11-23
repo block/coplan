@@ -50,7 +50,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
       it "returns authorized link choices without recording a search or navigating" do
         expect {
           get search_path, params: { q: "roadmap", frame: "links" }
-        }.not_to change(CoPlan::SearchQuery, :count)
+        }.not_to change(Coplan::SearchQuery, :count)
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("Quarterly Sitewide Roadmap", "data-link-href", "coplan--comment-form#selectLink")
         expect(response.body).not_to include("<html")
@@ -62,7 +62,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
       it "logs explicit navigations to recent searches" do
         expect {
           get search_path, params: { q: "roadmap" }
-        }.to change { CoPlan::SearchQuery.where(user: alice).count }.by(1)
+        }.to change { Coplan::SearchQuery.where(user: alice).count }.by(1)
       end
 
       it "does NOT log typeahead requests (frame=results) to recent searches" do
@@ -72,7 +72,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
           get search_path, params: { q: "r",   frame: "results" }
           get search_path, params: { q: "ro",  frame: "results" }
           get search_path, params: { q: "roa", frame: "results" }
-        }.not_to change { CoPlan::SearchQuery.where(user: alice).count }
+        }.not_to change { Coplan::SearchQuery.where(user: alice).count }
       end
 
       it "includes the signed-in user's own brainstorm plans in results" do
@@ -87,13 +87,13 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
 
       it "links People results to libraries, creating them on demand" do
         sam = create(:coplan_user, name: "Searchable Sam", username: "sam.s", title: "Designer")
-        expect(CoPlan::Library.where(owner: sam)).not_to exist
+        expect(Coplan::Library.where(owner: sam)).not_to exist
 
         get search_path, params: { q: "searchable" }
         expect(response.body).to include("Searchable Sam")
         expect(response.body).to include(%(href="/sam-s"))
         expect(response.body).to include("Designer")
-        expect(CoPlan::Library.where(owner: sam)).to exist
+        expect(Coplan::Library.where(owner: sam)).to exist
       end
 
       it "renders 'Type to search' when query is blank" do
@@ -112,7 +112,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
       it "does not persist a SearchQuery row" do
         expect {
           get search_path, params: { q: "roadmap" }
-        }.not_to change { CoPlan::SearchQuery.count }
+        }.not_to change { Coplan::SearchQuery.count }
       end
     end
   end
@@ -141,7 +141,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
       sign_in_as(alice)
       get search_path
       document = Nokogiri::HTML(response.body)
-      catalog = JSON.parse(CoPlan::Engine.root.join("config/keyboard_shortcuts.json").read)
+      catalog = JSON.parse(Coplan::Engine.root.join("config/keyboard_shortcuts.json").read)
       expect(JSON.parse(document.at_css("#coplan-shortcut-catalog").text)).to eq(catalog)
       help = document.at_css("#keyboard-shortcuts-modal")
       catalog.each_value do |scope|
@@ -149,7 +149,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
           expect(help.text).to include(binding.fetch("description"))
         end
       end
-      expect(help.text).to include(CoPlan::User::VOICE_HOTKEY_LABELS.fetch(alice.voice_hotkey))
+      expect(help.text).to include(Coplan::User::VOICE_HOTKEY_LABELS.fetch(alice.voice_hotkey))
     end
 
     it "does not advertise a disabled voice shortcut" do

@@ -9,7 +9,7 @@ place, without replacing the editor or interrupting typing.
 Run `bundle exec rails server -p 3100` from the host app and sign in at
 `http://localhost:3100/sign_in`. ProseMirror loads through pinned importmaps;
 first load requires esm.sh. There is no Node/build step. Install the engine's
-migrations with `bin/rails co_plan:install:migrations` and run `bin/rails db:migrate`
+migrations with `bin/rails coplan:install:migrations` and run `bin/rails db:migrate`
 when upgrading; creation retries use a nullable key on plans with an author-scoped
 unique index.
 
@@ -199,7 +199,7 @@ selection reconciliation.
 Hosts configure suggestions in their Rails initializer, then restart the app:
 
 ```ruby
-CoPlan.configure do |config|
+Coplan.configure do |config|
   config.editor_code_languages = %w[text ruby javascript sql mermaid elixir]
 end
 ```

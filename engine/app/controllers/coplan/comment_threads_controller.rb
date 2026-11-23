@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CommentThreadsController < ApplicationController
     include ActionView::RecordIdentifier
 

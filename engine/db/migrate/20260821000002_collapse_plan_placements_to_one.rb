@@ -58,7 +58,7 @@ class CollapsePlanPlacementsToOne < ActiveRecord::Migration[8.1]
   end
 
   def authors_own?(row)
-    row["owner_type"] == "CoPlan::User" && row["owner_id"].to_s == row["author_id"].to_s
+    %w[CoPlan::User Coplan::User].include?(row["owner_type"]) && row["owner_id"].to_s == row["author_id"].to_s
   end
 
   def quote(value)

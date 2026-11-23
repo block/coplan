@@ -44,7 +44,7 @@ RSpec.describe "Token management", type: :system do
   end
 
   it "revokes a token via Turbo Stream" do
-    user = CoPlan::User.find_by!(email: "testuser@example.com")
+    user = Coplan::User.find_by!(email: "testuser@example.com")
     create(:api_token, user: user, name: "Revokable")
 
     visit settings_tokens_path
@@ -60,7 +60,7 @@ RSpec.describe "Token management", type: :system do
   end
 
   it "browses and searches session history in place, then revokes valid access" do
-    user = CoPlan::User.find_by!(email: "testuser@example.com")
+    user = Coplan::User.find_by!(email: "testuser@example.com")
     create(:api_token, user: user, name: "Review session", agent_name: "Claude",
       expires_at: 1.day.from_now, metadata: { harness: "claude-code", model: "demo-model" })
     create(:api_token, user: user, name: "Another session", expires_at: 1.day.from_now)
@@ -93,7 +93,7 @@ RSpec.describe "Token management", type: :system do
 
   %w[light dark].each do |theme|
     it "keeps agent access contained and readable in #{theme} mode" do
-      user = CoPlan::User.find_by!(email: "testuser@example.com")
+      user = Coplan::User.find_by!(email: "testuser@example.com")
       user.update!(theme_preference: theme)
       parent = create(:api_token, user: user, name: "Work laptop")
       create(:api_token, user: user, parent: parent, name: "Design review", agent_name: "Claude",
@@ -123,7 +123,7 @@ RSpec.describe "Token management", type: :system do
   %i[settings_tokens_path].each do |route|
     %w[light dark].each do |theme|
       it "keeps #{route} within a narrow viewport and lets the table scroll by keyboard in #{theme} mode" do
-        user = CoPlan::User.find_by!(email: "testuser@example.com")
+        user = Coplan::User.find_by!(email: "testuser@example.com")
         user.update!(theme_preference: theme)
         create(:api_token, user: user, name: "A long descriptive development agent token name")
         page.driver.browser.manage.window.resize_to(320, 720)

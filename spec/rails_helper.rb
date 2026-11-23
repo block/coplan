@@ -19,7 +19,7 @@ RSpec.configure do |config|
 
   config.include FactoryBot::Syntax::Methods
   config.include ActiveSupport::Testing::TimeHelpers
-  config.include CoPlan::Engine.routes.url_helpers
+  config.include Coplan::Engine.routes.url_helpers
 
 
 

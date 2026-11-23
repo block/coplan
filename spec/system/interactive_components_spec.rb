@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Interactive components", type: :system do
   let(:author) { create(:coplan_user, email: "components@example.com") }
-  let(:source) { CoPlan::Engine.root.join("db/demo/content/interactive-components.md").read }
+  let(:source) { Coplan::Engine.root.join("db/demo/content/interactive-components.md").read }
 
   def tab_revealed?(actions)
     page.evaluate_script("Math.abs(arguments[0].getBoundingClientRect().top - arguments[0].parentElement.getBoundingClientRect().top) < 1", actions)
@@ -20,7 +20,7 @@ RSpec.describe "Interactive components", type: :system do
   end
 
   it "draws the typed diagram, runs interactive JS, and opens a component discussion" do
-    plan = CoPlan::Plans::Create.call(title: "Components", content: source, user: author, actor_type: "human")
+    plan = Coplan::Plans::Create.call(title: "Components", content: source, user: author, actor_type: "human")
     visit plan_page_path(plan)
     within_frame(find('iframe[title="Payment path"]')) do
       expect(page).to have_css("svg text", text: "Retry queue")
@@ -80,7 +80,7 @@ RSpec.describe "Interactive components", type: :system do
     expect(page.evaluate_async_script("arguments[0].decode().then(() => arguments[1](arguments[0].naturalWidth), () => arguments[1](0))", posted_image)).to be_positive
     comment = plan.comments.reload.sole
     expect(comment.component_selection).to include("revision" => plan.current_revision, "w" => 80, "h" => 16)
-    expect(comment.component_snapshot.download).to start_with(CoPlan::Comments::ComponentAnnotation::PNG_HEADER)
+    expect(comment.component_snapshot.download).to start_with(Coplan::Comments::ComponentAnnotation::PNG_HEADER)
     visit plan_page_path(plan)
     simulator = find("figure:has(iframe[title='Retry simulator'])")
     find("#plan-title").hover
@@ -117,7 +117,7 @@ RSpec.describe "Interactive components", type: :system do
 
       :::
     MD
-    plan = CoPlan::Plans::Create.call(title: "Snapshot coverage", content: markdown, user: author, actor_type: "human")
+    plan = Coplan::Plans::Create.call(title: "Snapshot coverage", content: markdown, user: author, actor_type: "human")
     visit plan_page_path(plan)
     expect(page).to have_css(".document-component[data-render-ms]", count: 2)
     gradient = find("figure:has(iframe[title='Gradient'])")
@@ -145,9 +145,9 @@ RSpec.describe "Interactive components", type: :system do
   end
 
   it "loads a host library independently and keeps markup-looking strings inside the component" do
-    catalog = CoPlan::ComponentCatalog.new
+    catalog = Coplan::ComponentCatalog.new
     catalog.library("amount@1", source: "export const cents = 250", example: "cents")
-    allow(CoPlan.configuration).to receive(:component_catalog).and_return(catalog)
+    allow(Coplan.configuration).to receive(:component_catalog).and_return(catalog)
     markdown = <<~'MD'
       # Receipt
 
@@ -158,7 +158,7 @@ RSpec.describe "Interactive components", type: :system do
 
       :::
     MD
-    plan = CoPlan::Plans::Create.call(title: "Receipt", content: markdown, user: author, actor_type: "human")
+    plan = Coplan::Plans::Create.call(title: "Receipt", content: markdown, user: author, actor_type: "human")
     visit plan_page_path(plan)
     within_frame(find('iframe[title="Amount"]')) { expect(page).to have_text("</script> 250") }
     expect(page).to have_no_css("figure pre, figure figcaption", visible: :all)
@@ -166,7 +166,7 @@ RSpec.describe "Interactive components", type: :system do
 
   it "keeps repeated captions and source out of prose discussion and writing highlights" do
     markdown = "# Demo\n\n::: {.component title=\"Later passage\"}\n\nroot.textContent = 'Later passage';\n\n:::\n\nLater passage\n"
-    plan = CoPlan::Plans::Create.call(title: "Demo", content: markdown, user: author, actor_type: "human")
+    plan = Coplan::Plans::Create.call(title: "Demo", content: markdown, user: author, actor_type: "human")
     visit plan_page_path(plan)
     find(".writing-provenance__trigger").click
     click_button "Inspect writing"
@@ -195,7 +195,7 @@ RSpec.describe "Interactive components", type: :system do
   end
 
   it "keeps the script in one editable block and preserves its exact source in Raw mode" do
-    plan = CoPlan::Plans::Create.call(title: "Components", content: source, user: author, actor_type: "human")
+    plan = Coplan::Plans::Create.call(title: "Components", content: source, user: author, actor_type: "human")
     visit plan_edit_page_path(plan)
     expect(page).to have_css('textarea[aria-label="Component Markdown"]', count: 2, wait: 20)
     input = all('textarea[aria-label="Component Markdown"]').first

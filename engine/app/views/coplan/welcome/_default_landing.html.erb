@@ -12,8 +12,8 @@
     <div class="landing__cta-row">
       <% if signed_in? %>
         <%= link_to "Go to your library", own_library_browse_path(current_user), class: "btn btn--primary" %>
-      <% elsif CoPlan.configuration.sign_in_path %>
-        <%= link_to "Sign in to get started", CoPlan.configuration.sign_in_path, class: "btn btn--primary" %>
+      <% elsif Coplan.configuration.sign_in_path %>
+        <%= link_to "Sign in to get started", Coplan.configuration.sign_in_path, class: "btn btn--primary" %>
       <% end %>
       <%= link_to "Connect your agent", agent_setup_path, class: "btn btn--secondary" %>
     </div>
@@ -153,8 +153,8 @@
       a deployment like coplan-square wants to tell its users to run
       `sq agents skills add coplan` instead. Renders via configuration so a
       host can swap this single section without forking the whole landing
-      page. See `CoPlan.configuration.landing_agents_partial`. %>
-  <%= render CoPlan.configuration.landing_agents_partial %>
+      page. See `Coplan.configuration.landing_agents_partial`. %>
+  <%= render Coplan.configuration.landing_agents_partial %>
 
   <footer class="landing__footer">
     <% if signed_in? %>

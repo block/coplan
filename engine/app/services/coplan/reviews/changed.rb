@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     class Changed
       def self.call(request:, event_type:, actor_token_id: nil, payload: {}, broadcast_controls: true)

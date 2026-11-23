@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::CommentThread, as: "CommentThread" do
+ActiveAdmin.register Coplan::CommentThread, as: "CommentThread" do
   # No destroy and no batch delete: destroying a thread deletes its comments,
   # and nothing in Coplan can restore them. Resolve it instead.
   actions :all, except: [ :destroy ]

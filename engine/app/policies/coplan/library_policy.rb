@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Libraries are browsable by anyone signed in — what a viewer actually
   # sees inside one is decided per-plan by Plan.visible_to, never here.
   # Writing (creating folders, shelving plans) is the library's call.

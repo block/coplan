@@ -20,7 +20,7 @@ Claim the session with a `wake_url`:
 
 ## Handle a wake
 
-Each request is a small JSON body with `event_id`, `event_type`, and `plan_id`. The header `X-CoPlan-Signature: sha256=<hex>` is the HMAC-SHA256 of the raw body, with `wake_secret` as the key.
+Each request is a small JSON body with `event_id`, `event_type`, and `plan_id`. The header `X-Coplan-Signature: sha256=<hex>` is the HMAC-SHA256 of the raw body, with `wake_secret` as the key.
 
 1. Verify the signature. Reject the request if it does not match.
 2. Ignore an `event_id` that you already handled.

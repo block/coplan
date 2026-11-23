@@ -1,6 +1,6 @@
 require "coplan/component_catalog"
 
-module CoPlan
+module Coplan
   class Configuration
     attr_accessor :authenticate, :api_authenticate, :sign_in_path
     # AI provider, used for plan summaries and dictated comments. Any endpoint
@@ -18,7 +18,7 @@ module CoPlan
     attr_reader :notification_delivery_handlers
 
     # Lambda invoked for every analytics event tracked via
-    # `CoPlan::Analytics.track`. Receives (event_name, payload_hash).
+    # `Coplan::Analytics.track`. Receives (event_name, payload_hash).
     # No-op by default; hosts wire this to write to a destination
     # (MySQL events table, Snowflake, Datadog, etc.).
     #
@@ -92,7 +92,7 @@ module CoPlan
     attr_accessor :user_search
 
     # Lambda for enriching profile pages from the host's people directory
-    # (LDAP, a People API, ...). Receives a CoPlan::User, returns a hash
+    # (LDAP, a People API, ...). Receives a Coplan::User, returns a hash
     # with any of :name, :avatar_url, :title, :team, :profile_url —
     # values present override the local coplan_users columns, and
     # :profile_url adds a "view in directory" link out to the canonical
@@ -115,9 +115,9 @@ module CoPlan
     #   }
     attr_accessor :directory_profile
 
-    # Lambda suggesting who should review a plan. Receives a CoPlan::Plan
-    # and returns an array of CoPlan::User records, or hashes with:
-    #   :user        — a CoPlan::User (required)
+    # Lambda suggesting who should review a plan. Receives a Coplan::Plan
+    # and returns an array of Coplan::User records, or hashes with:
+    #   :user        — a Coplan::User (required)
     #   :reason      — short text shown beside the suggestion
     #   :requirement — "required" (default) or "optional"
     # The plan's references (plan.references) list every file, repository,
@@ -140,7 +140,7 @@ module CoPlan
 
     # Lambda deciding whether the server may POST wake pings to a given
     # URL. Receives a URI, returns truthy to allow. When nil (default),
-    # CoPlan::WakeUrlPolicy applies: the host must resolve entirely to
+    # Coplan::WakeUrlPolicy applies: the host must resolve entirely to
     # public address space — loopback, RFC1918, link-local (cloud
     # metadata), and friends are refused. Deployments that wake agents on
     # an internal network (or dev, waking localhost) override this:
@@ -152,7 +152,7 @@ module CoPlan
     attr_accessor :wake_url_policy
 
     # Library handles a host wants to keep out of user hands, on top of
-    # CoPlan::Library::RESERVED_HANDLES. Handles live under /<handle>,
+    # Coplan::Library::RESERVED_HANDLES. Handles live under /<handle>,
     # so they can't collide with the host's own routes — this is for
     # names the host wants to claim for itself later, or keep off a
     # public namespace.
@@ -162,7 +162,7 @@ module CoPlan
     attr_accessor :reserved_handles
 
     # The app theme everyone sees unless they pick another in Settings. One
-    # of CoPlan::Themes.keys. An unknown name stops boot in development and
+    # of Coplan::Themes.keys. An unknown name stops boot in development and
     # test; in other environments it logs a warning and falls back to
     # "classic".
     #

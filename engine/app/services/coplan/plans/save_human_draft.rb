@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # No browser-session lease. The plan row is locked only while comparing
     # the immutable base, applying the surgical diff and committing a version.

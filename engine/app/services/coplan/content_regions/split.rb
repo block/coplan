@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module ContentRegions
     # Standalone top-level paragraphs introduce regions. A presentation contains
     # Markdown; once a component opens, its body is opaque JavaScript.
@@ -93,7 +93,7 @@ module CoPlan
 
       def paragraph_markers(source)
         markers = Set.new
-        CoPlan::Markdown.parse(source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).each do |node|
+        Coplan::Markdown.parse(source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).each do |node|
           next unless node.type == :paragraph
           pos = node.source_position
           index = pos[:start_line] - 1 + @scan_start

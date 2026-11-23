@@ -1,6 +1,6 @@
 <%# Appearance: the app theme (Classic, Neutral, …) and light/dark mode.
     Both apply as soon as they're picked; see docs/THEMES.md. %>
-<% site_default = CoPlan::Themes.default %>
+<% site_default = Coplan::Themes.default %>
 <% chosen = coplan_app_theme_choice %>
 <section class="card mb-md settings-group" aria-labelledby="settings-appearance">
   <h2 id="settings-appearance" class="settings-group__title">Appearance</h2>
@@ -15,12 +15,12 @@
     </div>
     <div class="segmented" role="radiogroup" aria-labelledby="settings-app-theme-label">
       <label class="segmented__option" title="Follow this site's default, <%= site_default.name %>">
-        <input type="radio" name="app_theme" value="<%= CoPlan::User::DEFAULT_APP_THEME %>"
-               <%= "checked" if chosen == CoPlan::User::DEFAULT_APP_THEME %>
+        <input type="radio" name="app_theme" value="<%= Coplan::User::DEFAULT_APP_THEME %>"
+               <%= "checked" if chosen == Coplan::User::DEFAULT_APP_THEME %>
                data-action="coplan--app-theme#select">
         <span class="segmented__btn">Default (<%= site_default.name %>)</span>
       </label>
-      <% CoPlan::Themes::ALL.each do |theme| %>
+      <% Coplan::Themes::ALL.each do |theme| %>
         <label class="segmented__option" title="<%= theme.description %>">
           <input type="radio" name="app_theme" value="<%= theme.key %>"
                  <%= "checked" if chosen == theme.key %>

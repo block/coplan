@@ -1,10 +1,10 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Broadcaster do
+RSpec.describe Coplan::Broadcaster do
   let(:author) { create(:coplan_user) }
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Test Plan", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Test Plan", created_by_user: author)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: "# Hello world\n\nSome content here. [Source](https://example.com/evidence)",
       actor_type: "human", actor_id: author.id
@@ -15,7 +15,7 @@ RSpec.describe CoPlan::Broadcaster do
 
   describe ".replace_plan_content" do
     # Ensure plan is built BEFORE we start spying, so setup-time broadcasts
-    # (from CoPlan::Plan.create! / CoPlan::PlanVersion.create!) don't pollute
+    # (from Coplan::Plan.create! / Coplan::PlanVersion.create!) don't pollute
     # the captured payloads.
     before { plan }
 
@@ -41,7 +41,7 @@ RSpec.describe CoPlan::Broadcaster do
       allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) do |_streamable, content:|
         payloads << content.to_s
       end
-      changes = CoPlan::Plans::ChangedSections::Result.new(keys: [ "plan-content" ], rewritten: false)
+      changes = Coplan::Plans::ChangedSections::Result.new(keys: [ "plan-content" ], rewritten: false)
 
       described_class.replace_plan_content(plan, changed_sections: changes)
 
@@ -114,7 +114,7 @@ RSpec.describe CoPlan::Broadcaster do
     end
 
     it "reflects the latest revision so stale-tab clients can ignore self-broadcasts" do
-      version2 = CoPlan::PlanVersion.create!(
+      version2 = Coplan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: "# Updated\n\nMore content.",
         actor_type: "local_agent", actor_id: author.id
@@ -137,7 +137,7 @@ RSpec.describe CoPlan::Broadcaster do
     before { plan }
 
     it "preserves citation edit controls in live replacements" do
-      allow(CoPlan::ApplicationController.helpers).to receive(:plan_citation_back_matter).and_return(
+      allow(Coplan::ApplicationController.helpers).to receive(:plan_citation_back_matter).and_return(
         { html: '<section data-footnotes><ol><li id="fn-catalog"><p>Catalog source.</p></li></ol></section>', cited_urls: [], count: 1 })
       payloads = []
       allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) { |_streamable, content:| payloads << content.to_s }

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Browser-ready ES modules. Registered source is intentionally discoverable
   # in the host's authoring guide. Keep secrets and server code out of it.
   class ComponentCatalog

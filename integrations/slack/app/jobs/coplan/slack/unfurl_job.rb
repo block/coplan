@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Slack
     class UnfurlJob < ActiveJob::Base
       queue_as :default
@@ -6,12 +6,12 @@ module CoPlan
       discard_on WebClient::PermanentError
 
       def perform(event, delivery = {})
-        config = CoPlan::Slack.configuration
+        config = Coplan::Slack.configuration
         return unless config.configured?
 
         unfurls = Array(event["links"]).each_with_object({}) do |link, result|
           exact_url = link["url"]
-          preview = CoPlan::LinkPreviews.resolve(url: exact_url, base_url: config.base_url)
+          preview = Coplan::LinkPreviews.resolve(url: exact_url, base_url: config.base_url)
           result[exact_url] = Renderer.call(preview, url: exact_url) if preview
         end
         return if unfurls.empty?
@@ -24,7 +24,7 @@ module CoPlan
         end
         WebClient.new(token: config.bot_token).chat_unfurl(**args)
 
-        CoPlan::Analytics.track(
+        Coplan::Analytics.track(
           "slack_link_unfurled",
           event_id: delivery["event_id"],
           retry_num: delivery["retry_num"],

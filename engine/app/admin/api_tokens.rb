@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::ApiToken, as: "ApiToken" do
+ActiveAdmin.register Coplan::ApiToken, as: "ApiToken" do
   # A token acts as its user, so its user must never change after minting:
   # an edit would attribute every later write to someone else. Destroy stays
   # so an operator can still remove a token.

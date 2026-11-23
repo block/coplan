@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Toggles one task-list checkbox as a first-class version commit: the
     # same lock → revision check → ApplyOperations → PlanVersion pipeline

@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::CommentPolicy do
+RSpec.describe Coplan::CommentPolicy do
   let(:author) { create(:coplan_user) }
   let(:other_user) { create(:coplan_user) }
   let(:plan_author) { create(:coplan_user) }

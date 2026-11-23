@@ -1,9 +1,9 @@
-module CoPlan
+module Coplan
   module Urls
     # Builds the readable address of a document with no request in hand —
     # background jobs, push payloads, anything with no view context to
     # borrow route helpers from. A caller that *has* a request should go
-    # through `CoPlan::BrowseHelper` instead, which is mount-aware.
+    # through `Coplan::BrowseHelper` instead, which is mount-aware.
     #
     # Paths only, and mount-prefix-free: engine route helpers called outside
     # a request can't know where the host mounted the engine. That's the
@@ -19,7 +19,7 @@ module CoPlan
       # lives in exactly one library, so this is total.
       def self.plan_path(plan, **options)
         handle, slug_path = split(plan.url_path)
-        CoPlan::Engine.routes.url_helpers
+        Coplan::Engine.routes.url_helpers
           .browse_path(handle: handle, slug_path: slug_path, **options)
       end
 

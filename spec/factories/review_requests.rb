@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :review_request, class: "CoPlan::ReviewRequest" do
+  factory :review_request, class: "Coplan::ReviewRequest" do
     plan
     reviewer { association(:coplan_user) }
     requested_by_user { plan.created_by_user }
@@ -9,7 +9,7 @@ FactoryBot.define do
     requested_at { Time.current }
   end
 
-  factory :review_response, class: "CoPlan::ReviewResponse" do
+  factory :review_response, class: "Coplan::ReviewResponse" do
     review_request
     plan_version { review_request.plan.current_plan_version }
     user { review_request.reviewer }

@@ -52,7 +52,7 @@ RSpec.describe "SLIDE_SPEC.md conformance", type: :service do
 
   examples.each do |example|
     it "#{example.label} (SLIDE_SPEC.md:#{example.line})" do
-      classification = CoPlan::Slideshows::Classify.call(example.markdown)
+      classification = Coplan::Slideshows::Classify.call(example.markdown)
 
       expect(classification.pattern.to_s).to eq(example.expected.fetch("pattern")),
         "expected pattern #{example.expected["pattern"]}, got #{classification.pattern} (step #{classification.step})"

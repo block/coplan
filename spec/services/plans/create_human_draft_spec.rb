@@ -1,9 +1,9 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::CreateHumanDraft do
+RSpec.describe Coplan::Plans::CreateHumanDraft do
   # These examples configure their own catalog. Seeded reference data must
   # not determine their fixtures or the order in which they pass.
-  before { CoPlan::PlanType.delete_all }
+  before { Coplan::PlanType.delete_all }
 
   let(:user) { create(:coplan_user) }
   let(:key) { SecureRandom.uuid }
@@ -14,7 +14,7 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
     expect(draft.current_plan_version.actor_id).to eq(user.id)
     contributor = draft.writing_provenance_summary.fetch("contributors").find { |source| source["kind"] == "human" }
     expect(contributor).to include("user_id" => user.id, "user_name" => user.name, "share" => 1.0)
-    source = CoPlan::Plans::WritingProvenance.rendered_sources(draft.current_plan_version).fetch(:sources).values.first
+    source = Coplan::Plans::WritingProvenance.rendered_sources(draft.current_plan_version).fetch(:sources).values.first
     expect(source).to include("user_name" => user.name, "origin_revision" => 1)
   end
 
@@ -25,8 +25,8 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
   it "returns one document for retries and does not overwrite subsequent edits" do
     first = create_draft
     expect(first).to be_published
-    CoPlan::Plans::ReplaceContent.call(plan: first, new_content: "Later edit", base_revision: 1, actor_type: "human", actor_id: user.id)
-    expect { expect(create_draft(creation_key: key.upcase).id).to eq(first.id) }.not_to change(CoPlan::Plan, :count)
+    Coplan::Plans::ReplaceContent.call(plan: first, new_content: "Later edit", base_revision: 1, actor_type: "human", actor_id: user.id)
+    expect { expect(create_draft(creation_key: key.upcase).id).to eq(first.id) }.not_to change(Coplan::Plan, :count)
     expect(first.reload.current_content).to eq("# New plan\n\nLater edit")
     expect(first.current_revision).to eq(2)
     expect(first.tag_names).to eq([ "kept" ])
@@ -49,7 +49,7 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
   it "creates a typed shared plan once with an alias from its titled root path" do
     folder = create(:folder, created_by_user: user)
     type = create(:plan_type, name: "Research", default_tags: [ "research" ])
-    aliases_before = CoPlan::UrlAlias.count
+    aliases_before = Coplan::UrlAlias.count
 
     first = described_class.call(user: user, creation_key: key, title: "Latency findings",
       content: "Measured latency.", tags: "metrics", plan_type: type, folder: folder)
@@ -61,8 +61,8 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
     expect(first.slug).to eq("latency-findings")
     expect(first.placement.folder).to eq(folder)
     expect(first.tag_names).to contain_exactly("research", "metrics")
-    expect(CoPlan::UrlAlias.count).to eq(aliases_before + 1)
-    expect(CoPlan::UrlAlias.last).to have_attributes(
+    expect(Coplan::UrlAlias.count).to eq(aliases_before + 1)
+    expect(Coplan::UrlAlias.last).to have_attributes(
       path: "#{user.library.handle}/latency-findings", target_path: first.url_path)
   end
 

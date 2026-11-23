@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module AgentEvents
     # Fans an event out to the inbox of every agent session on the plan,
     # except the actor's own (an agent should not be woken by its own

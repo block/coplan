@@ -1,11 +1,11 @@
-module CoPlan
+module Coplan
   module ComponentsHelper
     def render_component_region(region, version:, interactive:)
       title = region.attributes["title"].presence || region.attributes["type"]&.capitalize || "Component"
-      catalog = version ? version.component_catalog : CoPlan.configuration.component_catalog.snapshot([ region ])
+      catalog = version ? version.component_catalog : Coplan.configuration.component_catalog.snapshot([ region ])
       modules = ComponentCatalog.resolve(region.attributes, catalog) if catalog
       issue = modules&.fetch(:error, nil)
-      enabled = CoPlan.configuration.components_enabled && modules && !issue
+      enabled = Coplan.configuration.components_enabled && modules && !issue
       data = if enabled
         { controller: "coplan--component", action: "message@window->coplan--component#ready coplan:theme-changed@window->coplan--component#syncTheme toggle->coplan--component#toggled turbo:before-cache@document->coplan--component#collapse",
           "coplan--component-url-value": coplan.component_frame_path,

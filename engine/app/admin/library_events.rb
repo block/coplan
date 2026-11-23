@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::LibraryEvent, as: "LibraryEvent" do
+ActiveAdmin.register Coplan::LibraryEvent, as: "LibraryEvent" do
   actions :index, :show
 
   index do
@@ -15,8 +15,8 @@ ActiveAdmin.register CoPlan::LibraryEvent, as: "LibraryEvent" do
   end
 
   filter :library
-  filter :event_type, as: :select, collection: CoPlan::LibraryEvent::EVENT_TYPES
-  filter :actor_type, as: :select, collection: CoPlan::LibraryEvent::ACTOR_TYPES
+  filter :event_type, as: :select, collection: Coplan::LibraryEvent::EVENT_TYPES
+  filter :actor_type, as: :select, collection: Coplan::LibraryEvent::ACTOR_TYPES
   filter :created_at
 
   show do

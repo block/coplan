@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class ApiToken < ApplicationRecord
     HOLDER_TYPE = "local_agent"
 
@@ -14,9 +14,9 @@ module CoPlan
     # model), not a payload channel.
     MAX_METADATA_BYTES = 4096
 
-    belongs_to :user, class_name: "CoPlan::User"
-    belongs_to :parent, class_name: "CoPlan::ApiToken", optional: true
-    has_many :children, class_name: "CoPlan::ApiToken", foreign_key: :parent_id, dependent: :nullify,
+    belongs_to :user, class_name: "Coplan::User"
+    belongs_to :parent, class_name: "Coplan::ApiToken", optional: true
+    has_many :children, class_name: "Coplan::ApiToken", foreign_key: :parent_id, dependent: :nullify,
       inverse_of: :parent
     # delete_all, not destroy: both tables FK this token, and a destroyed
     # token (user cleanup cascading through tokens) must take its inbox

@@ -1,6 +1,6 @@
 require "coplan/component_frame"
 
-CoPlan::Engine.routes.draw do
+Coplan::Engine.routes.draw do
   # --- The shape of this file ----------------------------------------
   #
   # People are the root namespace. A handle is a top-level segment, so a
@@ -15,7 +15,7 @@ CoPlan::Engine.routes.draw do
   # Everything that isn't a place lives under `_`: settings, search, the
   # id-based mutation endpoints, and whatever gets added next. That single
   # character is the whole reservation — a handle can never *be* `_`,
-  # because slug rules strip non-alphanumerics (CoPlan::Slug), so the split
+  # because slug rules strip non-alphanumerics (Coplan::Slug), so the split
   # is structural rather than a list someone has to remember to update.
   # `_` is reserved inside a library too (/sam/_/…), by the same mechanism,
   # so library-scoped pages have somewhere to go that can't collide with a
@@ -40,7 +40,7 @@ CoPlan::Engine.routes.draw do
   # Path-only scope: helper names stay unprefixed, so `settings_path`,
   # `publish_plan_path` and the rest read the same at every call site.
   scope "_" do
-    get "component-frame", to: CoPlan::ComponentFrame, as: :component_frame
+    get "component-frame", to: Coplan::ComponentFrame, as: :component_frame
     get "not-found", to: "errors#not_found", as: :not_found
     # Setup guidance is an app page, not a person's library. Keep its helper
     # unprefixed while reserving the URL outside the handle namespace.
@@ -298,7 +298,7 @@ CoPlan::Engine.routes.draw do
   # "pricing-v1.2" would have its tail parsed as a format.
   #
   # `/:handle/_/…` needs no route of its own: a folder can never be named
-  # `_` (CoPlan::Slug strips it), so the segment resolves to nothing and
+  # `_` (Coplan::Slug strips it), so the segment resolves to nothing and
   # 404s. That's the reservation — library-scoped pages can be declared
   # above this line whenever we have one, and nothing a user creates can
   # ever be sitting there already.

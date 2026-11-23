@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module WebPush
     # Builds the { title, body, url, tag } hash the service worker shows for a
     # given Notification. Title/body shape per reason; URL deep-links to the
@@ -72,7 +72,7 @@ module CoPlan
       def url
         # Relative path is fine — the SW resolves against self.location.origin
         # when opening / focusing the notification target tab.
-        CoPlan::Urls::Canonical.plan_path(@plan, thread: @thread&.id)
+        Coplan::Urls::Canonical.plan_path(@plan, thread: @thread&.id)
       end
 
       def actor_name

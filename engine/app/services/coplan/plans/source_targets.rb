@@ -1,6 +1,6 @@
 require "strscan"
 
-module CoPlan
+module Coplan
   module Plans
     # Render-time source map. Ranges are Ruby character offsets (the same
     # units as TransformRange), never DOM text offsets or label occurrences.
@@ -44,7 +44,7 @@ module CoPlan
             @components[region.start_line] = target("component", start, closing + 3, region.attributes["title"].presence || "Component")
           end
         end
-        collect_positions(CoPlan::Markdown.parse(@visible_source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
+        collect_positions(Coplan::Markdown.parse(@visible_source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
       end
 
       def annotate(doc)
@@ -105,7 +105,7 @@ module CoPlan
       # Used after OT: a surviving range must still describe a selectable
       # element, rather than syntax that an edit elsewhere turned into prose.
       def ranges
-        html = CoPlan::Markdown.to_html(@visible_source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
+        html = Coplan::Markdown.to_html(@visible_source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
           render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
         doc = annotate(Nokogiri::HTML.fragment(html))
         targets = doc.css("[data-source-target]").map { |node| JSON.parse(node["data-source-target"]) }

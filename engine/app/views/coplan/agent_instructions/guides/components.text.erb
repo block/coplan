@@ -30,11 +30,11 @@ Appearance changes reach a running component automatically. The frame sets its l
 
 The reader's browser runs the script inside an opaque sandbox. Bundle dependencies locally. The sandbox blocks fetch, remote scripts and images, form submissions, and parent navigation. Components have no access to the surrounding plan or its session storage. Browser support for blocking every outbound connection varies. Use components for document data intended for their readers. Its source stays available if execution is disabled or a dependency cannot be resolved. Source revisions retain their selected libraries and wrappers.
 
-Component execution on this host is <%= CoPlan.configuration.components_enabled ? "enabled" : "disabled" %>.
+Component execution on this host is <%= Coplan.configuration.components_enabled ? "enabled" : "disabled" %>.
 
 ## Host catalog
 
-<% catalog = CoPlan.configuration.component_catalog %>
+<% catalog = Coplan.configuration.component_catalog %>
 <% { "Types" => catalog.types, "Libraries" => catalog.libraries }.each do |heading, entries| %>
 ### <%= heading %>
 

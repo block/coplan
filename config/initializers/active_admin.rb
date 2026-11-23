@@ -4,5 +4,5 @@ ActiveAdmin.setup do |config|
   config.filter_attributes = []
   config.localize_format = :long
 
-  CoPlan::Admin.install!(config)
+  Coplan::Admin.install!(config)
 end

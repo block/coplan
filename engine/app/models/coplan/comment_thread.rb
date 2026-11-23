@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CommentThread < ApplicationRecord
     STATUSES = %w[open resolved].freeze
     OPEN_STATUSES = %w[open].freeze
@@ -8,8 +8,8 @@ module CoPlan
 
     belongs_to :plan
     belongs_to :plan_version
-    belongs_to :created_by_user, class_name: "CoPlan::User"
-    belongs_to :resolved_by_user, class_name: "CoPlan::User", optional: true
+    belongs_to :created_by_user, class_name: "Coplan::User"
+    belongs_to :resolved_by_user, class_name: "Coplan::User", optional: true
     belongs_to :out_of_date_since_version, class_name: "PlanVersion", optional: true
     belongs_to :addressed_in_plan_version, class_name: "PlanVersion", optional: true
     has_many :comments, dependent: :destroy
@@ -48,7 +48,7 @@ module CoPlan
     # comments have all been soft-deleted is effectively gone — hide it
     # from the doc view rather than leaving a dangling anchor + popover.
     scope :with_kept_comments, -> {
-      where(id: CoPlan::Comment.kept.select(:comment_thread_id))
+      where(id: Coplan::Comment.kept.select(:comment_thread_id))
     }
 
     def empty?
@@ -177,7 +177,7 @@ module CoPlan
     def resolve!(user)
       previous_status = status
       update!(status: "resolved", resolved_by_user: user)
-      CoPlan::Analytics.track(
+      Coplan::Analytics.track(
         "thread_resolved",
         user: user,
         plan_id: plan_id,

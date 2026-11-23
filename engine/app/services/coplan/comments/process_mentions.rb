@@ -1,14 +1,14 @@
-module CoPlan
+module Coplan
   module Comments
     # Parses a comment's body for `[@username](mention:username)` patterns,
-    # resolves them against CoPlan::User, and creates a Notification per
+    # resolves them against Coplan::User, and creates a Notification per
     # mentioned user (skipping the author and de-duplicating).
     #
     # Self-mentions and unresolvable usernames are silently dropped — by
     # design, since the chip still renders visually but no inbox row should
     # appear for typos or self-loops.
     class ProcessMentions
-      MENTION_PATTERN = CoPlan::MarkdownHelper::MENTION_PATTERN
+      MENTION_PATTERN = Coplan::MarkdownHelper::MENTION_PATTERN
 
       def self.call(comment)
         new(comment).call
@@ -22,7 +22,7 @@ module CoPlan
         usernames = extract_usernames
         return if usernames.empty?
 
-        mentioned_users = CoPlan::User.where(username: usernames)
+        mentioned_users = Coplan::User.where(username: usernames)
         author_user_id = @comment.author_type == "human" ? @comment.author_id : nil
         notified_user_ids = []
 

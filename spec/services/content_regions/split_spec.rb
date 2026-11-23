@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::ContentRegions::Split do
+RSpec.describe Coplan::ContentRegions::Split do
   it "finds multiple presentation regions and preserves absolute source lines" do
     source = "Intro\n\n::: {.presentation #first theme=\"graphite\"}\n\n# A\n\n:::\n\nBetween\n\n::: {.presentation}\n\n# B\n\n:::\n\nEnd"
     result = described_class.call(source)
@@ -41,7 +41,7 @@ RSpec.describe CoPlan::ContentRegions::Split do
     block = "::: {.component}\n\nroot.textContent = `\n~~~js\nhello\n`;\n\n:::\n\n"
     source = ("Example\n\n" + block) * 100
     parsed_bytes = 0
-    allow(CoPlan::Markdown).to receive(:parse).and_wrap_original do |original, text, **options|
+    allow(Coplan::Markdown).to receive(:parse).and_wrap_original do |original, text, **options|
       parsed_bytes += text.bytesize
       original.call(text, **options)
     end

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A shelf in a library. Folders form a small hierarchy (max MAX_DEPTH
   # levels) inside exactly one library, and hold plans via placements —
   # a plan sits in at most one folder per library, but can be shelved in
@@ -17,13 +17,13 @@ module CoPlan
     # (e.g. "Team EBT/Q3"), so it can't appear in a folder name.
     NAME_FORMAT = %r{\A[^/]+\z}
 
-    belongs_to :library, class_name: "CoPlan::Library", inverse_of: :folders
-    belongs_to :parent, class_name: "CoPlan::Folder", optional: true, inverse_of: :children
-    has_many :children, class_name: "CoPlan::Folder", foreign_key: :parent_id,
+    belongs_to :library, class_name: "Coplan::Library", inverse_of: :folders
+    belongs_to :parent, class_name: "Coplan::Folder", optional: true, inverse_of: :children
+    has_many :children, class_name: "Coplan::Folder", foreign_key: :parent_id,
       inverse_of: :parent, dependent: nil
-    belongs_to :created_by_user, class_name: "CoPlan::User", optional: true
-    has_many :placements, class_name: "CoPlan::PlanPlacement", inverse_of: :folder, dependent: nil
-    has_many :plans, class_name: "CoPlan::Plan", through: :placements
+    belongs_to :created_by_user, class_name: "Coplan::User", optional: true
+    has_many :placements, class_name: "Coplan::PlanPlacement", inverse_of: :folder, dependent: nil
+    has_many :plans, class_name: "Coplan::Plan", through: :placements
 
     # Strip on the way in so every write path gets clean names, not just
     # find_or_create_by_path!.
@@ -213,7 +213,7 @@ module CoPlan
       return if name.blank?
       return unless slug.blank? || will_save_change_to_name?
 
-      self.slug = CoPlan::Slug.call(name).presence || "folder"
+      self.slug = Coplan::Slug.call(name).presence || "folder"
     end
 
     # Only when the folder is actually taking a segment: a description edit

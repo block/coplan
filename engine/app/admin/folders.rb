@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::Folder, as: "Folder" do
+ActiveAdmin.register Coplan::Folder, as: "Folder" do
   permit_params :name, :parent_id, :library_id, :created_by_user_id
 
   filter :name
@@ -52,9 +52,9 @@ ActiveAdmin.register CoPlan::Folder, as: "Folder" do
     f.inputs do
       f.input :name
       f.input :library_id, as: :select,
-        collection: CoPlan::Library.includes(:owner).map { |l| [ "#{l.owner.try(:name) || l.owner_id} — #{l.name}", l.id ] }
-      f.input :parent, collection: CoPlan::Folder.order(:name).map { |folder| [ folder.path, folder.id ] }
-      f.input :created_by_user, collection: CoPlan::User.order(:name).map { |u| [ u.name, u.id ] }
+        collection: Coplan::Library.includes(:owner).map { |l| [ "#{l.owner.try(:name) || l.owner_id} — #{l.name}", l.id ] }
+      f.input :parent, collection: Coplan::Folder.order(:name).map { |folder| [ folder.path, folder.id ] }
+      f.input :created_by_user, collection: Coplan::User.order(:name).map { |u| [ u.name, u.id ] }
     end
     f.actions
   end

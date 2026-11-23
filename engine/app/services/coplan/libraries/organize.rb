@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Libraries
     # Executes a batch of organization operations against one library — the
     # bulk write path behind POST /api/v1/libraries/:id/organize, built for

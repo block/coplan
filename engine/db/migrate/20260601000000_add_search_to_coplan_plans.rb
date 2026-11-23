@@ -20,11 +20,11 @@ class AddSearchToCoplanPlans < ActiveRecord::Migration[8.1]
     # Backfill before adding the index — index building is faster when the
     # data is already in place, and we want existing plans searchable the
     # moment the app reboots.
-    CoPlan::Plan.reset_column_information
-    CoPlan::Plan
+    Coplan::Plan.reset_column_information
+    Coplan::Plan
       .includes(:created_by_user, :tags, :current_plan_version)
       .find_each do |plan|
-        plan.update_columns(search_text: CoPlan::Plan.build_search_text(plan))
+        plan.update_columns(search_text: Coplan::Plan.build_search_text(plan))
       end
 
     if mysql?

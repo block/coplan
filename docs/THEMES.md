@@ -9,7 +9,7 @@ defines both.
 | Term | Means | In code |
 | --- | --- | --- |
 | Mode | Light, dark or system | `data-theme`, `theme_preference`, `theme_controller.js`. These names predate app themes and stay. |
-| Theme | The app's look: Classic or Neutral | `data-app-theme`, `CoPlan::Themes`, `config.default_theme` |
+| Theme | The app's look: Classic or Neutral | `data-app-theme`, `Coplan::Themes`, `config.default_theme` |
 | Deck theme | A slide look: `coplan`, `graphite` | the `theme` attribute on a presentation region. Always say "deck theme". |
 
 If the mode attribute is ever renamed, move `data-theme` to `data-mode` and
@@ -53,12 +53,12 @@ Classic or Neutral with the theme that's showing checked. It has no Default
 option; Settings keeps that. The menu and Settings use the same controllers
 and keep each other's radios in step (`coplan:app-theme`).
 
-The themes are listed in `CoPlan::Themes::ALL`
+The themes are listed in `Coplan::Themes::ALL`
 (`engine/app/models/coplan/themes.rb`).
 
 ## Adding a theme
 
-1. Add an entry to `CoPlan::Themes::ALL`.
+1. Add an entry to `Coplan::Themes::ALL`.
 2. Add `engine/app/assets/stylesheets/coplan/themes/<key>.css` and import it
    last in `coplan/application.css`.
 3. Set tokens and hooks under `:root[data-app-theme="<key>"]`. Give each

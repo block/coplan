@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class UsersController < ApplicationController
     ALLOWED_FIELDS = %i[id name email username avatar_url title team].freeze
 
@@ -8,22 +8,22 @@ module CoPlan
         return render json: []
       end
 
-      users = if CoPlan.configuration.user_search
+      users = if Coplan.configuration.user_search
         # Hook may return external candidates (LDAP, etc.) — keep only those
         # whose username also exists in coplan_users, since RewriteMentions
         # and ProcessMentions can only resolve local usernames. Surfacing
         # external-only users would let the picker offer mentions that
         # silently fall through to plain text on save. Return local IDs so
         # reviewer assignment resolves the same person as the mention picker.
-        candidates = CoPlan.configuration.user_search.call(query)
-        local_ids = CoPlan::User.where(username: candidates.filter_map { |c| c[:username] || c["username"] }).pluck(:username, :id).to_h
+        candidates = Coplan.configuration.user_search.call(query)
+        local_ids = Coplan::User.where(username: candidates.filter_map { |c| c[:username] || c["username"] }).pluck(:username, :id).to_h
         candidates.filter_map do |candidate|
           id = local_ids[candidate[:username] || candidate["username"]]
           user_json(candidate).merge(id: id) if id
         end
       else
-        sanitized = CoPlan::User.sanitize_sql_like(query)
-        CoPlan::User
+        sanitized = Coplan::User.sanitize_sql_like(query)
+        Coplan::User
           .where("name LIKE :q OR email LIKE :q OR username LIKE :q", q: "%#{sanitized}%")
           .limit(20)
       end

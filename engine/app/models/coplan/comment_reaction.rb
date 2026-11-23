@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A person's emoji acknowledgement of a comment. Reactions come from a
   # fixed set so they can be stored as plain string keys; KINDS is the one
   # place that maps a key to its emoji and its spoken label.
@@ -13,7 +13,7 @@ module CoPlan
     }.transform_values(&:freeze).freeze
 
     belongs_to :comment
-    belongs_to :user, class_name: "CoPlan::User"
+    belongs_to :user, class_name: "Coplan::User"
 
     validates :kind, presence: true, inclusion: { in: KINDS.keys }
     validates :kind, uniqueness: { scope: [ :comment_id, :user_id ] }

@@ -1,15 +1,15 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Slack::UnfurlJob do
-  let(:client) { instance_double(CoPlan::Slack::WebClient) }
+RSpec.describe Coplan::Slack::UnfurlJob do
+  let(:client) { instance_double(Coplan::Slack::WebClient) }
   let!(:plan) { create(:plan, :published) }
 
   before do
-    config = CoPlan::Slack.configuration
+    config = Coplan::Slack.configuration
     config.signing_secret = "secret"
     config.bot_token = "token"
     config.base_url = "https://coplan.example.test"
-    allow(CoPlan::Slack::WebClient).to receive(:new).and_return(client)
+    allow(Coplan::Slack::WebClient).to receive(:new).and_return(client)
   end
 
   it "batches posted-message previews under exact URLs and skips unsupported links" do

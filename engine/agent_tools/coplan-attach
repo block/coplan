@@ -82,7 +82,7 @@ TOKEN =
   if options[:session] == false
     options[:token]
   else
-    CoPlanSession.ensure_token(
+    CoplanSession.ensure_token(
       base: BASE,
       parent: options[:token],
       agent_name: options[:agent_name],

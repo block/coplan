@@ -5,7 +5,7 @@ require "rails_helper"
 # a new theme variable fails here until deck.css resets it or the allowlist
 # below says why the deck doesn't need it.
 RSpec.describe "Deck isolation from app themes" do
-  stylesheets = CoPlan::Engine.root.join("app/assets/stylesheets/coplan")
+  stylesheets = Coplan::Engine.root.join("app/assets/stylesheets/coplan")
 
   # Prefixes and names a theme may set without a deck reset, with the reason.
   allowed = {

@@ -1,6 +1,6 @@
 require "zlib"
 
-module CoPlan
+module Coplan
   module PlansHelper
     include MarkdownHelper
 
@@ -128,7 +128,7 @@ module CoPlan
     # untyped fallback defaults to General at create). Safe in broadcast
     # partials (derives from the plan alone, no current_user).
     def plan_type_icon(plan, size: :md)
-      plan_type = plan.is_a?(CoPlan::PlanType) ? plan : plan.plan_type
+      plan_type = plan.is_a?(Coplan::PlanType) ? plan : plan.plan_type
       paths = PLAN_TYPE_ICONS[plan_type.icon] || PLAN_TYPE_ICONS["file-text"]
       # Stable per-name tint (Zlib.crc32, not #hash — that differs across
       # processes) so a type keeps its color everywhere, every request.

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module EmbedsHelper
     def render_iframe_blocks(html, source)
       return html unless source.include?(ContentRegions::Iframe::PREFIX)

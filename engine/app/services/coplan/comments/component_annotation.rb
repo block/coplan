@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Comments
     class ComponentAnnotation
       PNG_HEADER = "\x89PNG\r\n\x1a\n".b.freeze

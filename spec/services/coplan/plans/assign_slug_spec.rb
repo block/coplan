@@ -1,11 +1,11 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::AssignSlug do
+RSpec.describe Coplan::Plans::AssignSlug do
   let(:author) { create(:coplan_user, username: "hampton") }
   let(:library) { author.library }
 
   def place(plan, folder)
-    CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: author)
+    Coplan::Plans::Place.call(plan: plan, folder: folder, actor: author)
     plan.reload
   end
 
@@ -128,7 +128,7 @@ RSpec.describe CoPlan::Plans::AssignSlug do
 
       expect(plan.reload.slug_suffix).to be_present
       expect(plan.url_path).not_to eq(folder.url_path)
-      expect(CoPlan::Urls::Resolve.call(handle: "hampton", slug_path: plan.leaf_segment).plan).to eq(plan)
+      expect(Coplan::Urls::Resolve.call(handle: "hampton", slug_path: plan.leaf_segment).plan).to eq(plan)
     end
 
     it "re-slugs a plan a folder rename would have shadowed" do
@@ -156,7 +156,7 @@ RSpec.describe CoPlan::Plans::AssignSlug do
 
       retitle_plan(plan, "Basket Roadmap")
 
-      expect(CoPlan::UrlAlias.rewrite("hampton/cart-roadmap")).to eq("hampton/basket-roadmap")
+      expect(Coplan::UrlAlias.rewrite("hampton/cart-roadmap")).to eq("hampton/basket-roadmap")
     end
 
     it "records the old URL when a private plan is retitled" do
@@ -164,7 +164,7 @@ RSpec.describe CoPlan::Plans::AssignSlug do
 
       retitle_plan(plan, "Basket Roadmap")
 
-      expect(CoPlan::UrlAlias.rewrite("hampton/cart-roadmap")).to eq("hampton/basket-roadmap")
+      expect(Coplan::UrlAlias.rewrite("hampton/cart-roadmap")).to eq("hampton/basket-roadmap")
     end
 
     it "records the old URL when a published plan moves" do
@@ -173,7 +173,7 @@ RSpec.describe CoPlan::Plans::AssignSlug do
 
       place(plan, folder)
 
-      expect(CoPlan::UrlAlias.rewrite("hampton/basket-roadmap"))
+      expect(Coplan::UrlAlias.rewrite("hampton/basket-roadmap"))
         .to eq("hampton/liveorder/basket-roadmap")
     end
 
@@ -185,7 +185,7 @@ RSpec.describe CoPlan::Plans::AssignSlug do
         expect {
           retitle_plan(plan, "Basket Roadmap")
           place(plan, folder)
-        }.not_to change(CoPlan::UrlAlias, :count)
+        }.not_to change(Coplan::UrlAlias, :count)
 
         expect(plan.url_path).to eq("hampton/liveorder/basket-roadmap")
       end

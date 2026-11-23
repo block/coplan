@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CommentsController < ApplicationController
     before_action :set_plan
     before_action :set_thread

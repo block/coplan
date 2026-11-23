@@ -15,7 +15,7 @@ RSpec.describe "Settings::Tokens", type: :request do
   it "create token shows raw token" do
     expect {
       post settings_tokens_path, params: { api_token: { name: "Test Token" } }
-    }.to change(CoPlan::ApiToken, :count).by(1)
+    }.to change(Coplan::ApiToken, :count).by(1)
     expect(response).to redirect_to(settings_tokens_path)
     follow_redirect!
     expect(response.body).to include("token-reveal")
@@ -23,7 +23,7 @@ RSpec.describe "Settings::Tokens", type: :request do
 
   it "create token saves token_prefix" do
     post settings_tokens_path, params: { api_token: { name: "Prefix Test" } }
-    token = CoPlan::ApiToken.last
+    token = Coplan::ApiToken.last
     expect(token.token_prefix).to be_present
     expect(token.token_prefix.length).to eq(8)
   end

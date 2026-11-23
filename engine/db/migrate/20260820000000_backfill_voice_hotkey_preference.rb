@@ -12,7 +12,7 @@ class BackfillVoiceHotkeyPreference < ActiveRecord::Migration[8.1]
   #
   # Idempotent: only users with no voice_hotkey recorded are touched.
   def up
-    CoPlan::User.find_each do |user|
+    Coplan::User.find_each do |user|
       metadata = user.metadata || {}
       next if metadata.key?("voice_hotkey")
 
@@ -21,7 +21,7 @@ class BackfillVoiceHotkeyPreference < ActiveRecord::Migration[8.1]
   end
 
   def down
-    CoPlan::User.find_each do |user|
+    Coplan::User.find_each do |user|
       metadata = user.metadata
       next unless metadata.is_a?(Hash) && metadata["voice_hotkey"] == "shift"
 

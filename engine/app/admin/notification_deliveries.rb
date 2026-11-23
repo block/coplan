@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::NotificationDelivery, as: "NotificationDelivery" do
+ActiveAdmin.register Coplan::NotificationDelivery, as: "NotificationDelivery" do
   actions :index, :show
 
   index do
@@ -15,8 +15,8 @@ ActiveAdmin.register CoPlan::NotificationDelivery, as: "NotificationDelivery" do
     actions
   end
 
-  filter :channel, as: :select, collection: CoPlan::NotificationDelivery::CHANNELS
-  filter :status, as: :select, collection: CoPlan::NotificationDelivery::STATUSES
+  filter :channel, as: :select, collection: Coplan::NotificationDelivery::CHANNELS
+  filter :status, as: :select, collection: Coplan::NotificationDelivery::STATUSES
   filter :external_id
   filter :created_at
 

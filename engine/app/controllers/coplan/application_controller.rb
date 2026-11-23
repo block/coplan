@@ -1,6 +1,6 @@
-module CoPlan
+module Coplan
   class ApplicationController < ::ApplicationController
-    rescue_from CoPlan::EditLease::Conflict do |error|
+    rescue_from Coplan::EditLease::Conflict do |error|
       respond_to do |format|
         format.json { render json: { error: error.message, code: "edit_locked" }, status: :conflict }
         format.turbo_stream { render turbo_stream: toast_stream(error.message, "alert"), status: :conflict }
@@ -10,22 +10,17 @@ module CoPlan
 
     layout "coplan/application"
 
-    # CoPlan.underscore produces "co_plan", but our views/templates use "coplan/"
-    def self.controller_path
-      super.sub(/\Aco_plan\//, "coplan/")
-    end
-
-    helper CoPlan::ApplicationHelper
-    helper CoPlan::PlansHelper
-    helper CoPlan::MarkdownHelper
-    helper CoPlan::SlideshowsHelper
-    helper CoPlan::CommentsHelper
-    helper CoPlan::ReferencesHelper
-    helper CoPlan::PlanEventsHelper
-    helper CoPlan::AttachmentsHelper
-    helper CoPlan::FoldersHelper
-    helper CoPlan::BrowseHelper
-    helper CoPlan::WritingProvenanceHelper
+    helper Coplan::ApplicationHelper
+    helper Coplan::PlansHelper
+    helper Coplan::MarkdownHelper
+    helper Coplan::SlideshowsHelper
+    helper Coplan::CommentsHelper
+    helper Coplan::ReferencesHelper
+    helper Coplan::PlanEventsHelper
+    helper Coplan::AttachmentsHelper
+    helper Coplan::FoldersHelper
+    helper Coplan::BrowseHelper
+    helper Coplan::WritingProvenanceHelper
 
     # Skip host auth — Coplan handles authentication internally via config.authenticate
     skip_before_action :authenticate_user!, raise: false
@@ -60,7 +55,7 @@ module CoPlan
 
       hosts = EmbedDomain.order(:hostname).pluck(:hostname).reject { |host| host == request.host.downcase }
       sources = hosts.map { |host| "https://#{host}" }
-      sources << component_frame_url if CoPlan.configuration.components_enabled
+      sources << component_frame_url if Coplan.configuration.components_enabled
       policy = "frame-src #{sources.presence&.join(' ') || "'none'"}"
       existing = response.headers["Content-Security-Policy"]
       # Rails' middleware skips generating its policy when a response already
@@ -90,7 +85,7 @@ module CoPlan
         return
       end
 
-      @current_coplan_user = CoPlan::Authentication.user_from_request(request)
+      @current_coplan_user = Coplan::Authentication.user_from_request(request)
       if @current_coplan_user
         # People sync leaves directory records passive; the first authenticated
         # Coplan request creates the person's own library.
@@ -98,9 +93,9 @@ module CoPlan
       else
         if request.format.json?
           render json: { error: "Your session ended. Sign in, then retry; your draft is still here.",
-                         code: "authentication_required", sign_in_path: CoPlan.configuration.sign_in_path }, status: :unauthorized
-        elsif CoPlan.configuration.sign_in_path
-          redirect_to CoPlan.configuration.sign_in_path, alert: "Please sign in."
+                         code: "authentication_required", sign_in_path: Coplan.configuration.sign_in_path }, status: :unauthorized
+        elsif Coplan.configuration.sign_in_path
+          redirect_to Coplan.configuration.sign_in_path, alert: "Please sign in."
         else
           head :unauthorized
         end
@@ -108,11 +103,11 @@ module CoPlan
     end
 
     def set_coplan_current
-      CoPlan::Current.user = current_user
+      Coplan::Current.user = current_user
     end
 
     def show_api_tokens?
-      CoPlan.configuration.show_api_tokens?
+      Coplan.configuration.show_api_tokens?
     end
 
     def require_api_tokens_enabled
@@ -120,7 +115,7 @@ module CoPlan
     end
 
     def authorize!(record, action)
-      policy_class = "CoPlan::#{record.class.name.demodulize}Policy".constantize
+      policy_class = "Coplan::#{record.class.name.demodulize}Policy".constantize
       policy = policy_class.new(current_user, record)
       unless policy.public_send(action)
         raise NotAuthorizedError
@@ -131,7 +126,7 @@ module CoPlan
     # Only safe in request-rendered templates — broadcast-rendered partials
     # have no current_user and must gate client-side instead.
     def allowed_to?(record, action)
-      policy_class = "CoPlan::#{record.class.name.demodulize}Policy".constantize
+      policy_class = "Coplan::#{record.class.name.demodulize}Policy".constantize
       policy_class.new(current_user, record).public_send(action)
     end
     helper_method :allowed_to?
@@ -158,7 +153,7 @@ module CoPlan
       return if turbo_frame_request?
       return if agent_request?
 
-      CoPlan::Analytics.track(
+      Coplan::Analytics.track(
         "page_view",
         user: current_user,
         path: request.path,

@@ -10,8 +10,8 @@ RSpec.describe "Human edit fence", type: :request do
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
   let(:initial_content) { "# Plan\n\nShip behind a flag in Q4.\n\nOwner: Sam.\n" }
   let!(:plan) do
-    p = CoPlan::Plan.create!(title: "Rollout", created_by_user: alice)
-    v = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Rollout", created_by_user: alice)
+    v = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: initial_content,
       actor_type: "local_agent", actor_id: alice.id,
@@ -25,7 +25,7 @@ RSpec.describe "Human edit fence", type: :request do
 
   # The manual edit a person would make in the web editor.
   def hand_edit!(from: nil, to: nil, summary: "Edited in web UI", actor: alice)
-    CoPlan::Plans::ReplaceContent.call(
+    Coplan::Plans::ReplaceContent.call(
       plan: plan.reload,
       new_content: plan.current_content.sub(from, to),
       base_revision: plan.current_revision,
@@ -56,7 +56,7 @@ RSpec.describe "Human edit fence", type: :request do
 
       expect {
         put_content(initial_content + "\nAgent addendum.\n")
-      }.not_to change(CoPlan::PlanVersion, :count)
+      }.not_to change(Coplan::PlanVersion, :count)
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -167,7 +167,7 @@ RSpec.describe "Human edit fence", type: :request do
     # path rebases, the content path asks for a re-read. Neither is a fence.
     it "leaves another agent's edit to the ordinary stale-revision path" do
       agent_has_read(plan, alice_token)
-      CoPlan::Plans::ReplaceContent.call(
+      Coplan::Plans::ReplaceContent.call(
         plan: plan, new_content: initial_content.sub("Q4", "Q2"),
         base_revision: 1, actor_type: "local_agent", actor_id: alice.id
       )
@@ -193,7 +193,7 @@ RSpec.describe "Human edit fence", type: :request do
             operations: [ { op: "replace_exact", old_text: "Owner: Sam.", new_text: "Owner: Dana.", count: 1 } ]
           },
           headers: headers, as: :json
-      }.not_to change(CoPlan::PlanVersion, :count)
+      }.not_to change(Coplan::PlanVersion, :count)
 
       expect(response).to have_http_status(:conflict)
       expect(JSON.parse(response.body)["code"]).to eq("human_edit_pending")
@@ -206,7 +206,7 @@ RSpec.describe "Human edit fence", type: :request do
 
       expect {
         post api_v1_plan_sessions_path(plan), headers: headers, as: :json
-      }.not_to change(CoPlan::EditSession, :count)
+      }.not_to change(Coplan::EditSession, :count)
 
       expect(response).to have_http_status(:conflict)
       expect(JSON.parse(response.body)["code"]).to eq("human_edit_pending")
@@ -228,7 +228,7 @@ RSpec.describe "Human edit fence", type: :request do
 
       expect {
         post commit_api_v1_plan_session_path(plan, session_id), headers: headers, as: :json
-      }.not_to change(CoPlan::PlanVersion, :count)
+      }.not_to change(Coplan::PlanVersion, :count)
 
       expect(response).to have_http_status(:conflict)
       expect(JSON.parse(response.body)["code"]).to eq("human_edit_pending")
@@ -248,7 +248,7 @@ RSpec.describe "Human edit fence", type: :request do
       # hand edit committed, so it saw a clean plan and waved the request
       # through. Only the check under the plan lock can still catch it.
       early_check = true
-      allow(CoPlan::Plans::HumanEditGuard).to receive(:call).and_wrap_original do |original, **kwargs|
+      allow(Coplan::Plans::HumanEditGuard).to receive(:call).and_wrap_original do |original, **kwargs|
         next original.call(**kwargs) unless early_check
 
         early_check = false
@@ -262,7 +262,7 @@ RSpec.describe "Human edit fence", type: :request do
             operations: [ { op: "replace_exact", old_text: "Owner: Sam.", new_text: "Owner: Dana.", count: 1 } ]
           },
           headers: headers, as: :json
-      }.not_to change(CoPlan::PlanVersion, :count)
+      }.not_to change(Coplan::PlanVersion, :count)
 
       expect(response).to have_http_status(:conflict)
       expect(JSON.parse(response.body)["code"]).to eq("human_edit_pending")
@@ -272,11 +272,11 @@ RSpec.describe "Human edit fence", type: :request do
 
     it "blocks the expiry job from auto-committing over an unread hand edit" do
       agent_has_read(plan, alice_token)
-      session = CoPlan::EditSession.create!(
+      session = Coplan::EditSession.create!(
         plan: plan, actor_type: "local_agent", actor_id: alice_token.id,
         base_revision: 1, expires_at: 1.minute.ago
       )
-      applied = CoPlan::Plans::ApplyOperations.call(
+      applied = Coplan::Plans::ApplyOperations.call(
         content: initial_content,
         operations: [ { "op" => "replace_exact", "old_text" => "Owner: Sam.", "new_text" => "Owner: Dana.", "count" => 1 } ]
       )
@@ -285,8 +285,8 @@ RSpec.describe "Human edit fence", type: :request do
       hand_edit!(from: "Q4", to: "Q3")
 
       expect {
-        CoPlan::CommitExpiredSessionJob.perform_now(session_id: session.id)
-      }.not_to change(CoPlan::PlanVersion, :count)
+        Coplan::CommitExpiredSessionJob.perform_now(session_id: session.id)
+      }.not_to change(Coplan::PlanVersion, :count)
 
       expect(session.reload.status).to eq("failed")
       expect(session.change_summary).to match(/Auto-commit blocked/)
@@ -296,19 +296,19 @@ RSpec.describe "Human edit fence", type: :request do
 
     it "still auto-commits an expired session when no human edited" do
       agent_has_read(plan, alice_token)
-      session = CoPlan::EditSession.create!(
+      session = Coplan::EditSession.create!(
         plan: plan, actor_type: "local_agent", actor_id: alice_token.id,
         base_revision: 1, expires_at: 1.minute.ago
       )
-      applied = CoPlan::Plans::ApplyOperations.call(
+      applied = Coplan::Plans::ApplyOperations.call(
         content: initial_content,
         operations: [ { "op" => "replace_exact", "old_text" => "Owner: Sam.", "new_text" => "Owner: Dana.", "count" => 1 } ]
       )
       session.update!(operations_json: applied[:applied], draft_content: applied[:content])
 
       expect {
-        CoPlan::CommitExpiredSessionJob.perform_now(session_id: session.id)
-      }.to change(CoPlan::PlanVersion, :count).by(1)
+        Coplan::CommitExpiredSessionJob.perform_now(session_id: session.id)
+      }.to change(Coplan::PlanVersion, :count).by(1)
 
       expect(session.reload.status).to eq("committed")
       expect(plan.reload.current_content).to include("Owner: Dana.")
@@ -346,27 +346,27 @@ RSpec.describe "Human edit fence", type: :request do
     # cost a write.
     it "ignores a lower revision without touching the row" do
       agent_has_read(plan, alice_token, revision: 7)
-      before = CoPlan::PlanRead.find_by(plan_id: plan.id, reader_id: alice_token.id)
+      before = Coplan::PlanRead.find_by(plan_id: plan.id, reader_id: alice_token.id)
 
-      CoPlan::PlanRead.record!(
+      Coplan::PlanRead.record!(
         plan: plan, reader_type: "api_token", reader_id: alice_token.id, revision: 6
       )
 
-      after = CoPlan::PlanRead.find_by(plan_id: plan.id, reader_id: alice_token.id)
+      after = Coplan::PlanRead.find_by(plan_id: plan.id, reader_id: alice_token.id)
       expect(after.last_seen_revision).to eq(7)
       expect(after.updated_at).to eq(before.updated_at)
     end
 
     it "creates the receipt exactly once when another request wins the insert" do
       raced = false
-      allow(CoPlan::PlanRead).to receive(:create!).and_wrap_original do |original, **attrs|
+      allow(Coplan::PlanRead).to receive(:create!).and_wrap_original do |original, **attrs|
         unless raced
           raced = true
           # insert_all bypasses create!, so this stands in for another
           # process getting the row in first — the original call below then
           # hits the unique index and the retry takes the UPDATE path.
           now = Time.current
-          CoPlan::PlanRead.insert_all([ {
+          Coplan::PlanRead.insert_all([ {
             id: SecureRandom.uuid_v7, plan_id: plan.id,
             reader_type: "api_token", reader_id: alice_token.id,
             last_seen_revision: 3, last_seen_at: now, created_at: now, updated_at: now
@@ -375,16 +375,16 @@ RSpec.describe "Human edit fence", type: :request do
         original.call(**attrs)
       end
 
-      CoPlan::PlanRead.record!(
+      Coplan::PlanRead.record!(
         plan: plan, reader_type: "api_token", reader_id: alice_token.id, revision: 4
       )
 
-      expect(CoPlan::PlanRead.where(plan_id: plan.id).count).to eq(1)
+      expect(Coplan::PlanRead.where(plan_id: plan.id).count).to eq(1)
       expect(receipt_revision).to eq(4)
     end
 
     def receipt_revision
-      CoPlan::PlanRead.revision_for(plan: plan, reader_type: "api_token", reader_id: alice_token.id)
+      Coplan::PlanRead.revision_for(plan: plan, reader_type: "api_token", reader_id: alice_token.id)
     end
   end
 
@@ -394,7 +394,7 @@ RSpec.describe "Human edit fence", type: :request do
     # manual edit. It raises the fence like anything else would.
     it "counts as a human edit" do
       agent_has_read(plan, alice_token)
-      CoPlan::Plans::ReplaceContent.call(
+      Coplan::Plans::ReplaceContent.call(
         plan: plan, new_content: initial_content + "\n- [x] Flag wired up\n",
         base_revision: 1, actor_type: "human", actor_id: alice.id,
         change_summary: "Checked an item"

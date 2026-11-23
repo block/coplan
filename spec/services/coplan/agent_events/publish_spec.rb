@@ -1,13 +1,13 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::AgentEvents::Publish do
+RSpec.describe Coplan::AgentEvents::Publish do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
   let(:watcher_token) { create(:api_token, user: user, agent_name: "Amp") }
   let(:recipient_token) { create(:api_token, user: user, agent_name: "Claude") }
 
   before do
-    CoPlan::AgentSession.create!(plan: plan, api_token: watcher_token, state: "watching", agent_name: "Amp")
+    Coplan::AgentSession.create!(plan: plan, api_token: watcher_token, state: "watching", agent_name: "Amp")
   end
 
   def publish(**options)
@@ -24,43 +24,43 @@ RSpec.describe CoPlan::AgentEvents::Publish do
 
     it "queues the comment's body" do
       publish_comment(comment)
-      expect(CoPlan::AgentEvent.sole.payload["comment_body"]).to eq("Wrong plan, ignore")
+      expect(Coplan::AgentEvent.sole.payload["comment_body"]).to eq("Wrong plan, ignore")
     end
 
     it "queues nothing when the comment was deleted after the caller loaded it" do
-      loaded = CoPlan::Comment.find(comment.id)
-      CoPlan::Comments::SoftDelete.call(comment: comment, actor: user)
+      loaded = Coplan::Comment.find(comment.id)
+      Coplan::Comments::SoftDelete.call(comment: comment, actor: user)
 
-      expect { publish_comment(loaded) }.not_to change(CoPlan::AgentEvent, :count)
+      expect { publish_comment(loaded) }.not_to change(Coplan::AgentEvent, :count)
     end
   end
 
   describe "with recipient_token_id" do
     it "delivers to a token with no session on the plan, and to no one else" do
-      allow(CoPlan::AgentEventBus).to receive(:signal)
+      allow(Coplan::AgentEventBus).to receive(:signal)
 
       expect { publish(recipient_token_id: recipient_token.id) }
-        .to change { CoPlan::AgentEvent.count }.by(1)
+        .to change { Coplan::AgentEvent.count }.by(1)
 
-      event = CoPlan::AgentEvent.sole
+      event = Coplan::AgentEvent.sole
       expect(event.api_token_id).to eq(recipient_token.id)
       expect(event.payload).to include("plan_title" => plan.title, "reason" => "conflict")
-      expect(CoPlan::AgentEventBus).to have_received(:signal).with(recipient_token.id).once
-      expect(CoPlan::AgentEventBus).not_to have_received(:signal).with(watcher_token.id)
+      expect(Coplan::AgentEventBus).to have_received(:signal).with(recipient_token.id).once
+      expect(Coplan::AgentEventBus).not_to have_received(:signal).with(watcher_token.id)
     end
 
     it "wakes the recipient's own session on the plan" do
-      allow(CoPlan::WakeWebhookJob).to receive(:perform_later)
-      session = CoPlan::AgentSession.create!(
+      allow(Coplan::WakeWebhookJob).to receive(:perform_later)
+      session = Coplan::AgentSession.create!(
         plan: plan, api_token: recipient_token, state: "complete", agent_name: "Claude",
         wake_url: "https://agents.example.com/hooks/wake", wake_secret: "s3cret"
       )
 
       publish(recipient_token_id: recipient_token.id)
 
-      event = CoPlan::AgentEvent.sole
+      event = Coplan::AgentEvent.sole
       expect(event.api_token_id).to eq(recipient_token.id)
-      expect(CoPlan::WakeWebhookJob).to have_received(:perform_later)
+      expect(Coplan::WakeWebhookJob).to have_received(:perform_later)
         .with(agent_session_id: session.id, agent_event_id: event.id).once
     end
 
@@ -68,55 +68,55 @@ RSpec.describe CoPlan::AgentEvents::Publish do
       recipient_token.update!(revoked_at: 1.minute.ago)
 
       expect { publish(recipient_token_id: recipient_token.id) }
-        .not_to change { CoPlan::AgentEvent.count }
+        .not_to change { Coplan::AgentEvent.count }
     end
 
     it "skips an expired token" do
       recipient_token.update!(expires_at: 1.minute.ago)
 
       expect { publish(recipient_token_id: recipient_token.id) }
-        .not_to change { CoPlan::AgentEvent.count }
+        .not_to change { Coplan::AgentEvent.count }
     end
 
     it "skips a child whose parent has expired" do
       parent = create(:api_token, user: user, expires_at: 1.minute.ago)
       recipient_token.update!(parent: parent)
-      expect { publish(recipient_token_id: recipient_token.id) }.not_to change(CoPlan::AgentEvent, :count)
+      expect { publish(recipient_token_id: recipient_token.id) }.not_to change(Coplan::AgentEvent, :count)
     end
 
     it "does not fan out a blank recipient" do
-      expect { publish(recipient_token_id: "") }.not_to change(CoPlan::AgentEvent, :count)
+      expect { publish(recipient_token_id: "") }.not_to change(Coplan::AgentEvent, :count)
     end
 
     it "does not signal or enqueue a wake for a rolled-back event" do
-      allow(CoPlan::AgentEventBus).to receive(:signal)
-      allow(CoPlan::WakeWebhookJob).to receive(:perform_later)
-      CoPlan::AgentSession.create!(plan: plan, api_token: recipient_token, state: "complete",
+      allow(Coplan::AgentEventBus).to receive(:signal)
+      allow(Coplan::WakeWebhookJob).to receive(:perform_later)
+      Coplan::AgentSession.create!(plan: plan, api_token: recipient_token, state: "complete",
         agent_name: "Claude", wake_url: "https://agents.example.com/wake", wake_secret: "secret")
-      CoPlan::AgentEvent.transaction(requires_new: true) do
+      Coplan::AgentEvent.transaction(requires_new: true) do
         publish(recipient_token_id: recipient_token.id)
-        expect(CoPlan::AgentEventBus).not_to have_received(:signal)
-        expect(CoPlan::WakeWebhookJob).not_to have_received(:perform_later)
+        expect(Coplan::AgentEventBus).not_to have_received(:signal)
+        expect(Coplan::WakeWebhookJob).not_to have_received(:perform_later)
         raise ActiveRecord::Rollback
       end
-      expect(CoPlan::AgentEvent.count).to eq(0)
-      expect(CoPlan::AgentEventBus).not_to have_received(:signal)
-      expect(CoPlan::WakeWebhookJob).not_to have_received(:perform_later)
+      expect(Coplan::AgentEvent.count).to eq(0)
+      expect(Coplan::AgentEventBus).not_to have_received(:signal)
+      expect(Coplan::WakeWebhookJob).not_to have_received(:perform_later)
     end
 
     it "skips an id that names no token" do
       expect { publish(recipient_token_id: user.id) }
-        .not_to change { CoPlan::AgentEvent.count }
+        .not_to change { Coplan::AgentEvent.count }
     end
   end
 
   describe "without recipient_token_id" do
     it "fans out to every session on the plan except the actor's" do
-      CoPlan::AgentSession.create!(plan: plan, api_token: recipient_token, state: "watching", agent_name: "Claude")
+      Coplan::AgentSession.create!(plan: plan, api_token: recipient_token, state: "watching", agent_name: "Claude")
 
       publish(actor_token_id: recipient_token.id)
 
-      expect(CoPlan::AgentEvent.pluck(:api_token_id)).to eq([ watcher_token.id ])
+      expect(Coplan::AgentEvent.pluck(:api_token_id)).to eq([ watcher_token.id ])
     end
   end
 end

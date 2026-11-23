@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::CommentReaction, type: :model do
+RSpec.describe Coplan::CommentReaction, type: :model do
   it "is valid with valid attributes" do
     expect(create(:comment_reaction)).to be_valid
   end

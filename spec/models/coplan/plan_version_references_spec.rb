@@ -5,7 +5,7 @@ RSpec.describe "PlanVersion reference extraction", type: :model do
   let(:plan) { create(:plan, created_by_user: user) }
 
   it "extracts references when a new version is created" do
-    CoPlan::PlanVersion.create!(
+    Coplan::PlanVersion.create!(
       plan: plan,
       revision: plan.current_revision + 1,
       content_markdown: "See [Rails](https://rubyonrails.org) for details.",
@@ -19,11 +19,11 @@ RSpec.describe "PlanVersion reference extraction", type: :model do
 
   it "broadcasts references after extraction" do
     plan
-    expect(CoPlan::Broadcaster).to receive(:replace_plan_references) do |updated_plan|
+    expect(Coplan::Broadcaster).to receive(:replace_plan_references) do |updated_plan|
       expect(updated_plan.references.exists?(url: "https://rubyonrails.org")).to be(true)
     end
 
-    CoPlan::PlanVersion.create!(
+    Coplan::PlanVersion.create!(
       plan: plan,
       revision: plan.current_revision + 1,
       content_markdown: "See [Rails](https://rubyonrails.org) for details.",

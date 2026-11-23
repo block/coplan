@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Section-level diff between two markdown documents, used by the
     # "changed since you last looked" one-time signposts on the plan page.
@@ -103,7 +103,7 @@ module CoPlan
           end
           source = lines.join
         end
-        html = CoPlan::Markdown.to_html(
+        html = Coplan::Markdown.to_html(
           source,
           options: { extension: MarkdownHelper::EXTENSION_OPTIONS, render: { unsafe: true } },
           plugins: { syntax_highlighter: nil }

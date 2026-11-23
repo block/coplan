@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::Rebase do
+RSpec.describe Coplan::Plans::Rebase do
   describe ".verify!" do
     let(:content) { "# Plan\n\n## Goals\n\nShip it.\n\n## Risks\n\nNone." }
 
@@ -53,7 +53,7 @@ RSpec.describe CoPlan::Plans::Rebase do
     end
 
     def apply(content, operations)
-      CoPlan::Plans::ApplyOperations.call(content: content, operations: operations)
+      Coplan::Plans::ApplyOperations.call(content: content, operations: operations)
     end
 
     it "keeps a later operation in place when an earlier one changes the length" do
@@ -212,9 +212,9 @@ RSpec.describe CoPlan::Plans::Rebase do
       end
 
       def valid?(content, op)
-        CoPlan::Plans::PositionResolver.call(content: content, operation: op)
+        Coplan::Plans::PositionResolver.call(content: content, operation: op)
         true
-      rescue CoPlan::Plans::OperationError
+      rescue Coplan::Plans::OperationError
         false
       end
 

@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :edit_lease, class: "CoPlan::EditLease" do
+  factory :edit_lease, class: "Coplan::EditLease" do
     plan
     holder_type { "local_agent" }
     holder_id { SecureRandom.uuid }

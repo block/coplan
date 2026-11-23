@@ -24,12 +24,12 @@
          data-coplan--voice-hotkey-target="error" hidden></p>
     </div>
     <div class="segmented">
-      <% CoPlan::User::VOICE_HOTKEYS.each do |hotkey| %>
-        <label class="segmented__option" title="<%= CoPlan::User::VOICE_HOTKEY_LABELS[hotkey] %>">
+      <% Coplan::User::VOICE_HOTKEYS.each do |hotkey| %>
+        <label class="segmented__option" title="<%= Coplan::User::VOICE_HOTKEY_LABELS[hotkey] %>">
           <input type="radio" name="voice_hotkey" value="<%= hotkey %>"
                  <%= "checked" if current_user.voice_hotkey == hotkey %>
                  data-action="coplan--voice-hotkey#select">
-          <span class="segmented__btn"><%= CoPlan::User::VOICE_HOTKEY_LABELS[hotkey] %></span>
+          <span class="segmented__btn"><%= Coplan::User::VOICE_HOTKEY_LABELS[hotkey] %></span>
         </label>
       <% end %>
     </div>

@@ -4,7 +4,7 @@ require "base64"
 RSpec.describe "Uploading files in the rich editor", type: :system do
   let(:author) { create(:coplan_user, email: "drop-editor@example.com") }
   let(:source) { "# Drop uploads\n\nBefore upload.\n\nKeep writing here.\n" }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Drop uploads", content: source, user: author, visibility: "draft", actor_type: "human") }
+  let(:plan) { Coplan::Plans::Create.call(title: "Drop uploads", content: source, user: author, visibility: "draft", actor_type: "human") }
 
   before do
     visit sign_in_path
@@ -273,7 +273,7 @@ RSpec.describe "Uploading files in the rich editor", type: :system do
     expect(page).to have_css('.ProseMirror img[alt="sample.png"]', wait: 20)
     find(".document-editor__close-inline:not(:disabled)").click
     expect(page).not_to have_css(".document-editor")
-    created = CoPlan::Plan.where(created_by_user: author).order(created_at: :desc).first
+    created = Coplan::Plan.where(created_by_user: author).order(created_at: :desc).first
     expect(created).not_to eq(plan)
     expect(created.current_content).to include("![sample.png]")
     expect(created.attachments.count).to eq(1)

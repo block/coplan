@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Deck rendering. Sits beside MarkdownHelper rather than inside it on
   # purpose: everything deck-specific lives in the deck namespace (this
   # helper, the Slideshows::* services, the deck-* classes) with no hooks

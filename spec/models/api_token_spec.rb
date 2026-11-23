@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::ApiToken, type: :model do
+RSpec.describe Coplan::ApiToken, type: :model do
   let(:user) { create(:coplan_user) }
 
   it "is valid with valid attributes" do
@@ -22,22 +22,22 @@ RSpec.describe CoPlan::ApiToken, type: :model do
 
   it "authenticates with valid token" do
     create(:api_token, user: user, raw_token: "test-token-alice")
-    result = CoPlan::ApiToken.authenticate("test-token-alice")
+    result = Coplan::ApiToken.authenticate("test-token-alice")
     expect(result).not_to be_nil
   end
 
   it "returns nil for invalid token" do
-    expect(CoPlan::ApiToken.authenticate("invalid-token")).to be_nil
+    expect(Coplan::ApiToken.authenticate("invalid-token")).to be_nil
   end
 
   it "returns nil for revoked token" do
     create(:api_token, :revoked, user: user, raw_token: "test-token-revoked")
-    expect(CoPlan::ApiToken.authenticate("test-token-revoked")).to be_nil
+    expect(Coplan::ApiToken.authenticate("test-token-revoked")).to be_nil
   end
 
   it "returns nil for blank token" do
-    expect(CoPlan::ApiToken.authenticate("")).to be_nil
-    expect(CoPlan::ApiToken.authenticate(nil)).to be_nil
+    expect(Coplan::ApiToken.authenticate("")).to be_nil
+    expect(Coplan::ApiToken.authenticate(nil)).to be_nil
   end
 
   it "revoke sets revoked_at" do
@@ -59,7 +59,7 @@ RSpec.describe CoPlan::ApiToken, type: :model do
   end
 
   it "generate_token returns hex string" do
-    raw = CoPlan::ApiToken.generate_token
+    raw = Coplan::ApiToken.generate_token
     expect(raw).to match(/\A[0-9a-f]{64}\z/)
   end
 
@@ -73,7 +73,7 @@ RSpec.describe CoPlan::ApiToken, type: :model do
       expect(child.parent_id).to eq(parent.id)
       expect(child.agent_name).to eq("Claude refactor")
       expect(child.expires_at).to be_within(1.minute).of(described_class::DEFAULT_SESSION_TTL.from_now)
-      expect(CoPlan::ApiToken.authenticate(raw)).to eq(child)
+      expect(Coplan::ApiToken.authenticate(raw)).to eq(child)
     end
 
     it "inherits the parent's agent_name when none is given" do
@@ -95,7 +95,7 @@ RSpec.describe CoPlan::ApiToken, type: :model do
       child, = parent.mint_session_token!
       expect(child).not_to be_can_mint
       expect { child.mint_session_token! }
-        .to raise_error(CoPlan::ApiToken::Minting::NotPermitted)
+        .to raise_error(Coplan::ApiToken::Minting::NotPermitted)
     end
 
     it "revokes its children when the parent is revoked" do
@@ -104,14 +104,14 @@ RSpec.describe CoPlan::ApiToken, type: :model do
       parent.revoke!
 
       expect(child.reload).to be_revoked
-      expect(CoPlan::ApiToken.authenticate(raw)).to be_nil
+      expect(Coplan::ApiToken.authenticate(raw)).to be_nil
     end
 
     it "refuses a child whose parent expired without being revoked" do
       child, raw = parent.mint_session_token!
       parent.update!(expires_at: 1.minute.ago)
 
-      expect(CoPlan::ApiToken.authenticate(raw)).to be_nil
+      expect(Coplan::ApiToken.authenticate(raw)).to be_nil
       expect(child.reload).not_to be_revoked
     end
   end
@@ -151,20 +151,20 @@ RSpec.describe CoPlan::ApiToken, type: :model do
 
   describe "bootstrap minting (no parent token)" do
     it "mints a parentless session identity for a hook-authenticated user" do
-      token, raw = CoPlan::ApiToken.mint_session_token_for!(user: user, agent_name: "Claude")
+      token, raw = Coplan::ApiToken.mint_session_token_for!(user: user, agent_name: "Claude")
 
       expect(token.user_id).to eq(user.id)
       expect(token.parent_id).to be_nil
       expect(token.agent_name).to eq("Claude")
-      expect(token.expires_at).to be_within(1.minute).of(CoPlan::ApiToken::DEFAULT_SESSION_TTL.from_now)
-      expect(CoPlan::ApiToken.authenticate(raw)).to eq(token)
+      expect(token.expires_at).to be_within(1.minute).of(Coplan::ApiToken::DEFAULT_SESSION_TTL.from_now)
+      expect(Coplan::ApiToken.authenticate(raw)).to eq(token)
     end
 
     it "cannot mint further tokens despite having no parent — expiry marks it a session" do
-      token, = CoPlan::ApiToken.mint_session_token_for!(user: user)
+      token, = Coplan::ApiToken.mint_session_token_for!(user: user)
       expect(token).not_to be_can_mint
       expect { token.mint_session_token! }
-        .to raise_error(CoPlan::ApiToken::Minting::NotPermitted)
+        .to raise_error(Coplan::ApiToken::Minting::NotPermitted)
     end
   end
 end

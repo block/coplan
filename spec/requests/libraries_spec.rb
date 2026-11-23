@@ -14,7 +14,7 @@ RSpec.describe "Libraries", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(%(href="/alice"))
       expect(response.body).not_to include(%(href="/bob"))
-      expect(CoPlan::Library.where(owner: bob)).not_to exist
+      expect(Coplan::Library.where(owner: bob)).not_to exist
     end
 
     # `User#library` also recovers when a claimed row has gone missing.
@@ -105,7 +105,7 @@ RSpec.describe "Libraries", type: :request do
       # would surface Bob's work wherever it's filed — so mark it read first
       # and let this example be about the level listing alone. The strip has
       # its own example below.
-      [ filed, loose ].each { |plan| CoPlan::PlanViewer.track(plan: plan, user: alice) }
+      [ filed, loose ].each { |plan| Coplan::PlanViewer.track(plan: plan, user: alice) }
 
       get "/bob"
       expect(response).to have_http_status(:ok)
@@ -171,10 +171,10 @@ RSpec.describe "Libraries", type: :request do
     end
 
     describe "directory adapter" do
-      after { CoPlan.configuration.directory_profile = nil }
+      after { Coplan.configuration.directory_profile = nil }
 
       it "overrides local fields and adds a directory link" do
-        CoPlan.configuration.directory_profile = ->(_user) {
+        Coplan.configuration.directory_profile = ->(_user) {
           { title: "Staff Engineer", profile_url: "https://people.example.com/ada" }
         }
 
@@ -187,8 +187,8 @@ RSpec.describe "Libraries", type: :request do
 
       it "falls back to the local profile when the hook raises" do
         reported = []
-        allow(CoPlan.configuration).to receive(:error_reporter).and_return(->(e, _ctx) { reported << e })
-        CoPlan.configuration.directory_profile = ->(_user) { raise "directory down" }
+        allow(Coplan.configuration).to receive(:error_reporter).and_return(->(e, _ctx) { reported << e })
+        Coplan.configuration.directory_profile = ->(_user) { raise "directory down" }
 
         get "/ada"
 

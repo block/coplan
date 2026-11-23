@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :plan_event, class: "CoPlan::PlanEvent" do
+  factory :plan_event, class: "Coplan::PlanEvent" do
     plan
     actor_type { "human" }
     event_type { "status_changed" }

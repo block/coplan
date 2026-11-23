@@ -1,8 +1,8 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       class BaseController < ActionController::API
-        rescue_from CoPlan::EditLease::Conflict do |error|
+        rescue_from Coplan::EditLease::Conflict do |error|
           render json: { error: error.message, code: "edit_locked" }, status: :conflict
         end
 
@@ -27,7 +27,7 @@ module CoPlan
         end
 
         def set_agent_instructions_header
-          response.headers["X-Agent-Instructions"] = CoPlan::Engine.routes.url_helpers.agent_instructions_path
+          response.headers["X-Agent-Instructions"] = Coplan::Engine.routes.url_helpers.agent_instructions_path
         end
 
         # Every API call must carry its own Bearer token. The host's
@@ -43,7 +43,7 @@ module CoPlan
 
           render json: {
             error: "API calls require a Bearer token. Mint one first: " \
-                   "POST #{CoPlan::Engine.routes.url_helpers.api_v1_tokens_path} " \
+                   "POST #{Coplan::Engine.routes.url_helpers.api_v1_tokens_path} " \
                    "with {\"agent_name\": \"<your name>\"}, then send " \
                    "Authorization: Bearer <token> on every call."
           }, status: :forbidden
@@ -56,8 +56,8 @@ module CoPlan
             return if @api_token
           end
 
-          if CoPlan.configuration.api_authenticate
-            attrs = CoPlan.configuration.api_authenticate.call(request)
+          if Coplan.configuration.api_authenticate
+            attrs = Coplan.configuration.api_authenticate.call(request)
             if attrs && attrs[:external_id].present?
               provision_user_from_hook!(attrs)
               return
@@ -69,17 +69,17 @@ module CoPlan
 
         def provision_user_from_hook!(attrs)
           external_id = attrs[:external_id].to_s
-          @current_api_user = CoPlan::User.find_or_initialize_by(external_id: external_id)
+          @current_api_user = Coplan::User.find_or_initialize_by(external_id: external_id)
           @current_api_user.assign_attributes(attrs.slice(:name, :admin, :metadata).compact)
           if @current_api_user.new_record? || @current_api_user.changed?
             @current_api_user.save!
           end
         rescue ActiveRecord::RecordNotUnique
-          @current_api_user = CoPlan::User.find_by!(external_id: external_id)
+          @current_api_user = Coplan::User.find_by!(external_id: external_id)
         end
 
         def authenticate_via_token!(token)
-          @api_token = CoPlan::ApiToken.authenticate(token)
+          @api_token = Coplan::ApiToken.authenticate(token)
         end
 
         def current_user
@@ -143,7 +143,7 @@ module CoPlan
         # This is the only way to earn the right to write over a human's
         # edit — see Plans::HumanEditGuard.
         def record_plan_read!(plan, revision: nil)
-          CoPlan::PlanRead.record!(
+          Coplan::PlanRead.record!(
             plan: plan,
             reader_type: api_reader_type,
             reader_id: api_reader_id,
@@ -158,7 +158,7 @@ module CoPlan
           return unless @plan
           return if api_author_type == "human"
 
-          block = CoPlan::Plans::HumanEditGuard.call(
+          block = Coplan::Plans::HumanEditGuard.call(
             plan: @plan,
             reader_type: api_reader_type,
             reader_id: api_reader_id,
@@ -186,7 +186,7 @@ module CoPlan
         end
 
         def set_plan
-          @plan = CoPlan::Plan.find_by(id: params[:plan_id] || params[:id])
+          @plan = Coplan::Plan.find_by(id: params[:plan_id] || params[:id])
           unless @plan
             render json: { error: "Plan not found" }, status: :not_found
           end
@@ -194,7 +194,7 @@ module CoPlan
 
         def authorize_plan_access!
           return unless @plan
-          policy = CoPlan::PlanPolicy.new(current_user, @plan)
+          policy = Coplan::PlanPolicy.new(current_user, @plan)
           unless policy.show?
             render json: { error: "Plan not found" }, status: :not_found
           end
@@ -202,7 +202,7 @@ module CoPlan
 
         def authorize_plan_write!
           return unless @plan
-          policy = CoPlan::PlanPolicy.new(current_user, @plan)
+          policy = Coplan::PlanPolicy.new(current_user, @plan)
           unless policy.update?
             render json: { error: "Not authorized" }, status: :forbidden
           end

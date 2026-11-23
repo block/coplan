@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class ReviewRequestsController < ApplicationController
     before_action :set_plan
     before_action :set_review_request, only: [ :update, :respond, :compare ]

@@ -16,7 +16,7 @@ RSpec.describe "Review requests", type: :request do
       expect(response.parsed_body).to eq("reset_reviews_on_change" => enabled, "review_sequence" => sequence + index + 1)
       expect(plan.reload.reset_reviews_on_change).to eq(enabled)
       expect(plan.review_sequence).to eq(sequence + index + 1)
-      expect(CoPlan::Reviews::Evidence.call(plan: plan)[:reset_reviews_on_change]).to eq(enabled)
+      expect(Coplan::Reviews::Evidence.call(plan: plan)[:reset_reviews_on_change]).to eq(enabled)
     end
   end
 
@@ -86,7 +86,7 @@ RSpec.describe "Review requests", type: :request do
 
   it "labels an agent decision separately from the reviewer's own human approval" do
     token = create(:api_token, user: reviewer, agent_name: "Reviewbot")
-    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", api_token: token)
+    Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", api_token: token)
     sign_in_as(reviewer)
     get plan_review_requests_path(plan)
     expect(response.body).to include("Reviewbot (via you) approved")
@@ -94,7 +94,7 @@ RSpec.describe "Review requests", type: :request do
   end
 
   it "allows only the plan author to end a reviewer's assignment", :review_removal do
-    previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    previous = Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     sign_in_as(reviewer)
     delete plan_review_request_path(plan, task), params: { review_request: { remove: true } }, as: :json
     expect(response).to have_http_status(:not_found)
@@ -103,7 +103,7 @@ RSpec.describe "Review requests", type: :request do
   end
 
   it "marks an unread note-less review decision as attention until its owner reads it", :review_attention do
-    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     notice = author.notifications.find_by!(review_request: task, reason: "review_response")
     expect(notice.comment_thread_id).to be_nil
     sign_in_as(author)
@@ -155,11 +155,11 @@ RSpec.describe "Review requests", type: :request do
   end
 
   it "preserves the author's unread response when withdrawing a review" do
-    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     response_notice = author.notifications.find_by!(review_request: task, reason: "review_response")
-    request_notice = CoPlan::Notification.create!(user: reviewer, plan: plan, review_request: task, reason: "review_requested")
+    request_notice = Coplan::Notification.create!(user: reviewer, plan: plan, review_request: task, reason: "review_requested")
     watcher = create(:api_token, user: reviewer)
-    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    Coplan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
     sign_in_as(author)
     delete plan_review_request_path(plan, task)
     expect(response).to have_http_status(:no_content)
@@ -171,10 +171,10 @@ RSpec.describe "Review requests", type: :request do
   end
 
   it "distinguishes requirement updates from new requests in live events" do
-    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     requested_at = task.requested_at
     watcher = create(:api_token, user: reviewer)
-    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    Coplan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
     sign_in_as(author)
     patch plan_review_request_path(plan, task), params: { review_request: { requirement: "optional" } }, as: :json
     expect(response).to have_http_status(:ok)
@@ -186,16 +186,16 @@ RSpec.describe "Review requests", type: :request do
   end
 
   it "keeps pending review tasks separate from unread comment rows" do
-    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
     sign_in_as(reviewer)
     get library_page_path(reviewer)
     html = Nokogiri::HTML(response.body)
     expect(html.css(".review-tasks__item").text).to include(plan.title)
     expect(html.css(".attention__item")).to be_empty
-    CoPlan::Notifications::MarkPlanRead.call(plan_id: plan.id, user: reviewer)
+    Coplan::Notifications::MarkPlanRead.call(plan_id: plan.id, user: reviewer)
     get library_page_path(reviewer)
     expect(Nokogiri::HTML(response.body).css(".review-tasks__item").text).to include(plan.title)
-    CoPlan::Reviews::Respond.call(request: plan.review_requests.find_by!(reviewer: reviewer), actor: reviewer,
+    Coplan::Reviews::Respond.call(request: plan.review_requests.find_by!(reviewer: reviewer), actor: reviewer,
       revision: plan.current_revision, decision: "approved")
     sign_in_as(author)
     get library_page_path(author)
@@ -207,10 +207,10 @@ RSpec.describe "Review requests", type: :request do
     task
     first_at = task.requested_at
     travel_to(1.minute.from_now) do
-      CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+      Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     end
     travel_to(2.minutes.from_now) do
-      CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+      Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
     end
     sign_in_as(reviewer)
     get plan_review_requests_path(plan)
@@ -225,15 +225,15 @@ RSpec.describe "Review requests", type: :request do
   end
 
   it "shows feedback links only while the discussion has a kept comment" do
-    decision = CoPlan::Reviews::Respond.call(request: task, actor: reviewer,
+    decision = Coplan::Reviews::Respond.call(request: task, actor: reviewer,
       revision: plan.current_revision, decision: "approved", note: "Immutable review note")
     thread = decision.comment_thread
     reply = thread.comments.create!(author_type: "human", author_id: reviewer.id, body_markdown: "A remaining reply")
     sign_in_as(reviewer)
-    CoPlan::Comments::SoftDelete.call(comment: thread.comments.order(:created_at).first, actor: reviewer)
+    Coplan::Comments::SoftDelete.call(comment: thread.comments.order(:created_at).first, actor: reviewer)
     get plan_review_requests_path(plan)
     expect(response.body).to include("View feedback", "Open discussion")
-    CoPlan::Comments::SoftDelete.call(comment: reply, actor: reviewer)
+    Coplan::Comments::SoftDelete.call(comment: reply, actor: reviewer)
     get plan_review_requests_path(plan)
     expect(response.body).not_to include("View feedback", "Open discussion")
     expect(response.body).to include("Immutable review note", "You approved")
@@ -243,7 +243,7 @@ RSpec.describe "Review requests", type: :request do
   it "keeps archived pending tasks in inbox and workspace after notification acknowledgement" do
     task
     plan.update!(archived_at: Time.current)
-    CoPlan::Notification.where(user: reviewer).update_all(read_at: Time.current)
+    Coplan::Notification.where(user: reviewer).update_all(read_at: Time.current)
     sign_in_as(reviewer)
     get notifications_path
     expect(Nokogiri::HTML(response.body).css(".review-tasks__item").text).to include(plan.title)
@@ -255,7 +255,7 @@ RSpec.describe "Review requests", type: :request do
   end
 
   it "uses the opening comment when a preloaded association returns replies first" do
-    decision = CoPlan::Reviews::Respond.call(request: task, actor: reviewer,
+    decision = Coplan::Reviews::Respond.call(request: task, actor: reviewer,
       revision: plan.current_revision, decision: "approved", note: "Original opener")
     thread = decision.comment_thread
     opener = thread.comments.first!
@@ -263,7 +263,7 @@ RSpec.describe "Review requests", type: :request do
     opener.update!(body_markdown: "Edited opener")
     thread.association(:comments).target = [ reply, opener ]
     thread.association(:comments).loaded!
-    html = CoPlan::PlansController.render(partial: "coplan/plans/document_comment",
+    html = Coplan::PlansController.render(partial: "coplan/plans/document_comment",
       locals: { thread: thread, review: decision, detached: false })
     row = Nokogiri::HTML(html).at_css(".document-comment")
     expect(row.at_css(".comment__body").text.strip).to eq("Edited opener")
@@ -272,12 +272,12 @@ RSpec.describe "Review requests", type: :request do
   end
 
   it "does not attribute a surviving reply to the original review decision" do
-    decision = CoPlan::Reviews::Respond.call(request: task, actor: reviewer,
+    decision = Coplan::Reviews::Respond.call(request: task, actor: reviewer,
       revision: plan.current_revision, decision: "approved", note: "Original review note")
     thread = decision.comment_thread
     original = thread.comments.first!
     thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Author follow-up")
-    CoPlan::Comments::SoftDelete.call(comment: original, actor: reviewer)
+    Coplan::Comments::SoftDelete.call(comment: original, actor: reviewer)
     sign_in_as(author)
     get plan_page_path(plan)
     row = Nokogiri::HTML(response.body).at_css(".document-comment[data-thread-id='comment_thread_#{thread.id}']")
@@ -301,19 +301,19 @@ RSpec.describe "Review requests", type: :request do
       expect(response).to have_http_status(:created)
       request = plan.review_requests.find(response.parsed_body.fetch("id"))
       if state == "withdrawn"
-        CoPlan::Reviews::Withdraw.call(request: request, actor: author)
+        Coplan::Reviews::Withdraw.call(request: request, actor: author)
       elsif state != "pending"
-        CoPlan::Reviews::Respond.call(request: request, actor: reviewer,
+        Coplan::Reviews::Respond.call(request: request, actor: reviewer,
           revision: plan.current_revision, decision: state, note: "Recorded decision")
       end
       original = request.reload.attributes
-      counts = [ CoPlan::Notification.count, CoPlan::PlanEvent.count, CoPlan::ReviewResponse.count, CoPlan::CommentThread.count ]
+      counts = [ Coplan::Notification.count, Coplan::PlanEvent.count, Coplan::ReviewResponse.count, Coplan::CommentThread.count ]
       post plan_review_requests_path(plan), params: payload, as: :json
       expect(response).to have_http_status(:created)
       expect(response.parsed_body).to include("id" => request.id, "status" => state)
       expect(plan.review_requests.count).to eq(1)
       expect(request.reload.attributes).to eq(original)
-      expect([ CoPlan::Notification.count, CoPlan::PlanEvent.count, CoPlan::ReviewResponse.count, CoPlan::CommentThread.count ]).to eq(counts)
+      expect([ Coplan::Notification.count, Coplan::PlanEvent.count, Coplan::ReviewResponse.count, Coplan::CommentThread.count ]).to eq(counts)
     end
   end
 
@@ -353,17 +353,17 @@ RSpec.describe "Review requests", type: :request do
   end
 
   it "keeps an assigned review in the inbox after the notification and plan are read" do
-    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
     sign_in_as(reviewer)
     post mark_all_read_notifications_path, headers: { "Accept" => "text/vnd.turbo-stream.html" }
-    get CoPlan::Urls::Canonical.plan_path(plan)
+    get Coplan::Urls::Canonical.plan_path(plan)
     expect(response).to have_http_status(:ok)
     get notifications_path(panel: 1)
     expect(response.body).to include("Reviews requested", "Review pending", plan.title)
   end
 
   it "compares the approved revision directly with the current version, escaping content" do
-    approval = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    approval = Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "New <script>alert(1)</script> content")
     plan.update!(current_plan_version: version, current_revision: 2)
     sign_in_as(reviewer)
@@ -375,7 +375,7 @@ RSpec.describe "Review requests", type: :request do
 
   it "does not compare a response belonging to another plan" do
     other_task = create(:review_request)
-    other_response = CoPlan::Reviews::Respond.call(request: other_task, actor: other_task.reviewer, revision: 1, decision: "approved")
+    other_response = Coplan::Reviews::Respond.call(request: other_task, actor: other_task.reviewer, revision: 1, decision: "approved")
     sign_in_as(reviewer)
     get compare_plan_review_request_path(plan, task, response_id: other_response.id)
     expect(response).to have_http_status(:not_found)

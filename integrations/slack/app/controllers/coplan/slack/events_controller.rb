@@ -1,8 +1,8 @@
-module CoPlan
+module Coplan
   module Slack
     class EventsController < ApplicationController
       def create
-        config = CoPlan::Slack.configuration
+        config = Coplan::Slack.configuration
         return head :not_found unless config.configured?
 
         ::Slack::Events::Request.new(request, signing_secret: config.signing_secret).verify!

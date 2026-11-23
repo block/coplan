@@ -7,7 +7,7 @@
   <div class="composer__draft" data-coplan--comment-form-target="draft">
     <div class="composer__writing" data-controller="coplan--dictation"
          data-coplan--dictation-url-value="<%= plan_dictations_path(local_assigns.fetch(:plan)) %>"
-         data-coplan--dictation-transcription-value="<%= CoPlan::Ai.available? %>"
+         data-coplan--dictation-transcription-value="<%= Coplan::Ai.available? %>"
          data-action="coplan:microphone-change@document->coplan--dictation#microphoneChanged coplan:composer-close@document->coplan--dictation#closed coplan:dictation-start@document->coplan--dictation#otherStarted">
       <%= text_area_tag local_assigns.fetch(:field_name, "comment_thread[body_markdown]"), local_assigns[:body],
             id: local_assigns.fetch(:field_id, "comment_thread_body_markdown"),

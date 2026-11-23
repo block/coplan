@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::NotificationDelivery, type: :model do
+RSpec.describe Coplan::NotificationDelivery, type: :model do
   it "tracks a channel outcome per notification" do
     delivery = create(:notification_delivery)
     expect(delivery).to be_valid

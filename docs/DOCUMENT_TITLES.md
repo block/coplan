@@ -8,7 +8,7 @@ The rich editor protects the first H1's structure. Its text can be erased and au
 
 ## Deployment and backfill
 
-The engine migration `UnifyDocumentTitles` widens the metadata title to text and backfills each current plan in a locked transaction. Hosts install it with `bin/rails co_plan:install:migrations`, then run `bin/rails db:migrate`.
+The engine migration `UnifyDocumentTitles` widens the metadata title to text and backfills each current plan in a locked transaction. Hosts install it with `bin/rails coplan:install:migrations`, then run `bin/rails db:migrate`.
 
 For existing documents, the saved metadata wins: a matching opening heading is retained, a different heading is replaced, and a missing heading is prepended. Historical versions are never edited. Changed documents receive a system version with replayable operations and updated anchor positions. Custom templates also receive an opening H1 when missing.
 
@@ -18,6 +18,6 @@ Permanent write normalization differs from backfill: once deployed, a submitted 
 
 ## Code ownership
 
-`CoPlan::MarkdownDocumentTitle` is a plain Markdown utility in `engine/lib/coplan/markdown_document_title.rb`. `normalize` ensures the opening title exists; `extract` returns its plain text. It has no persistence behavior. `Plans::WritingProvenance.adjust_input_sources_for_content_change` preserves input attribution when normalization changes content.
+`Coplan::MarkdownDocumentTitle` is a plain Markdown utility in `engine/lib/coplan/markdown_document_title.rb`. `normalize` ensures the opening title exists; `extract` returns its plain text. It has no persistence behavior. `Plans::WritingProvenance.adjust_input_sources_for_content_change` preserves input attribution when normalization changes content.
 
-`CoPlan::MigrationSupport::BackfillDocumentTitles` is migration-only code, explicitly loaded by `UnifyDocumentTitles`. Retain it until that migration is retired from supported upgrade paths; it is not a permanent runtime service.
+`Coplan::MigrationSupport::BackfillDocumentTitles` is migration-only code, explicitly loaded by `UnifyDocumentTitles`. Retain it until that migration is retired from supported upgrade paths; it is not a permanent runtime service.

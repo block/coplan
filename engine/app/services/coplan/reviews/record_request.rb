@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     class RecordRequest
       def self.call(request:, api_token: nil)

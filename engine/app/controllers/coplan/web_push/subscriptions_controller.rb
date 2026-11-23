@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module WebPush
     class SubscriptionsController < ApplicationController
       before_action :require_web_push_configured
@@ -51,7 +51,7 @@ module CoPlan
       end
 
       def require_web_push_configured
-        head :service_unavailable unless CoPlan.configuration.web_push_configured?
+        head :service_unavailable unless Coplan.configuration.web_push_configured?
       end
     end
   end
