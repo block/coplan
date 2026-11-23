@@ -16,18 +16,8 @@ module Coplan
       # models cap how much of this they will read.
       MAX_PROMPT_LENGTH = 600
 
-      # Response text can echo prompts, API keys, or uploaded content. Only
-      # recognized protocol identifiers are safe to add to logged errors.
-      ERROR_TYPES = %w[
-        invalid_request_error authentication_error permission_error
-        not_found_error rate_limit_error server_error api_error
-      ].freeze
-      ERROR_CODES = %w[
-        context_length_exceeded model_not_found invalid_api_key
-        insufficient_quota rate_limit_exceeded invalid_value invalid_type
-        missing_required_parameter unsupported_value unsupported_parameter
-        content_policy_violation invalid_audio audio_too_short
-      ].freeze
+      # Bound the complete appended diagnostic, including type and code.
+      MAX_ERROR_DETAIL = 300
 
       def self.call(system_prompt:, user_content:, model: nil)
         new(system_prompt:, user_content:, model:).call
@@ -108,20 +98,26 @@ module Coplan
         raise Error, "Chat request failed: #{e.message}#{self.class.failure_detail(e)}"
       end
 
-      # Keep the reason without copying arbitrary provider text into job logs
-      # or transcription responses. Unknown identifiers and free-form messages
-      # are omitted, including string-only errors from compatible gateways.
+      # Keep the provider's explanation, including gateway-specific reasons.
+      # Only the error's diagnostic fields are appended, never request data.
       def self.failure_detail(error)
         response = error.response
         body = response[:body] if response.is_a?(Hash)
         body = JSON.parse(body) if body.is_a?(String)
         detail = body.is_a?(Hash) ? body["error"] : nil
+        detail = { "message" => detail } if detail.is_a?(String)
         return "" unless detail.is_a?(Hash)
 
-        parts = []
-        parts << detail["type"] if ERROR_TYPES.include?(detail["type"])
-        parts << detail["code"] if ERROR_CODES.include?(detail["code"])
-        parts.empty? ? "" : " (#{parts.join("/")})"
+        type, code, message = %w[type code message].map do |key|
+          value = detail[key]
+          next unless value.is_a?(String)
+
+          value.encode("UTF-8", invalid: :replace, undef: :replace)
+            .gsub(/[[:cntrl:]]/, " ").squish.truncate(MAX_ERROR_DETAIL).presence
+        end
+        label = [ type, code ].compact.join("/")
+        text = [ label.presence, message ].compact.join(": ").truncate(MAX_ERROR_DETAIL)
+        text.empty? ? "" : " (#{text})"
       rescue JSON::ParserError
         ""
       end

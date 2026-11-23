@@ -163,11 +163,12 @@ RSpec.describe Coplan::AiProviders::OpenAi do
     end
   end
 
-  shared_examples "safe provider diagnostics" do |operation, prefix|
+  shared_examples "bounded provider diagnostics" do |operation, prefix|
     let(:mock_client) { instance_double(OpenAI::Client) }
     let(:detail) do
       { "error" => { "type" => "invalid_request_error", "code" => "context_length_exceeded",
-                     "message" => "Request contained private-plan-content and sk-secret-key" } }
+                     "message" => "This model supports at most 128000 tokens.",
+                     "request" => { "content" => "private-plan-content", "api_key" => "sk-secret-key" } } }
     end
     let(:body) { detail }
     let(:failure) { Faraday::BadRequestError.new("the server responded with status 400", { status: 400, body: body }) }
@@ -193,9 +194,9 @@ RSpec.describe Coplan::AiProviders::OpenAi do
 
     let(:operation) { operation }
 
-    it "keeps recognized reasons without echoing the provider message" do
+    it "keeps the provider explanation without appending other response fields" do
       expect { request }.to raise_error(described_class::Error,
-        "#{prefix}: the server responded with status 400 (invalid_request_error/context_length_exceeded)") { |error|
+        "#{prefix}: the server responded with status 400 (invalid_request_error/context_length_exceeded: This model supports at most 128000 tokens.)") { |error|
           expect(error.cause).to equal(failure)
         }
     end
@@ -203,24 +204,22 @@ RSpec.describe Coplan::AiProviders::OpenAi do
     context "with a JSON body" do
       let(:body) { detail.to_json }
 
-      it "keeps the same safe identifiers" do
+      it "keeps the same provider explanation" do
         expect { request }.to raise_error(described_class::Error,
-          "#{prefix}: the server responded with status 400 (invalid_request_error/context_length_exceeded)")
+          "#{prefix}: the server responded with status 400 (invalid_request_error/context_length_exceeded: This model supports at most 128000 tokens.)")
       end
     end
 
     [ nil, "", "<html>Bad gateway</html>", "{broken", "null", "[]", '"error"', [],
-      { "error" => "private-plan-content sk-secret-key" }, { "error" => nil }, { "error" => [] },
-      { "error" => {} }, { "error" => { "message" => { "prompt" => "private-plan-content" } } },
-      { "error" => { "type" => "sk-secret-key", "code" => "private-plan-content" } },
-      { "error" => { "type" => "a" * 10_000, "code" => "b" * 10_000 } },
+      { "error" => nil }, { "error" => [] }, { "error" => {} }, { "error" => " \n " },
+      { "error" => { "message" => { "prompt" => "private-plan-content" } } },
       { "error" => { "type" => [ "invalid_request_error" ], "code" => { "secret" => "value" } } },
-      { "error" => { "type" => "invalid_request_error\nforged log line", "code" => false } }
+      { "error" => { "type" => true, "code" => false, "message" => 123 } }
     ].each_with_index do |malformed_body, index|
-      context "with an untrusted or unusable error body (#{index})" do
+      context "with an unusable error body (#{index})" do
         let(:body) { malformed_body }
 
-        it "falls back to the original status without leaking text or masking the failure" do
+        it "falls back to the original status without masking the failure" do
           expect { request }.to raise_error(described_class::Error, "#{prefix}: the server responded with status 400") { |error|
             expect(error.cause).to equal(failure)
           }
@@ -228,16 +227,44 @@ RSpec.describe Coplan::AiProviders::OpenAi do
       end
     end
 
-    it "retains a recognized type when the code is unknown" do
-      detail["error"]["code"] = "sk-secret-key"
+    it "keeps gateway-specific error types, codes and messages" do
+      detail["error"] = { "type" => "gateway_request_error", "code" => "custom_limit", "message" => "Try a smaller request." }
       expect { request }.to raise_error(described_class::Error,
-        "#{prefix}: the server responded with status 400 (invalid_request_error)")
+        "#{prefix}: the server responded with status 400 (gateway_request_error/custom_limit: Try a smaller request.)")
     end
 
-    it "retains a recognized code when the type is unknown" do
-      detail["error"]["type"] = "private-plan-content"
+    it "keeps a gateway's plain-string error" do
+      detail["error"] = "prompt too long"
+      expect { request }.to raise_error(described_class::Error, "#{prefix}: the server responded with status 400 (prompt too long)")
+    end
+
+    it "normalizes whitespace and control characters in every field" do
+      detail["error"] = { "type" => " gateway\nerror ", "code" => " custom\tlimit ", "message" => " Try\u0000 again. " }
       expect { request }.to raise_error(described_class::Error,
-        "#{prefix}: the server responded with status 400 (context_length_exceeded)")
+        "#{prefix}: the server responded with status 400 (gateway error/custom limit: Try again.)")
+    end
+
+    it "handles invalid string encoding in decoded gateway bodies" do
+      detail["error"] = { "message" => "bad \xFF response".force_encoding("UTF-8") }
+      expect { request }.to raise_error(described_class::Error,
+        "#{prefix}: the server responded with status 400 (bad \uFFFD response)")
+    end
+
+    %w[type code message].each do |field|
+      it "bounds an oversized #{field}" do
+        detail["error"] = { field => "x" * 10_000 }
+        expect { request }.to raise_error(described_class::Error,
+          "#{prefix}: the server responded with status 400 (#{'x' * 297}...)")
+      end
+    end
+
+    it "bounds the combined diagnostic" do
+      detail["error"] = { "type" => "t" * 100, "code" => "c" * 100, "message" => "m" * 100 }
+      expect { request }.to raise_error(described_class::Error) { |error|
+        suffix = error.message.delete_prefix("#{prefix}: the server responded with status 400")
+        expect(suffix.length).to eq(303)
+        expect(suffix).to end_with("...)")
+      }
     end
 
     context "when Faraday cannot parse the gateway response" do
@@ -271,10 +298,10 @@ RSpec.describe Coplan::AiProviders::OpenAi do
   end
 
   describe "chat errors" do
-    include_examples "safe provider diagnostics", :chat, "Chat request failed"
+    include_examples "bounded provider diagnostics", :chat, "Chat request failed"
   end
 
   describe "transcription errors" do
-    include_examples "safe provider diagnostics", :transcribe, "Transcription failed"
+    include_examples "bounded provider diagnostics", :transcribe, "Transcription failed"
   end
 end

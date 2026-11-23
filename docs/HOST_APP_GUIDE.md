@@ -305,11 +305,12 @@ Coplan inherits from your `::ApplicationController` for layout and middleware. T
 
 ## AI failure diagnostics
 
-Chat and transcription errors append recognized OpenAI error types and codes,
-such as `invalid_request_error/context_length_exceeded`. Arbitrary response
-messages and unknown identifiers are omitted because providers can echo plan
-content or credentials. Malformed bodies fall back to the existing transport
-error. The original exception remains available as the cause.
+Chat and transcription errors append the provider's error type, code and message,
+including gateway-specific reasons and plain-string gateway errors. The combined
+diagnostic is limited to 300 characters and normalized to one line. Only string
+fields are included; request objects and other fields are omitted. Providers are
+trusted to supply suitable diagnostic text. Malformed bodies fall back to the
+existing transport error, and the original exception remains available as the cause.
 
 ## Configuration reference
 
