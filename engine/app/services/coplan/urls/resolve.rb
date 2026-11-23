@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Urls
     # Turns a browsable URL into the thing it points at.
     #

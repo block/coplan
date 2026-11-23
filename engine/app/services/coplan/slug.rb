@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Turns human names into URL segments, and compares them loosely.
   #
   # Every browsable folder and plan segment goes through {call}. The rules

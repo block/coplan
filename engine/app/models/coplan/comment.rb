@@ -1,18 +1,23 @@
-module CoPlan
+module Coplan
   class Comment < ApplicationRecord
     AUTHOR_TYPES = %w[human local_agent cloud_persona system].freeze
 
     # Attribution labels sit inline next to the body, so they stay short.
     AGENT_NAME_LIMIT = 20
 
+    # What a deleted comment's body becomes. Deleting a comment retracts its
+    # words, so none of the readers that copy the body (the API, the inbox,
+    # web push, Slack DMs, agent events) can serve them afterwards.
+    DELETED_BODY = "_This comment was deleted._".freeze
+
     belongs_to :comment_thread
     # Notifications reference the comment, so deleting one used to fail on
     # a foreign key. They're delivery records for a comment that no longer
     # exists — they go with it.
-    has_many :notifications, class_name: "CoPlan::Notification", dependent: :delete_all
-    has_many :reactions, class_name: "CoPlan::CommentReaction", dependent: :delete_all
-    belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
-    belongs_to :agent_harness, class_name: "CoPlan::AgentHarness", optional: true
+    has_many :notifications, class_name: "Coplan::Notification", dependent: :delete_all
+    has_many :reactions, class_name: "Coplan::CommentReaction", dependent: :delete_all
+    belongs_to :api_token, class_name: "Coplan::ApiToken", optional: true
+    belongs_to :agent_harness, class_name: "Coplan::AgentHarness", optional: true
 
     def self.ransackable_attributes(_auth_object = nil)
       %w[id comment_thread_id author_type author_id created_at]
@@ -46,7 +51,7 @@ module CoPlan
     end
 
     def soft_delete!
-      update!(deleted_at: Time.current)
+      update!(deleted_at: Time.current, body_markdown: DELETED_BODY)
     end
 
     # Call in the same transaction that changes this comment's reactions.
@@ -58,7 +63,7 @@ module CoPlan
       self.class.where(id: id).update_all("reactions_version = reactions_version + 1")
     end
 
-    # Resolves the comment author to a CoPlan::User instance, or nil for
+    # Resolves the comment author to a Coplan::User instance, or nil for
     # author types that don't map to a user (cloud_persona, system).
     # For both human and local_agent comments, author_id is the user's id
     # (local_agent rows store the user behind the API token, not the token
@@ -67,7 +72,7 @@ module CoPlan
     def author
       return unless author_type.in?(%w[human local_agent])
 
-      CoPlan::User.find_by(id: author_id)
+      Coplan::User.find_by(id: author_id)
     end
 
     private
@@ -87,14 +92,14 @@ module CoPlan
     end
 
     def notify_thread_participants
-      CoPlan::NotificationJob.perform_later(
+      Coplan::NotificationJob.perform_later(
         "comment_created",
         { comment_thread_id: comment_thread_id, comment_created_at: created_at }
       )
     end
 
     def track_comment_created
-      CoPlan::Analytics.track(
+      Coplan::Analytics.track(
         "comment_created",
         user: author,
         plan_id: comment_thread.plan_id,
@@ -107,11 +112,11 @@ module CoPlan
     end
 
     def process_mentions
-      CoPlan::Comments::ProcessMentions.call(self)
+      Coplan::Comments::ProcessMentions.call(self)
     end
 
     def rewrite_plain_mentions
-      self.body_markdown = CoPlan::Comments::RewriteMentions.call(body_markdown)
+      self.body_markdown = Coplan::Comments::RewriteMentions.call(body_markdown)
     end
   end
 end

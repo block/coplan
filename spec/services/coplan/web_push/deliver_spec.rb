@@ -1,19 +1,19 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::WebPush::Deliver do
+RSpec.describe Coplan::WebPush::Deliver do
   let(:subscription) { create(:coplan_web_push_subscription) }
   let(:payload) { { title: "Hi", body: "Hello", url: "/plans/x", tag: "comment-thread-1" } }
 
   before do
-    CoPlan.configuration.vapid_public_key  = "public"
-    CoPlan.configuration.vapid_private_key = "private"
-    CoPlan.configuration.vapid_subject     = "mailto:test@example.com"
+    Coplan.configuration.vapid_public_key  = "public"
+    Coplan.configuration.vapid_private_key = "private"
+    Coplan.configuration.vapid_subject     = "mailto:test@example.com"
   end
 
   after do
-    CoPlan.configuration.vapid_public_key  = nil
-    CoPlan.configuration.vapid_private_key = nil
-    CoPlan.configuration.vapid_subject     = nil
+    Coplan.configuration.vapid_public_key  = nil
+    Coplan.configuration.vapid_private_key = nil
+    Coplan.configuration.vapid_subject     = nil
   end
 
   describe ".call" do
@@ -90,7 +90,7 @@ RSpec.describe CoPlan::WebPush::Deliver do
     end
 
     it "raises ConfigurationError when VAPID is not configured" do
-      CoPlan.configuration.vapid_private_key = nil
+      Coplan.configuration.vapid_private_key = nil
 
       expect {
         described_class.call(subscription: subscription, payload: payload)

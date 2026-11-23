@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Serves the browsable URLs — the canonical address of everything in a
   # library, and of the person whose library it is.
   #

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Rebases a stale list of operations through the versions written since
     # its base. The operations API and edit-session commits both use it.

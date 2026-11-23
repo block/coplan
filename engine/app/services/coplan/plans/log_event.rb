@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Single entry point for recording a metadata mutation on a plan.
     #

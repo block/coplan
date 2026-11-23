@@ -35,13 +35,13 @@ RSpec.describe "Profiles", type: :request do
     end
 
     it "creates a library on demand for a directory person's profile" do
-      expect(CoPlan::Library.where(owner: author)).not_to exist
+      expect(Coplan::Library.where(owner: author)).not_to exist
 
       get legacy_person_path("ada.a")
 
       expect(response).to have_http_status(:moved_permanently)
       expect(response).to redirect_to(browse_library_path(handle: "ada-a"))
-      expect(CoPlan::Library.where(owner: author)).to exist
+      expect(Coplan::Library.where(owner: author)).to exist
     end
   end
 

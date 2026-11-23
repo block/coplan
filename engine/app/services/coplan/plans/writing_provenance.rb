@@ -1,6 +1,6 @@
 require "diff/lcs"
 
-module CoPlan
+module Coplan
   module Plans
     # Immutable, run-length encoded source attribution. Historical human saves
     # from uninstrumented writers use the rollout's human-input assumption.

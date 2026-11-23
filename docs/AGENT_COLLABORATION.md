@@ -109,7 +109,7 @@ The shapes that close the loop, most portable first:
 4. **Webhook wake.** For hosted agents that can receive HTTP but can't
    hold connections or be exec-resumed (Amp orbs, scheduled runners):
    claim the session with a `wake_url` and Coplan POSTs a signed "you
-   have inbox items" ping there on every event (`X-CoPlan-Signature`:
+   have inbox items" ping there on every event (`X-Coplan-Signature`:
    HMAC-SHA256 of the body with the `wake_secret` returned once at
    registration; `event_id` for dedupe; retried with backoff). The ping
    carries no payload — the agent pulls and acks through the cursor API

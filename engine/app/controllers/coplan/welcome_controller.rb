@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Renders the public landing page (mounted at "/welcome" and at "/").
   #
   # Behavior at "/" (root):
@@ -8,7 +8,7 @@ module CoPlan
   #   click away.
   # * Everyone else (signed-in users with no plans yet, or anyone hitting the
   #   page anonymously) sees the landing partial configured via
-  #   `CoPlan.configuration.landing_page_partial`.
+  #   `Coplan.configuration.landing_page_partial`.
   #
   # Hosts can override the partial to inject deployment-specific copy (e.g.
   # coplan-square renders a Square-flavored landing that mentions
@@ -30,13 +30,13 @@ module CoPlan
         redirect_to helpers.own_library_browse_path(current_user) and return
       end
 
-      @landing_partial = CoPlan.configuration.landing_page_partial
+      @landing_partial = Coplan.configuration.landing_page_partial
     end
 
     private
 
     def resolve_optional_coplan_user
-      @current_coplan_user = CoPlan::Authentication.user_from_request(request)
+      @current_coplan_user = Coplan::Authentication.user_from_request(request)
     end
   end
 end

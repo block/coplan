@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class PlanPresenceChannel < ActionCable::Channel::Base
     # The masthead list and the compact stack in the sticky nav. Both are
     # filled from one render; CSS trims the nav copy.
@@ -50,7 +50,7 @@ module CoPlan
     def resolve_current_user
       return connection.current_user if connection.respond_to?(:current_user) && connection.current_user
 
-      CoPlan::Authentication.user_from_request(connection.__send__(:request))
+      Coplan::Authentication.user_from_request(connection.__send__(:request))
     end
 
     # Every viewer pings every 15s, and each ping used to re-render and

@@ -18,7 +18,7 @@ RSpec.describe "Toggle Checkbox", type: :request do
           new_text: "- [x] Buy milk",
           base_revision: plan.current_revision
         }, as: :json
-      }.to change(CoPlan::PlanVersion, :count).by(1)
+      }.to change(Coplan::PlanVersion, :count).by(1)
 
       expect(response).to have_http_status(:ok)
       data = response.parsed_body
@@ -54,7 +54,7 @@ RSpec.describe "Toggle Checkbox", type: :request do
     end
 
     it "attributes repeated checkbox selections to the person while retaining the agent's task text" do
-      agent_plan = CoPlan::Plans::Create.call(title: "Agent tasks", content: "- [ ] Ship 😀\n", user: user, actor_type: "local_agent")
+      agent_plan = Coplan::Plans::Create.call(title: "Agent tasks", content: "- [ ] Ship 😀\n", user: user, actor_type: "local_agent")
       5.times do |index|
         actor = index < 2 ? user : other_user
         sign_in_as(actor)
@@ -68,14 +68,14 @@ RSpec.describe "Toggle Checkbox", type: :request do
         snapshot = agent_plan.reload.current_plan_version.writing_provenance
         expect(snapshot.dig("summary", "counts", "unknown")).to eq(0)
         expect(snapshot.dig("summary", "counts", "ai")).to eq(19)
-        marker_key = CoPlan::Plans::WritingProvenance.slice(snapshot.fetch("runs"), agent_plan.current_content.index("[") + 1, agent_plan.current_content.index("[") + 2).first.last
+        marker_key = Coplan::Plans::WritingProvenance.slice(snapshot.fetch("runs"), agent_plan.current_content.index("[") + 1, agent_plan.current_content.index("[") + 2).first.last
         expect(snapshot.fetch("sources").fetch(marker_key)).to include("kind" => "human", "user_id" => actor.id, "origin_revision" => agent_plan.current_revision)
         expect(snapshot.dig("summary", "counts", "human")).to eq(checked ? 1 : 0)
       end
     end
 
     it "does not infer human typing when a task replacement changes more than its checkbox" do
-      agent_plan = CoPlan::Plans::Create.call(title: "Agent task", content: "- [ ] Original\n", user: user, actor_type: "local_agent")
+      agent_plan = Coplan::Plans::Create.call(title: "Agent task", content: "- [ ] Original\n", user: user, actor_type: "local_agent")
       patch toggle_checkbox_plan_path(agent_plan), params: {
         old_text: "- [ ] Original", new_text: "- [x] Pasted task", base_revision: 1
       }, as: :json

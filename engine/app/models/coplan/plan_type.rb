@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class PlanType < ApplicationRecord
     GENERAL_NAME = "General"
     CREATION_ORDER = [

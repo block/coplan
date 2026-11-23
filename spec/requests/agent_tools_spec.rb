@@ -17,7 +17,7 @@ RSpec.describe "Agent tools", type: :request do
       get "/agent-tools/coplan_session.rb"
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("CoPlanSession")
+      expect(response.body).to include("CoplanSession")
     end
 
     it "serves the bridge" do

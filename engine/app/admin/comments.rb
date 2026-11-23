@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
+ActiveAdmin.register Coplan::Comment, as: "PlanComment" do
   # No destroy and no batch delete: a hard delete leaves no trace, and
   # nothing in Coplan can restore it. Authors soft-delete their own comments.
   actions :all, except: [ :destroy ]

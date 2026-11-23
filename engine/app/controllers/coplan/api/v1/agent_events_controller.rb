@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       # The agent-facing event inbox. Agents (or their bridge daemons) on

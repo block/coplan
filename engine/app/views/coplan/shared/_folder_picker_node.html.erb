@@ -1,4 +1,3 @@
-<%# One folder in the picker tree; nests exactly like the sidebar. %>
 <% children = (children_by_parent[folder.id] || []).sort_by { |f| f.name.downcase } %>
 <li class="folder-picker__node">
   <button type="button" class="folder-picker__option" role="option"

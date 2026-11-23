@@ -101,17 +101,17 @@ RSpec.describe "Welcome", type: :request do
 
   describe "landing_page_partial configuration override" do
     around do |ex|
-      original = CoPlan.configuration.landing_page_partial
-      CoPlan.configuration.landing_page_partial = "coplan/welcome/test_landing_override"
+      original = Coplan.configuration.landing_page_partial
+      Coplan.configuration.landing_page_partial = "coplan/welcome/test_landing_override"
       ex.run
-      CoPlan.configuration.landing_page_partial = original
+      Coplan.configuration.landing_page_partial = original
     end
 
     before do
       sign_in_as(bob)
       # Create a temporary partial under engine view paths so we can verify the
       # configured partial is what gets rendered. Cleaned up in `after`.
-      view_path = CoPlan::Engine.root.join("app/views/coplan/welcome/_test_landing_override.html.erb")
+      view_path = Coplan::Engine.root.join("app/views/coplan/welcome/_test_landing_override.html.erb")
       File.write(view_path, "<div class=\"custom-host-landing\">Square-flavored landing</div>\n")
       @tmp_view = view_path
     end
@@ -135,7 +135,7 @@ RSpec.describe "Welcome", type: :request do
 
     context "with the default partial" do
       it "describes session minting instead of Settings tokens with host API authentication" do
-        allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+        allow(Coplan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
 
         get welcome_path
 
@@ -159,14 +159,14 @@ RSpec.describe "Welcome", type: :request do
 
     context "with a host-configured override" do
       around do |ex|
-        original = CoPlan.configuration.landing_agents_partial
-        CoPlan.configuration.landing_agents_partial = "coplan/welcome/test_agents_override"
+        original = Coplan.configuration.landing_agents_partial
+        Coplan.configuration.landing_agents_partial = "coplan/welcome/test_agents_override"
         ex.run
-        CoPlan.configuration.landing_agents_partial = original
+        Coplan.configuration.landing_agents_partial = original
       end
 
       before do
-        view_path = CoPlan::Engine.root.join("app/views/coplan/welcome/_test_agents_override.html.erb")
+        view_path = Coplan::Engine.root.join("app/views/coplan/welcome/_test_agents_override.html.erb")
         File.write(view_path, "<section class=\"host-agents\">sq agents skills add coplan</section>\n")
         @tmp_view = view_path
       end

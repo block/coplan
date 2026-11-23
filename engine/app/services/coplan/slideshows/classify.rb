@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Slideshows
     # Assigns one slide a layout pattern and a type-scale step, implementing
     # docs/SLIDE_SPEC.md — the spec's conformance examples are this class's
@@ -65,7 +65,7 @@ module CoPlan
       # comment-only HTML blocks (speaker notes, the renderer's preamble
       # sentinel) and footnote definitions (back matter, not slide content).
       def content_sequence
-        doc = CoPlan::Markdown.parse(@source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
+        doc = Coplan::Markdown.parse(@source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
         doc.each.reject do |node|
           node.type == :footnote_definition ||
             (node.type == :html_block && comment_only?(node))

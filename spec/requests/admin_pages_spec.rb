@@ -5,15 +5,15 @@ RSpec.describe "Admin pages", type: :request do
   # their record-dependent content. Keep this list in sync with the registry;
   # the coverage example below fails when a new admin page is registered.
   records = {
-    "agent_connection_requests" => -> { CoPlan::AgentConnectionRequest.issue!(name: "Work laptop").first },
+    "agent_connection_requests" => -> { Coplan::AgentConnectionRequest.issue!(name: "Work laptop").first },
     "agent_events" => -> {
-      CoPlan::AgentEvent.create!(
+      Coplan::AgentEvent.create!(
         plan: create(:plan), api_token: create(:api_token), event_type: "comment.created"
       )
     },
     "agent_harnesses" => -> { create(:agent_harness) },
     "agent_sessions" => -> {
-      CoPlan::AgentSession.create!(
+      Coplan::AgentSession.create!(
         plan: create(:plan), api_token: create(:api_token), agent_name: "Test agent", state: "watching"
       )
     },
@@ -23,10 +23,10 @@ RSpec.describe "Admin pages", type: :request do
     "plan_comments" => -> { create(:comment) },
     "edit_leases" => -> { create(:edit_lease) },
     "edit_sessions" => -> { create(:edit_session) },
-    "embed_domains" => -> { CoPlan::EmbedDomain.create!(hostname: "embed.example.com") },
+    "embed_domains" => -> { Coplan::EmbedDomain.create!(hostname: "embed.example.com") },
     "folders" => -> { create(:folder) },
     "library_events" => -> {
-      CoPlan::LibraryEvent.create!(
+      Coplan::LibraryEvent.create!(
         library: create(:coplan_user).library, event_type: "folder_created", actor_type: "human"
       )
     },
@@ -35,7 +35,7 @@ RSpec.describe "Admin pages", type: :request do
     "plan_events" => -> { create(:plan_event) },
     "plan_reads" => -> {
       plan = create(:plan)
-      CoPlan::PlanRead.create!(
+      Coplan::PlanRead.create!(
         plan: plan, reader_type: "user", reader_id: plan.created_by_user_id,
         last_seen_revision: plan.current_revision, last_seen_at: Time.current
       )

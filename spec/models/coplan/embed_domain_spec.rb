@@ -1,5 +1,5 @@
 require "rails_helper"
-RSpec.describe CoPlan::EmbedDomain do
+RSpec.describe Coplan::EmbedDomain do
   it "normalizes exact DNS hostnames and rejects URLs, wildcards, paths and IP addresses" do
     domain = described_class.create!(hostname: " EMBED.Example.COM ")
     expect(domain.hostname).to eq("embed.example.com")

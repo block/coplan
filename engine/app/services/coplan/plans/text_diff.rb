@@ -1,6 +1,6 @@
 require "diff/lcs"
 
-module CoPlan
+module Coplan
   module Plans
     # Hunks between two versions of a document, in character offsets of the
     # older one. A character LCS costs time and memory proportional to the

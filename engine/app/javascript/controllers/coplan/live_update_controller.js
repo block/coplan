@@ -140,7 +140,11 @@ function applyContent(target, fragment, incomingRevision, changedKeys, sectionUp
     bubbles: true, detail: { keys: sectionUpdate?.keys || changedKeys, update: sectionUpdate }
   }))
   restoreViewport(target, viewport)
-  requestAnimationFrame(() => restoreViewport(target, viewport))
+  const restoredScrollY = window.scrollY
+  requestAnimationFrame(() => {
+    // A scroll since the initial restore takes precedence over the old anchor.
+    if (window.scrollY === restoredScrollY) restoreViewport(target, viewport)
+  })
   clearStaleBanner()
   if (changedKeys.length > 0) {
     const offscreenKeys = flashChangedSections(target, changedKeys, oldSections)
@@ -344,7 +348,6 @@ function settleFlashes(root) {
 function showStaleBanner(targetEl, revision) {
   let banner = document.getElementById("plan-stale-banner")
   if (banner) {
-    // Already showing — just bump the revision number.
     const span = banner.querySelector("[data-revision]")
     if (span && revision) span.textContent = String(revision)
     return
@@ -367,7 +370,6 @@ function showStaleBanner(targetEl, revision) {
     window.location.reload()
   })
 
-  // Insert directly above the stale content so the connection is visually obvious.
   targetEl.parentNode.insertBefore(banner, targetEl)
 }
 

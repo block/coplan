@@ -15,15 +15,15 @@ RSpec.describe "Concurrent review and content commits" do
     it "makes evidence and stale responses wait for a complete edit with resets=#{reset}" do
       owner = create(:coplan_user)
       reviewer = create(:coplan_user)
-      plan = CoPlan::Plans::Create.call(title: "Concurrent review", content: "Before", user: owner)
+      plan = Coplan::Plans::Create.call(title: "Concurrent review", content: "Before", user: owner)
       plan.update!(reset_reviews_on_change: reset)
-      task = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: owner)
-      first = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, generation: 1, decision: "approved")
+      task = Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: owner)
+      first = Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, generation: 1, decision: "approved")
       edited, release, attempting = Queue.new, Queue.new, Queue.new
       writer = threaded do
-        local = CoPlan::Plan.find(plan.id)
+        local = Coplan::Plan.find(plan.id)
         local.with_lock do
-          CoPlan::Plans::ReplaceContent.call(plan: local, new_content: "After", base_revision: 1, actor_type: "human", actor_id: owner.id)
+          Coplan::Plans::ReplaceContent.call(plan: local, new_content: "After", base_revision: 1, actor_type: "human", actor_id: owner.id)
           edited << true
           release.pop
         end
@@ -31,14 +31,14 @@ RSpec.describe "Concurrent review and content commits" do
       Timeout.timeout(10) { edited.pop }
       reader = threaded do
         attempting << true
-        CoPlan::Reviews::Evidence.call(plan: CoPlan::Plan.find(plan.id))
+        Coplan::Reviews::Evidence.call(plan: Coplan::Plan.find(plan.id))
       end
       responder = threaded do
         attempting << true
         begin
-          CoPlan::Reviews::Respond.call(request: CoPlan::ReviewRequest.find(task.id), actor: reviewer,
+          Coplan::Reviews::Respond.call(request: Coplan::ReviewRequest.find(task.id), actor: reviewer,
             revision: 1, generation: 1, decision: "approved", idempotency_key: SecureRandom.uuid)
-        rescue CoPlan::Reviews::Respond::Conflict => error
+        rescue Coplan::Reviews::Respond::Conflict => error
           error.code
         end
       end
@@ -62,14 +62,14 @@ RSpec.describe "Concurrent review and content commits" do
   it "serializes two same-time decisions with unique increasing server sequences" do
     owner = create(:coplan_user)
     reviewer = create(:coplan_user)
-    plan = CoPlan::Plans::Create.call(title: "Decision race", content: "Reviewed", user: owner)
-    task = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: owner)
+    plan = Coplan::Plans::Create.call(title: "Decision race", content: "Reviewed", user: owner)
+    task = Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: owner)
     ready, start = Queue.new, Queue.new
     threads = 2.times.map do |index|
       threaded do
         ready << true
         start.pop
-        CoPlan::Reviews::Respond.call(request: CoPlan::ReviewRequest.find(task.id), actor: reviewer,
+        Coplan::Reviews::Respond.call(request: Coplan::ReviewRequest.find(task.id), actor: reviewer,
           revision: 1, generation: 1, decision: index.zero? ? "approved" : "changes_requested",
           note: index.zero? ? nil : "Please clarify", idempotency_key: SecureRandom.uuid)
       end

@@ -2,7 +2,22 @@
 
 ## Overview
 
-Coplan is a Rails engine that manages collaborative planning documents. It owns its own `CoPlan::User` model and handles authentication internally via a callback you configure.
+Coplan is a Rails engine that manages collaborative planning documents. It owns its own `Coplan::User` model and handles authentication internally via a callback you configure.
+
+## Upgrading to the Coplan namespace
+
+Update the host's Ruby references to `Coplan::`, including routes, initializers,
+and jobs. Use `bin/rails coplan:install:migrations` to copy the engine migrations
+into the host before deploying.
+
+Pause old web processes and job workers before running `bin/rails db:migrate`.
+`RenameCoplanClassNames` updates library owners, attachments, and ActiveAdmin
+comments. Start the new processes after the migration so old writers cannot
+reintroduce the previous class names. Jobs queued before the cutover may need
+to be re-enqueued if their serialized names use the previous namespace.
+
+To roll back, pause writers again, run the migration down using the new code,
+then start the previous application version.
 
 ## Rendered-content caching
 
@@ -24,7 +39,7 @@ data and is not a settings API.
 When upgrading from metadata-backed settings, install and run the engine migration:
 
 ```sh
-bin/rails co_plan:install:migrations
+bin/rails coplan:install:migrations
 bin/rails db:migrate
 ```
 
@@ -52,14 +67,14 @@ Then run `bundle install`.
 
 ```ruby
 # config/routes.rb
-mount CoPlan::Engine, at: "/coplan"
+mount Coplan::Engine, at: "/coplan"
 ```
 
 You can also mount at the root if Coplan is the primary purpose of your app. When doing so, add `as: "coplan"` so the engine's route helpers resolve correctly:
 
 ```ruby
 # config/routes.rb
-mount CoPlan::Engine, at: "/", as: "coplan"
+mount Coplan::Engine, at: "/", as: "coplan"
 ```
 
 Missing Coplan documents render a simple 404 page with navigation in the regular header.
@@ -70,7 +85,7 @@ To use this page for unmatched HTML routes across the host too, add this to
 the host's `config/application.rb`:
 
 ```ruby
-config.exceptions_app = CoPlan::ExceptionsApp.new(Rails.root.join("public"))
+config.exceptions_app = Coplan::ExceptionsApp.new(Rails.root.join("public"))
 ```
 
 This page uses the regular application layout, including the signed-in viewer's
@@ -106,7 +121,7 @@ marked applied, but the rows are missing.
 `coplan:seed` is idempotent and never overwrites plan types or agent harnesses
 you've customized. Run it after setup and after each engine version bump so
 new reference rows are installed. Alternatively, call
-`CoPlan::Engine.load_seed` from your own `db/seeds.rb` so `db:setup` and
+`Coplan::Engine.load_seed` from your own `db/seeds.rb` so `db:setup` and
 `db:seed` cover it automatically.
 
 ### Optional development demo library
@@ -134,7 +149,7 @@ Provide an `authenticate` callback that receives a Rack request and returns user
 
 ```ruby
 # config/initializers/coplan.rb
-CoPlan.configure do |config|
+Coplan.configure do |config|
   config.authenticate = ->(request) {
     # Example: session-based auth
     user_id = request.session[:user_id]
@@ -154,11 +169,11 @@ CoPlan.configure do |config|
   # Optional: AI provider configuration
   config.ai_api_key = ENV["OPENAI_API_KEY"]
   config.ai_model = "gpt-4o"
-  config.ai_models = { low: "gpt-4.1-nano" }
+  config.ai_models = { low: "gpt-6-luna" } # default for summaries; hosts can override
 end
 ```
 
-The callback is called on every Coplan request. The engine automatically finds or creates a `CoPlan::User` from the returned attributes, keeping the name and admin flag in sync.
+The callback is called on every Coplan request. The engine automatically finds or creates a `Coplan::User` from the returned attributes, keeping the name and admin flag in sync.
 
 ### Callback return values
 
@@ -183,9 +198,9 @@ gem "activeadmin", "~> 4.0.0.beta"
 gem "activeadmin_assets"
 
 # config/initializers/active_admin.rb, inside ActiveAdmin.setup
-CoPlan::Admin.install!(config)
+Coplan::Admin.install!(config)
 
-# config/routes.rb, before mounting CoPlan::Engine
+# config/routes.rb, before mounting Coplan::Engine
 ActiveAdmin.routes(self)
 ```
 
@@ -215,7 +230,7 @@ config.authenticate = ->(request) {
 }
 ```
 
-## CoPlan::User model
+## Coplan::User model
 
 The engine manages a `coplan_users` table with these columns:
 
@@ -226,15 +241,15 @@ The engine manages a `coplan_users` table with these columns:
 | `name`        | String  | Display name |
 | `admin`       | Boolean | Admin flag |
 | `metadata`    | JSON    | Host directory data; not Coplan settings |
-| `app_theme` | String | Engine-owned app theme: `default` (follow `config.default_theme`) or a `CoPlan::Themes` key |
+| `app_theme` | String | Engine-owned app theme: `default` (follow `config.default_theme`) or a `Coplan::Themes` key |
 | `theme_preference` | String | Engine-owned light/dark mode: system, light, or dark |
 | `voice_hotkey` | String | Engine-owned push-to-talk preference |
 
-`CoPlan::User` is a normal ActiveRecord model. Host apps can reference it directly:
+`Coplan::User` is a normal ActiveRecord model. Host apps can reference it directly:
 
 ```ruby
 class Notification < ApplicationRecord
-  belongs_to :user, class_name: "CoPlan::User"
+  belongs_to :user, class_name: "Coplan::User"
 end
 ```
 
@@ -247,7 +262,7 @@ Plans support file attachments (images, PDFs, text/CSV/JSON, ZIP — max 25 MB p
 The engine ships the ActiveStorage table migrations (`active_storage_blobs`, `active_storage_attachments`, `active_storage_variant_records`) alongside its own migrations, so they're installed the same way:
 
 ```bash
-bin/rails co_plan:install:migrations
+bin/rails coplan:install:migrations
 bin/rails db:migrate
 ```
 
@@ -291,7 +306,7 @@ Coplan inherits from your `::ApplicationController` for layout and middleware. T
 ## Configuration reference
 
 ```ruby
-CoPlan.configure do |config|
+Coplan.configure do |config|
   # Required
   config.authenticate = ->(request) { ... }
 
@@ -302,7 +317,8 @@ CoPlan.configure do |config|
   config.ai_base_url = "https://api.openai.com/v1"  # default
   config.ai_api_key = nil
   config.ai_model = "gpt-4o"                         # fallback for all intensities
-  config.ai_models = { low: "gpt-4.1-nano" }          # optional per-intensity overrides
+  config.ai_models = { low: "gpt-6-luna" }           # default; hosts can override each intensity
+  config.summary_debounce_delay = 1.minute           # default quiet period after the last edit
 
   # Error reporting (optional)
   config.error_reporter = ->(exception, context) {
@@ -326,22 +342,29 @@ CoPlan.configure do |config|
   }
 
   # App theme for everyone who hasn't picked one in Settings (optional).
-  # One of CoPlan::Themes.keys: "classic" or "neutral". See docs/THEMES.md.
+  # One of Coplan::Themes.keys: "classic" or "neutral". See docs/THEMES.md.
   config.default_theme = "classic"                    # default
 end
 ```
 
 Text-generation calls can request `:low`, `:medium`, or `:high` intensity.
 Each level uses `config.ai_models` when configured and otherwise falls back to
-`config.ai_model`. Plan summaries request `:low`; dictated comment cleanup and
-anchoring request `:medium`. Audio transcription uses its own model, configured
-with `COPLAN_TRANSCRIBE_MODEL`.
+`config.ai_model`. Plan summaries request `:low`, which defaults to `gpt-6-luna`;
+dictated comment cleanup and anchoring request `:medium`. Audio transcription
+uses its own model, configured with `COPLAN_TRANSCRIBE_MODEL`.
+
+Set `summary_debounce_delay` in the host initializer to a nonnegative duration
+or number of seconds, such as `2.minutes` or `120`. Zero removes the wait.
+Both new summary jobs and legacy jobs use this setting. Jobs already scheduled
+are not moved earlier when the delay shrinks; jobs that wake before the current
+quiet period ends reschedule for its end. Configure the same value in web and
+worker processes.
 
 ## Suggested reviewers
 
 Hosts can suggest who should review a plan, for example the owners of the code
 it will change. Configure `suggest_reviewers` with a callable that receives a
-`CoPlan::Plan` and returns `CoPlan::User` records, or hashes with `:user`, an
+`Coplan::Plan` and returns `Coplan::User` records, or hashes with `:user`, an
 optional `:reason`, and an optional `:requirement` (`"required"` by default, or
 `"optional"`):
 
@@ -349,7 +372,7 @@ optional `:reason`, and an optional `:requirement` (`"required"` by default, or
 config.suggest_reviewers = ->(plan) {
   paths = plan.references.where(reference_type: "repository").pluck(:url)
   CodeOwners.lookup(paths).map do |owner|
-    user = CoPlan::User.find_by(username: owner.username)
+    user = Coplan::User.find_by(username: owner.username)
     user && { user: user, reason: "Owns #{owner.path}", requirement: "required" }
   end.compact
 }
@@ -359,7 +382,7 @@ Every link in a plan becomes a reference, so `plan.references` lists the
 files, repositories, pull requests, and documents the plan names. GitHub file
 links such as `https://github.com/org/repo/blob/main/app/models/user.rb` have
 `reference_type` `"repository"`. Map people from your directory to existing
-`CoPlan::User` records; Coplan does not create users for suggestions.
+`Coplan::User` records; Coplan does not create users for suggestions.
 
 The plan author sees suggestions under **Add reviewer**. Agents read them from
 `GET /api/v1/plans/:id/review_requests/suggestions`. Suggestions only fill in

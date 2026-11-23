@@ -21,7 +21,7 @@ RSpec.describe "Concurrent identical attachment uploads" do
       Thread.new do
         ActiveRecord::Base.connection_pool.with_connection do
           file = Rack::Test::UploadedFile.new(Rails.root.join("spec/fixtures/files/sample.png"), "image/png")
-          CoPlan::Plans::AddAttachment.call(plan: CoPlan::Plan.find(plan.id), file: file, user: user)
+          Coplan::Plans::AddAttachment.call(plan: Coplan::Plan.find(plan.id), file: file, user: user)
         end
       end
     end

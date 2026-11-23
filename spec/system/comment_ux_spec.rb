@@ -23,8 +23,8 @@ RSpec.describe "Comment UX", type: :system do
   end
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "System Design Plan", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "System Design Plan", created_by_user: author)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: plan_content, actor_type: "human", actor_id: author.id
     )
@@ -1146,8 +1146,8 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     let(:bold_plan) do
-      p = CoPlan::Plan.create!(title: "Bold Content Plan", created_by_user: author)
-      version = CoPlan::PlanVersion.create!(
+      p = Coplan::Plan.create!(title: "Bold Content Plan", created_by_user: author)
+      version = Coplan::PlanVersion.create!(
         plan: p, revision: 1,
         content_markdown: bold_content, actor_type: "human", actor_id: author.id
       )
@@ -1264,8 +1264,8 @@ RSpec.describe "Comment UX", type: :system do
 
     it "shows the comment popover for a number like '3'" do
       # Use plan content that contains a number
-      number_plan = CoPlan::Plan.create!(title: "Number Plan", created_by_user: author)
-      version = CoPlan::PlanVersion.create!(
+      number_plan = Coplan::Plan.create!(title: "Number Plan", created_by_user: author)
+      version = Coplan::PlanVersion.create!(
         plan: number_plan, revision: 1,
         content_markdown: "We need exactly 3 MySQL clusters for this deployment.",
         actor_type: "human", actor_id: author.id
@@ -1315,8 +1315,8 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     let(:table_plan) do
-      p = CoPlan::Plan.create!(title: "Table Plan", created_by_user: author)
-      version = CoPlan::PlanVersion.create!(
+      p = Coplan::Plan.create!(title: "Table Plan", created_by_user: author)
+      version = Coplan::PlanVersion.create!(
         plan: p, revision: 1,
         content_markdown: table_content, actor_type: "human", actor_id: author.id
       )

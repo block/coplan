@@ -1,7 +1,7 @@
-module CoPlan
+module Coplan
   module Slack
     class NotificationDeliveryJob < ActiveJob::Base
-      include CoPlan::DebouncedJob
+      include Coplan::DebouncedJob
 
       queue_as :default
       debounces_with window: 2.minutes
@@ -11,7 +11,7 @@ module CoPlan
 
       def perform_batch(key:, batch_start:)
         user_id, thread_id = key.split(":", 2)
-        config = CoPlan::Slack.configuration
+        config = Coplan::Slack.configuration
         raise ArgumentError, "Coplan Slack notifications require bot_token and base_url" unless config.notifications_configured?
 
         deliveries = pending_for(user_id, thread_id)
@@ -20,7 +20,11 @@ module CoPlan
           .to_a
         return if deliveries.empty?
 
-        skipped, deliverable = deliveries.partition { |delivery| delivery.notification.read? || delivery.notification.comment.nil? }
+        # A comment deleted during the debounce window is retracted: don't send it.
+        skipped, deliverable = deliveries.partition do |delivery|
+          comment = delivery.notification.comment
+          delivery.notification.read? || comment.nil? || comment.deleted?
+        end
         mark(skipped, status: "skipped")
         return if deliverable.empty?
         @attempted_delivery_ids = deliverable.map(&:id)
@@ -46,7 +50,7 @@ module CoPlan
       def fail_pending!(error)
         key = arguments.first.with_indifferent_access.fetch(:key)
         user_id, thread_id = key.split(":", 2)
-        attempted = CoPlan::NotificationDelivery.pending.where(id: @attempted_delivery_ids).to_a
+        attempted = Coplan::NotificationDelivery.pending.where(id: @attempted_delivery_ids).to_a
         mark(attempted, status: "failed", error_code: error.message.to_s.truncate(255))
         self.class.release_debounce(key)
         if (remaining = pending_for(user_id, thread_id).order("coplan_notification_deliveries.created_at").first)
@@ -58,7 +62,7 @@ module CoPlan
       private
 
       def pending_for(user_id, thread_id)
-        CoPlan::NotificationDelivery.pending.where(channel: "slack")
+        Coplan::NotificationDelivery.pending.where(channel: "slack")
           .joins(:notification)
           .where(coplan_notifications: { user_id: user_id, comment_thread_id: thread_id })
       end
@@ -66,7 +70,7 @@ module CoPlan
       def mark(deliveries, **attributes)
         return if deliveries.empty?
 
-        CoPlan::NotificationDelivery.pending.where(id: deliveries.map(&:id)).update_all(**attributes, updated_at: Time.current)
+        Coplan::NotificationDelivery.pending.where(id: deliveries.map(&:id)).update_all(**attributes, updated_at: Time.current)
       end
 
       def message(notification, comments, base_url)
@@ -77,7 +81,7 @@ module CoPlan
         lines << "> _#{anchor.truncate(120)}_" if anchor.present?
         comments.first(3).each { |comment| lines << "> #{comment.body_markdown.to_s.truncate(300)}" }
         lines << "…and #{comments.size - 3} more" if comments.size > 3
-        lines << "#{base_url.chomp('/')}#{CoPlan::Urls::Canonical.plan_path(plan, thread: notification.comment_thread_id)}"
+        lines << "#{base_url.chomp('/')}#{Coplan::Urls::Canonical.plan_path(plan, thread: notification.comment_thread_id)}"
         lines.join("\n")
       end
     end

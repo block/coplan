@@ -46,7 +46,7 @@ No plan types are currently configured.
 
 ## Folders
 
-Each person has a library: a tree of folders, up to <%= CoPlan::Folder::MAX_DEPTH %> levels deep. A plan is filed in one folder in one library. Filing it in a different folder moves it. Use folders for where a plan lives, and use tags for what a plan is about.
+Each person has a library: a tree of folders, up to <%= Coplan::Folder::MAX_DEPTH %> levels deep. A plan is filed in one folder in one library. Filing it in a different folder moves it. Use folders for where a plan lives, and use tags for what a plan is about.
 
 - `GET <%= @base %>/api/v1/library` returns your principal's folder tree. Each folder has a `description` of what belongs in it. Read the descriptions before you file a plan. Use the existing folders before you make new ones.
 - To file or move a plan that your principal wrote, send `PATCH <%= @base %>/api/v1/plans/$PLAN_ID` with `{"folder_path": "Team EBT/Q3"}`. To remove it from its folder, send `{"folder_id": ""}`.

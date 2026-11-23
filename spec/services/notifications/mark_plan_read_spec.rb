@@ -1,12 +1,12 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Notifications::MarkPlanRead do
+RSpec.describe Coplan::Notifications::MarkPlanRead do
   let(:author) { create(:coplan_user) }
   let(:reviewer) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: author) }
   let(:thread) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: reviewer) }
 
-  before { allow(CoPlan::Broadcaster).to receive(:update_to) }
+  before { allow(Coplan::Broadcaster).to receive(:update_to) }
 
   it "marks every unread row this person carries for the plan read" do
     first = create(:notification, user: author, plan: plan, comment_thread: thread)
@@ -47,7 +47,7 @@ RSpec.describe CoPlan::Notifications::MarkPlanRead do
   it "refreshes the badge" do
     create(:notification, user: author, plan: plan, comment_thread: thread)
 
-    expect(CoPlan::Broadcaster).to receive(:update_to).with(
+    expect(Coplan::Broadcaster).to receive(:update_to).with(
       "coplan_notifications:#{author.id}",
       target: "inbox-badge",
       html: "0"
@@ -58,7 +58,7 @@ RSpec.describe CoPlan::Notifications::MarkPlanRead do
 
   # Every plan view calls this, and almost every view has nothing to clear.
   it "broadcasts nothing when there was nothing unread" do
-    expect(CoPlan::Broadcaster).not_to receive(:update_to)
+    expect(Coplan::Broadcaster).not_to receive(:update_to)
     expect(described_class.call(user: author, plan_id: plan.id)).to eq(0)
   end
 

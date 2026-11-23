@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class AttachmentsController < ApplicationController
     before_action :set_plan
 

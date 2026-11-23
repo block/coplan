@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CommentPolicy < ApplicationPolicy
     def update?
       delete? && !record.deleted?

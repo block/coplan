@@ -1,13 +1,13 @@
 require "cgi"
 require "rails_helper"
 
-RSpec.describe CoPlan::LinkPreviews do
+RSpec.describe Coplan::LinkPreviews do
   let(:base_url) { "https://coplan.example.test/app" }
   let(:plan) { create(:plan, :draft, summary: nil) }
 
   it "resolves published canonical, history, and version URLs, including archived plans" do
-    expect(CoPlan::Plan).not_to receive(:visible_to)
-    expect(CoPlan::PlanPolicy).not_to receive(:new)
+    expect(Coplan::Plan).not_to receive(:visible_to)
+    expect(Coplan::PlanPolicy).not_to receive(:new)
 
     [
       { visibility: "published", archived_at: nil },
@@ -43,8 +43,8 @@ RSpec.describe CoPlan::LinkPreviews do
   end
 
   it "resolves browsable URLs — canonical, edit, history, and version sub-pages" do
-    expect(CoPlan::Plan).not_to receive(:visible_to)
-    expect(CoPlan::PlanPolicy).not_to receive(:new)
+    expect(Coplan::Plan).not_to receive(:visible_to)
+    expect(Coplan::PlanPolicy).not_to receive(:new)
 
     plan.update!(visibility: "published")
     plan.reload

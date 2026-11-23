@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Comments::InterpretDictation do
+RSpec.describe Coplan::Comments::InterpretDictation do
   let(:excerpt) do
     <<~TEXT
       Pilot usage, first four weeks
@@ -10,7 +10,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
   end
 
   def stub_ai(text:, span: nil)
-    allow(CoPlan::Ai).to receive(:call).and_return({ "text" => text, "span" => span }.to_json)
+    allow(Coplan::Ai).to receive(:call).and_return({ "text" => text, "span" => span }.to_json)
   end
 
   it "returns the cleaned remark and the span it refers to" do
@@ -26,7 +26,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
 
     expect(result.body).to eq("Put the median latency in seconds in the header.")
     expect(result.anchor_text).to eq("Median latency was 340 milliseconds across the pilot cohort.")
-    expect(CoPlan::Ai).to have_received(:call).with(
+    expect(Coplan::Ai).to have_received(:call).with(
       system_prompt: described_class::SYSTEM_PROMPT,
       user_content: include("Transcript:"),
       intensity: :medium
@@ -34,7 +34,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
   end
 
   it "reads JSON the model wrapped in a code fence" do
-    allow(CoPlan::Ai).to receive(:call).and_return(<<~RESPONSE)
+    allow(Coplan::Ai).to receive(:call).and_return(<<~RESPONSE)
       ```json
       {"text": "This is too cautious.", "span": null}
       ```
@@ -83,7 +83,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
   end
 
   it "falls back to a local tidy-up when the response isn't JSON" do
-    allow(CoPlan::Ai).to receive(:call).and_return("Sure! Here's the cleaned up comment.")
+    allow(Coplan::Ai).to receive(:call).and_return("Sure! Here's the cleaned up comment.")
 
     result = described_class.call(excerpt: excerpt, transcript: "this is, like, too formal")
 
@@ -92,7 +92,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
   end
 
   it "falls back to a local tidy-up when the AI is unavailable" do
-    allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "no API key configured")
+    allow(Coplan::Ai).to receive(:call).and_raise(Coplan::Ai::Error, "no API key configured")
 
     result = described_class.call(excerpt: excerpt, transcript: "um this is you know too formal")
 
@@ -103,7 +103,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
   # "like" is a real word far more often than it's a tic, so the local
   # pass only drops it where the sentence marks it as filler.
   it "leaves a genuine 'like' alone" do
-    allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "no API key configured")
+    allow(Coplan::Ai).to receive(:call).and_raise(Coplan::Ai::Error, "no API key configured")
 
     result = described_class.call(excerpt: excerpt, transcript: "it looks like the sidecar is gated")
 
@@ -192,7 +192,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
   end
 
   it "does not call the AI without a transcript" do
-    expect(CoPlan::Ai).not_to receive(:call)
+    expect(Coplan::Ai).not_to receive(:call)
 
     expect(described_class.call(excerpt: excerpt, transcript: "  ").body).to eq("")
   end
@@ -203,7 +203,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
   # was reading a sentence ago.
   describe "the focus — what was mid-screen when they finished" do
     it "tells the model where the span most likely lives" do
-      expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+      expect(Coplan::Ai).to receive(:call) do |user_content:, **|
         expect(user_content).to include("They were reading this part")
         expect(user_content).to match(/reading this part.*sidecar stays behind a flag/m)
         { "text" => "Sounds too cautious.", "span" => nil }.to_json
@@ -217,7 +217,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
     end
 
     it "omits the section when the focus is the whole excerpt anyway" do
-      expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+      expect(Coplan::Ai).to receive(:call) do |user_content:, **|
         expect(user_content).not_to include("They were reading this part")
         { "text" => "Sounds too cautious.", "span" => nil }.to_json
       end
@@ -230,7 +230,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
   # returns a comments array; each entry gets its own span vetting.
   describe "a remark about more than one passage" do
     def stub_ai_comments(comments)
-      allow(CoPlan::Ai).to receive(:call).and_return({ "comments" => comments }.to_json)
+      allow(Coplan::Ai).to receive(:call).and_return({ "comments" => comments }.to_json)
     end
 
     it "returns one comment per passage, each with its own span" do

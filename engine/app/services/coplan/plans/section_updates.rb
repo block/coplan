@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Attribute each signposted section to the most recent version that
     # actually changed it. A later edit elsewhere must not take credit.

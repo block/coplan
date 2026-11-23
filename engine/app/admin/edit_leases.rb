@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::EditLease, as: "EditLease" do
+ActiveAdmin.register Coplan::EditLease, as: "EditLease" do
   permit_params :plan_id, :holder_type, :holder_id
 
   filter :plan_id

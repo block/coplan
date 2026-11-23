@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CommitExpiredSessionJob < ApplicationJob
     queue_as :default
 
@@ -8,7 +8,6 @@ module CoPlan
       session = EditSession.find_by(id: session_id)
       return unless session  # Session was deleted
 
-      # Only auto-commit if still open
       return unless session.open?
 
       if session.has_operations?
@@ -41,7 +40,6 @@ module CoPlan
       fail_session(session, reason: "human_edit_pending", error: e, summary: "Auto-commit blocked")
       Rails.logger.warn("CommitExpiredSessionJob: session #{session_id} blocked by an unread human edit")
     rescue Plans::CommitSession::SessionConflictError, Plans::CommitSession::StaleSessionError, Plans::OperationError => e
-      # Conflict during auto-commit — mark session as failed
       fail_session(session, reason: e.is_a?(Plans::CommitSession::StaleSessionError) ? "stale" : "conflict", error: e, summary: "Auto-commit failed")
       Rails.logger.warn("CommitExpiredSessionJob failed for session #{session_id}: #{e.message}")
     end

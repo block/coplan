@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Wake/notify plumbing for the agent event inbox, plus the budget that
   # keeps attached agents from eating the whole web server.
   #

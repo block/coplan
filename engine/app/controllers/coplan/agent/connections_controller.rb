@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Agent
     class ConnectionsController < ApplicationController
       skip_before_action :authenticate_coplan_user!, only: :show
@@ -8,8 +8,8 @@ module CoPlan
       rate_limit to: 30, within: 1.minute, name: "connection-verify"
 
       def show
-        @current_coplan_user = CoPlan::Authentication.user_from_request(request)
-        CoPlan::Current.user = current_user
+        @current_coplan_user = Coplan::Authentication.user_from_request(request)
+        Coplan::Current.user = current_user
         load_request
       end
 
@@ -34,7 +34,7 @@ module CoPlan
       end
 
       def require_connection_flow
-        head :not_found unless CoPlan.configuration.agent_connection_enabled?
+        head :not_found unless Coplan.configuration.agent_connection_enabled?
       end
 
       def prevent_caching

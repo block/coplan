@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Converts (old_content, new_content) into an ordered array of replace_exact
     # operations whose application reproduces new_content exactly. Each op is

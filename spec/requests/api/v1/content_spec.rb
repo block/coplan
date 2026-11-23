@@ -6,8 +6,8 @@ RSpec.describe "Api::V1::Content", type: :request do
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
   let(:initial_content) { "# Plan\n\nSection one.\n\nSection two.\n" }
   let!(:plan) do
-    p = CoPlan::Plan.create!(title: "Test", created_by_user: alice)
-    v = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Test", created_by_user: alice)
+    v = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: initial_content,
       actor_type: "human", actor_id: alice.id,
@@ -34,7 +34,7 @@ RSpec.describe "Api::V1::Content", type: :request do
     it "creates a new version with the supplied content" do
       new_body = initial_content.sub("Section one.", "Section ONE rewritten.")
 
-      expect { put_content(new_body) }.to change(CoPlan::PlanVersion, :count).by(1)
+      expect { put_content(new_body) }.to change(Coplan::PlanVersion, :count).by(1)
       expect(response).to have_http_status(:created)
 
       body = JSON.parse(response.body)
@@ -47,7 +47,7 @@ RSpec.describe "Api::V1::Content", type: :request do
     end
 
     it "returns 200 ok with no_op:true when content is unchanged" do
-      expect { put_content(initial_content) }.not_to change(CoPlan::PlanVersion, :count)
+      expect { put_content(initial_content) }.not_to change(Coplan::PlanVersion, :count)
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
       expect(body["no_op"]).to be true
@@ -130,7 +130,7 @@ RSpec.describe "Api::V1::Content", type: :request do
   describe "anchor preservation through full content replacement" do
     let!(:thread) do
       anchor_text = "Section one."
-      CoPlan::CommentThread.create!(
+      Coplan::CommentThread.create!(
         plan: plan, plan_version: plan.current_plan_version,
         created_by_user: alice,
         anchor_text: anchor_text,

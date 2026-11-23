@@ -2,7 +2,7 @@ require_relative "lib/coplan/version"
 
 Gem::Specification.new do |spec|
   spec.name        = "coplan-engine"
-  spec.version     = CoPlan::VERSION
+  spec.version     = Coplan::VERSION
   spec.authors     = [ "Block" ]
   spec.summary     = "Coplan — AI-assisted engineering design doc review"
   spec.description = "A Rails Engine for collaborative plan review with AI-powered feedback."

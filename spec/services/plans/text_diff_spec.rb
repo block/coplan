@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::TextDiff do
+RSpec.describe Coplan::Plans::TextDiff do
   def apply(before, hunks)
     hunks.reverse_each.with_object(before.dup) { |hunk, text| text[hunk[:from]...hunk[:to]] = hunk[:text] }
   end

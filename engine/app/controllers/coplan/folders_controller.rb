@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Web-side folder management for the plans sidebar: creation ("New
   # folder" input), reparenting (dragging one folder onto another), and
   # deleting an empty folder. Folders always land in the current user's

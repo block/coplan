@@ -25,7 +25,7 @@ require "fileutils"
 require "digest"
 require "time"
 
-module CoPlanSession
+module CoplanSession
   # Leave enough runway that a token doesn't expire mid-turn.
   REFRESH_MARGIN = 5 * 60
 

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     class Request
       def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false, replace_withdrawn: false)

@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :notification, class: "CoPlan::Notification" do
+  factory :notification, class: "Coplan::Notification" do
     user { association(:coplan_user) }
     plan
     comment_thread { association(:comment_thread, plan: plan) }

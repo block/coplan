@@ -3,8 +3,8 @@ require "rails_helper"
 RSpec.describe "Plan references", type: :system do
   let(:user) { create(:coplan_user, email: "refuser@example.com") }
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Test Plan", created_by_user: user)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Test Plan", created_by_user: user)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: "# Hello\n\nSome content here.",
       actor_type: "human", actor_id: user.id
@@ -21,7 +21,7 @@ RSpec.describe "Plan references", type: :system do
   end
 
   it "previews and follows a numbered section link to the document title" do
-    document = CoPlan::Plans::Create.call(user: user, content: "# 1 Overview\n\nOpening title section text. See [overview](#section-1).\n\n# 2 Details\n\nDifferent section.", actor_type: "human")
+    document = Coplan::Plans::Create.call(user: user, content: "# 1 Overview\n\nOpening title section text. See [overview](#section-1).\n\n# 2 Details\n\nDifferent section.", actor_type: "human")
     visit plan_page_path(document)
     expect(page).to have_css("h1#plan-title", text: "1 Overview")
     expect(page).to have_css("#plan-title #section-1", visible: :all)
@@ -52,7 +52,7 @@ RSpec.describe "Plan references", type: :system do
     end
 
     it "includes auto-extracted links as rich resources when they are not citations" do
-      version = CoPlan::PlanVersion.create!(
+      version = Coplan::PlanVersion.create!(
         plan: plan,
         revision: 2,
         content_markdown: "Read the [Coplan repository](https://github.com/block/coplan) for implementation details.",
@@ -75,8 +75,8 @@ RSpec.describe "Plan references", type: :system do
 
   describe "inline reference previews" do
     let(:referenced_plan) do
-      p = CoPlan::Plan.create!(title: "Referenced Plan", created_by_user: user)
-      version = CoPlan::PlanVersion.create!(
+      p = Coplan::Plan.create!(title: "Referenced Plan", created_by_user: user)
+      version = Coplan::PlanVersion.create!(
         plan: p,
         revision: 1,
         content_markdown: <<~MARKDOWN,

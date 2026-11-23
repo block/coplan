@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Commits an EditSession's accumulated operations as a single PlanVersion.
     #
@@ -44,7 +44,6 @@ module CoPlan
           @session.lock!
           raise SessionNotOpenError, "Session is not open" unless @session.open?
 
-          # No operations: just mark committed, no version created
           unless @session.has_operations?
             @session.update!(status: "committed", committed_at: Time.current)
             return { session: @session, version: nil }
@@ -66,9 +65,7 @@ module CoPlan
           current_revision = plan.current_revision
           current_content = plan.current_content || ""
 
-          # Determine the content to use as the result
           if base_revision == current_revision
-            # No intervening edits — use draft_content directly
             new_content = @session.draft_content || current_content
             final_ops = @session.operations_json
           else
@@ -78,7 +75,6 @@ module CoPlan
               raise StaleSessionError, "Session is too stale (#{stale_gap} revisions behind, max 20)"
             end
 
-            # Get intervening versions
             intervening_versions = plan.plan_versions
               .where("revision > ? AND revision <= ?", base_revision, current_revision)
               .order(revision: :asc)
@@ -119,7 +115,6 @@ module CoPlan
             final_ops = result[:applied]
           end
 
-          # Create the version
           new_revision = plan.current_revision + 1
           diff = Diffy::Diff.new(current_content, new_content).to_s
 

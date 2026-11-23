@@ -50,7 +50,7 @@ RSpec.describe "Coplan administration", type: :request do
 
     post "/_/admin/users/batch_action", params: { batch_action: "destroy", collection_selection: [ other.id ] }
     expect(response).to have_http_status(:not_found)
-    expect(CoPlan::User.exists?(other.id)).to be(true)
+    expect(Coplan::User.exists?(other.id)).to be(true)
   end
 
   it "redirects the former admin URL to the shared admin area" do
@@ -119,7 +119,7 @@ RSpec.describe "Coplan administration", type: :request do
 
   it "offers no agent session downloads, which would include the wake secret" do
     sign_in_as(create(:coplan_user, admin: true))
-    session = CoPlan::AgentSession.create!(
+    session = Coplan::AgentSession.create!(
       plan: create(:plan), api_token: create(:api_token), agent_name: "Test agent", state: "watching")
 
     get "/_/admin/agent_sessions"

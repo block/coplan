@@ -1,11 +1,11 @@
 # Read receipts. Mostly here to answer one support question: "why is my
 # agent getting human_edit_pending?" — compare last_seen_revision against
 # the plan's most recent human version.
-ActiveAdmin.register CoPlan::PlanRead, as: "PlanRead" do
+ActiveAdmin.register Coplan::PlanRead, as: "PlanRead" do
   actions :index, :show
 
   filter :plan
-  filter :reader_type, as: :select, collection: CoPlan::PlanRead::READER_TYPES
+  filter :reader_type, as: :select, collection: Coplan::PlanRead::READER_TYPES
   filter :reader_id
   filter :last_seen_revision
   filter :last_seen_at

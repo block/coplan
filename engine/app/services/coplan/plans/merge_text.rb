@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # A three-way, character-range merge. Both sides are compared with the
     # same immutable base. Only disjoint edits (or identical edits) combine.

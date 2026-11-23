@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Notifications
     class Create
       # Reasons that stay silent once a thread is closed. An agent working

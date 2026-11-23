@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::ReferencesHelper, type: :helper do
+RSpec.describe Coplan::ReferencesHelper, type: :helper do
   include ActiveSupport::Testing::TimeHelpers
 
   after { travel_back }
@@ -8,8 +8,8 @@ RSpec.describe CoPlan::ReferencesHelper, type: :helper do
   describe "#plan_citation_back_matter" do
     let(:user) { create(:coplan_user) }
     let(:plan) do
-      plan = CoPlan::Plan.create!(title: "Sourced plan", created_by_user: user)
-      version = CoPlan::PlanVersion.create!(
+      plan = Coplan::Plan.create!(title: "Sourced plan", created_by_user: user)
+      version = Coplan::PlanVersion.create!(
         plan: plan,
         revision: 1,
         content_markdown: <<~MARKDOWN,
@@ -57,7 +57,7 @@ RSpec.describe CoPlan::ReferencesHelper, type: :helper do
     end
 
     it "keeps a source link inline when prose follows it" do
-      version = CoPlan::PlanVersion.create!(
+      version = Coplan::PlanVersion.create!(
         plan: plan,
         revision: 2,
         content_markdown: "Claim.[^inline]\n\n[^inline]: The [study](https://example.com/study) informed this decision.",

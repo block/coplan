@@ -3,12 +3,12 @@ require "rails_helper"
 RSpec.describe "Inline plan editing", type: :system do
   # These examples configure their own catalog. Seeded reference data must
   # not determine their fixtures or the order in which they pass.
-  before { CoPlan::PlanType.delete_all }
+  before { Coplan::PlanType.delete_all }
 
   let(:author) { create(:coplan_user, email: "inline-editor@example.com") }
   let(:content) { "# A plan\n\nFirst paragraph.\n\nSecond paragraph.\n" }
   let(:plan) do
-    CoPlan::Plans::Create.call(title: "Inline plan", content: content, user: author,
+    Coplan::Plans::Create.call(title: "Inline plan", content: content, user: author,
       visibility: "draft", actor_type: "human")
   end
 
@@ -136,7 +136,7 @@ RSpec.describe "Inline plan editing", type: :system do
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     remote_content = "# New heading\n\nRemote revision.\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: remote_content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: remote_content,
       base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
     page.execute_script(<<~JS, remote_content, plan.reload.current_revision)
       const form = document.querySelector('.inline-editor form.document-editor')
@@ -288,7 +288,7 @@ RSpec.describe "Inline plan editing", type: :system do
 
   it "keeps the caret on the same Markdown characters across inline mode switches" do
     markdown = "# A plan\n\nFirst paragraph.\n\nSecond **paragraph**.\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: markdown,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: markdown,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_page_path(plan)
     within("#plan-toolbar") { click_link "Edit" }
@@ -385,7 +385,7 @@ RSpec.describe "Inline plan editing", type: :system do
       expect(page).to have_css(".content-nav__link", text: "Details")
       expect(page).to have_no_css(".content-nav__link", text: "A plan", visible: :all)
 
-      CoPlan::Plans::ReplaceContent.call(plan: plan.reload,
+      Coplan::Plans::ReplaceContent.call(plan: plan.reload,
         new_content: content.sub("# A plan", "# Revised plan").sub("## Details", "## Revised details"),
         base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
 
@@ -414,7 +414,7 @@ RSpec.describe "Inline plan editing", type: :system do
 
   it "keeps the visible passage fixed when editing starts and ends halfway down a long plan" do
     long_content = (1..80).map { |n| "Paragraph #{n} has enough words to show its position in the document." }.join("\n\n")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: long_content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: long_content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_page_path(plan)
     page.execute_script("document.querySelectorAll('#plan-content-body p')[40].scrollIntoView({block: 'start'})")
@@ -438,7 +438,7 @@ RSpec.describe "Inline plan editing", type: :system do
   it "navigates the outline within the editing surface" do
     sections = "# First\n\n" + (1..35).map { |n| "First section paragraph #{n}." }.join("\n\n") +
       "\n\n# Second\n\nSecond section text."
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: sections,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: sections,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_page_path(plan)
     within("#plan-toolbar") { click_link "Edit" }
@@ -673,7 +673,7 @@ RSpec.describe "Inline plan editing", type: :system do
 
   it "keeps comments on table cells and Mermaid labels in their previews" do
     mixed = "# Mixed content\n\n| Name | State |\n| --- | --- |\n| Alpha | Ready |\n\n```mermaid\ngraph LR\n  A[Start] --> B[Finish]\n```\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     table_thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Ready")
     table_thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Check state")
@@ -768,12 +768,12 @@ RSpec.describe "Inline plan editing", type: :system do
       click_button "Comment"
     end
     expect(page).to have_css(".inline-editor mark.anchor-highlight--open", text: "Second paragraph.", wait: 10)
-    expect(CoPlan::CommentThread.where(plan: plan, anchor_text: "Second paragraph.").count).to eq(1)
+    expect(Coplan::CommentThread.where(plan: plan, anchor_text: "Second paragraph.").count).to eq(1)
   end
 
   it "anchors a new comment selected from a table preview" do
     mixed = "# Table\n\n| Name | State |\n| --- | --- |\n| Alpha | Ready |\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_page_path(plan)
     within("#plan-toolbar") { click_link "Edit" }
@@ -795,7 +795,7 @@ RSpec.describe "Inline plan editing", type: :system do
       click_button "Comment"
     end
     expect(page).to have_css(".inline-editor .document-editor__block-preview table mark.anchor-highlight--open", text: "Ready", wait: 10)
-    expect(CoPlan::CommentThread.where(plan: plan, anchor_text: "Ready").count).to eq(1)
+    expect(Coplan::CommentThread.where(plan: plan, anchor_text: "Ready").count).to eq(1)
   end
 
   [ "An unsaved comment edit", "" ].each do |draft|
@@ -811,7 +811,7 @@ RSpec.describe "Inline plan editing", type: :system do
         find("textarea[aria-label='Edit comment']").fill_in with: draft
       end
 
-      CoPlan::Plans::ReplaceContent.call(plan: plan.reload,
+      Coplan::Plans::ReplaceContent.call(plan: plan.reload,
         new_content: content + "\nA remote document update.\n",
         base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
 
@@ -824,7 +824,7 @@ RSpec.describe "Inline plan editing", type: :system do
   it "keeps the reading passage in place and pulses the outline for an offscreen agent edit" do
     long_content = "## Introduction\n\nOpening words.\n\n## Main section\n\n" +
       (1..75).map { |n| "Main paragraph #{n} with a stable reading position." }.join("\n\n")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: long_content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: long_content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     thread = create(:comment_thread, plan: plan, created_by_user: author,
       anchor_text: "Main paragraph 40 with a stable reading position.")
@@ -835,7 +835,7 @@ RSpec.describe "Inline plan editing", type: :system do
     page.execute_script("document.querySelectorAll('#plan-content-body p')[40].scrollIntoView({block: 'start'})")
     before = page.evaluate_script("document.querySelectorAll('#plan-content-body p')[40].getBoundingClientRect().top")
 
-    CoPlan::Plans::ReplaceContent.call(plan: plan.reload,
+    Coplan::Plans::ReplaceContent.call(plan: plan.reload,
       new_content: long_content.sub("Opening words.", "Opening words. A remote addition above the reader."),
       base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
 

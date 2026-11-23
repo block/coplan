@@ -1,6 +1,6 @@
 require "shellwords"
 
-module CoPlan
+module Coplan
   # Serves the agent instructions: a short primer at /agent-instructions,
   # plus topic guides at /agent-instructions/<guide> that agents fetch only
   # when a task needs them. The split keeps every agent's first read small —
@@ -84,10 +84,10 @@ module CoPlan
     private
 
     def prepare_instructions
-      @auth_instructions = CoPlan.configuration.agent_auth_instructions
-      @curl = CoPlan.configuration.agent_curl_prefix
-      @request_auth_available = CoPlan.configuration.api_authenticate.present?
-      @mint_curl = CoPlan.configuration.agent_mint_curl_prefix.presence ||
+      @auth_instructions = Coplan.configuration.agent_auth_instructions
+      @curl = Coplan.configuration.agent_curl_prefix
+      @request_auth_available = Coplan.configuration.api_authenticate.present?
+      @mint_curl = Coplan.configuration.agent_mint_curl_prefix.presence ||
         (@request_auth_available ? "curl -s" : @curl)
       # Includes the engine's mount point — host apps may mount Coplan under
       # a prefix (e.g. /coplan), and request.base_url alone would point every
@@ -102,8 +102,8 @@ module CoPlan
     # normal nav chrome (search, inbox, sign-out) in the shared layout —
     # same optional-resolve approach as WelcomeController.
     def resolve_viewer
-      @current_coplan_user = CoPlan::Authentication.user_from_request(request)
-      CoPlan::Current.user = current_user
+      @current_coplan_user = Coplan::Authentication.user_from_request(request)
+      Coplan::Current.user = current_user
     end
 
     # The Create Plan curl example, with a real configured plan type so

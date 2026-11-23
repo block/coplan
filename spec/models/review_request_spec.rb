@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::ReviewRequest do
+RSpec.describe Coplan::ReviewRequest do
   it "enforces one current assignment while retaining multiple ended assignments" do
     original = create(:review_request)
     2.times do
@@ -24,7 +24,7 @@ RSpec.describe CoPlan::ReviewRequest do
 
   it "accepts only supported reset reasons or no reset reason" do
     request = create(:review_request)
-    [ nil, *CoPlan::ReviewRequest::RESET_REASONS ].each do |reason|
+    [ nil, *Coplan::ReviewRequest::RESET_REASONS ].each do |reason|
       request.reset_reason = reason
       expect(request).to be_valid
     end

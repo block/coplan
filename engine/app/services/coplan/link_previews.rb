@@ -1,7 +1,7 @@
 require "cgi"
 require "uri"
 
-module CoPlan
+module Coplan
   class LinkPreviews
     # Coplan uses time-ordered UUIDv7 IDs, while imported installations may
     # contain older UUID versions. Validate the UUID shape, not one version.
@@ -128,7 +128,7 @@ module CoPlan
 
         # Slack sends percent-encoded URLs; decode each segment to match
         # the UTF-8 slugs stored in the database (Unicode slugs are
-        # explicitly supported — see CoPlan::Slug).
+        # explicitly supported — see Coplan::Slug).
         slug_path = decode_path_segments(match[2])
 
         resolve_plan(handle, slug_path)

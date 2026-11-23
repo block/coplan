@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Slack
     class WebClient
       class PermanentError < StandardError; end

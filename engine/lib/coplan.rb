@@ -8,7 +8,7 @@ require "coplan/engine"
 require "coplan/markdown_document_title"
 require "coplan/exceptions_app"
 
-module CoPlan
+module Coplan
   class << self
     def configuration
       @configuration ||= Configuration.new

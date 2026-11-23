@@ -7,7 +7,7 @@ RSpec.describe "Notifications", type: :request do
 
   before do
     sign_in_as(user)
-    allow(CoPlan::Broadcaster).to receive(:update_to)
+    allow(Coplan::Broadcaster).to receive(:update_to)
   end
 
   describe "GET /notifications" do

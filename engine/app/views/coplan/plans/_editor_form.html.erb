@@ -10,7 +10,7 @@
     "coplan--editor-token-url-value": creating ? new_plan_path : "",
     "coplan--editor-lease-url-value": creating ? "" : editor_lease_plan_path(@plan),
     "coplan--editor-attachments-url-value": creating ? "" : plan_attachments_path(@plan),
-    "coplan--editor-embed-domains-value": CoPlan::EmbedDomain.order(:hostname).pluck(:hostname).to_json,
+    "coplan--editor-embed-domains-value": Coplan::EmbedDomain.order(:hostname).pluck(:hostname).to_json,
     "coplan--editor-preview-url-value": preview_draft_plans_path } do %>
   <% if creating %>
     <%= hidden_field_tag :plan_type_id, @new_plan_type&.id %>
@@ -74,7 +74,7 @@
           <input id="coplan-insert-language" aria-label="New code language" role="combobox" aria-autocomplete="list" aria-controls="coplan-code-options" aria-expanded="false" autocomplete="off" autofocus placeholder="Search languages…" data-coplan--editor-target="newLanguage" data-action="input->coplan--editor#filterCodeLanguages keydown->coplan--editor#codePickerKeydown">
           <div id="coplan-code-options" class="document-editor__code-options" role="listbox" aria-label="Code languages">
             <% language_labels = { "text" => "Plain text", "javascript" => "JavaScript", "typescript" => "TypeScript", "sql" => "SQL", "json" => "JSON", "yaml" => "YAML", "html" => "HTML", "css" => "CSS" } %>
-            <% (["text"] + CoPlan.configuration.editor_code_languages).uniq.each_with_index do |language, index| %>
+            <% (["text"] + Coplan.configuration.editor_code_languages).uniq.each_with_index do |language, index| %>
               <button type="button" role="option" tabindex="-1" id="coplan-code-option-<%= index %>" aria-selected="false" data-language="<%= language %>" data-coplan--editor-target="codeOption" data-action="coplan--editor#chooseCodeLanguage"><%= language_labels.fetch(language, language.capitalize) %></button>
             <% end %>
           </div>
@@ -138,7 +138,7 @@
       <button type="button" class="btn btn--primary" data-coplan--editor-target="citationSave" data-action="coplan--editor#saveCitation">Save citation</button>
     </div>
   </dialog>
-  <datalist id="coplan-code-languages"><% CoPlan.configuration.editor_code_languages.each do |language| %><option value="<%= language %>"><% end %></datalist>
+  <datalist id="coplan-code-languages"><% Coplan.configuration.editor_code_languages.each do |language| %><option value="<%= language %>"><% end %></datalist>
   <div class="document-editor__upload-notice" data-coplan--editor-target="uploadNotice" popover="manual" role="status" aria-live="polite" hidden>
     <span data-coplan--editor-target="uploadMessage"></span>
     <button type="button" class="btn btn--secondary btn--sm" aria-label="Dismiss upload errors" data-coplan--editor-target="uploadDismiss" data-action="coplan--editor#dismissUploadErrors" hidden>Dismiss</button>

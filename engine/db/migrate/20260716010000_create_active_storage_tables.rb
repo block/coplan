@@ -6,7 +6,7 @@
 #
 # * The three active_storage tables keep ActiveStorage's stock auto-increment
 #   bigint primary keys — ActiveStorage manages those rows itself and never
-#   goes through CoPlan::ApplicationRecord#assign_uuid, so string UUID PKs
+#   goes through Coplan::ApplicationRecord#assign_uuid, so string UUID PKs
 #   would be left blank on insert.
 # * `active_storage_attachments.record_id` is `string, limit: 36` (instead of
 #   bigint) because it's a polymorphic FK that must hold Coplan's string UUID

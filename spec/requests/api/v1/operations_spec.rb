@@ -10,9 +10,9 @@ RSpec.describe "Api::V1::Operations", type: :request do
   before do
     alice_token # ensure token exists
     # Revision 1 is a human version, so the agent has to have read the plan
-    # before it may write (CoPlan::Plans::HumanEditGuard).
+    # before it may write (Coplan::Plans::HumanEditGuard).
     agent_has_read(plan, alice_token)
-    CoPlan::EditLease.acquire!(
+    Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: alice_token.id,
@@ -23,8 +23,8 @@ RSpec.describe "Api::V1::Operations", type: :request do
   [ true, false ].each do |reset|
     it "honors reset_reviews_on_change=#{reset} for direct operations" do
       plan.update!(reset_reviews_on_change: reset)
-      task = CoPlan::Reviews::Request.call(plan: plan, reviewer: alice, actor: alice)
-      receipt = CoPlan::Reviews::Respond.call(request: task, actor: alice, revision: 1, generation: task.generation, decision: "approved")
+      task = Coplan::Reviews::Request.call(plan: plan, reviewer: alice, actor: alice)
+      receipt = Coplan::Reviews::Respond.call(request: task, actor: alice, revision: 1, generation: task.generation, decision: "approved")
       post api_v1_plan_operations_path(plan), params: { lease_token: lease_token, base_revision: 1,
         operations: [ { op: "replace_exact", old_text: "Some content here.", new_text: "Updated content.", count: 1 } ] },
         headers: headers, as: :json
@@ -47,7 +47,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
         },
         headers: headers,
         as: :json
-    }.to change(CoPlan::PlanVersion, :count).by(1)
+    }.to change(Coplan::PlanVersion, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["revision"]).to eq(plan.current_revision + 1)
@@ -72,7 +72,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
   end
 
   it "apply operations fails without lease" do
-    CoPlan::EditLease.find_by(plan_id: plan.id)&.destroy
+    Coplan::EditLease.find_by(plan_id: plan.id)&.destroy
 
     post api_v1_plan_operations_path(plan),
       params: {
@@ -122,7 +122,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
         },
         headers: headers,
         as: :json
-    }.to change(CoPlan::PlanVersion, :count).by(1)
+    }.to change(Coplan::PlanVersion, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["applied"]).to eq(1)
@@ -164,8 +164,8 @@ RSpec.describe "Api::V1::Operations", type: :request do
 
   [ false, true ].each do |use_session|
     it "returns 422 for non-string empty-section content (session: #{use_session})" do
-      document = CoPlan::Plan.create!(title: "Invalid section", created_by_user: alice)
-      version = CoPlan::PlanVersion.create!(plan: document, revision: 1, content_markdown: "# H", actor_type: "human", actor_id: alice.id)
+      document = Coplan::Plan.create!(title: "Invalid section", created_by_user: alice)
+      version = Coplan::PlanVersion.create!(plan: document, revision: 1, content_markdown: "# H", actor_type: "human", actor_id: alice.id)
       document.update!(current_revision: 1, current_plan_version: version)
       agent_has_read(document, alice_token)
       session = create(:edit_session, plan: document, actor_id: alice_token.id) if use_session
@@ -181,8 +181,8 @@ RSpec.describe "Api::V1::Operations", type: :request do
 
   [ false, true ].each do |use_session|
     it "rebases empty-section padding without changing the wrong occurrence (session: #{use_session})" do
-      document = CoPlan::Plan.create!(title: "Padding", created_by_user: alice)
-      version = CoPlan::PlanVersion.create!(plan: document, revision: 1,
+      document = Coplan::Plan.create!(title: "Padding", created_by_user: alice)
+      version = Coplan::PlanVersion.create!(plan: document, revision: 1,
         content_markdown: "# H\n# Next\n\naaa", actor_type: "human", actor_id: alice.id)
       document.update!(current_revision: 1, current_plan_version: version)
       agent_has_read(document, alice_token)
@@ -222,12 +222,12 @@ RSpec.describe "Api::V1::Operations", type: :request do
   describe "a stale request after an earlier operation changes the length" do
     let(:expanded) { "AAAA expanded into a forty-char sentence" }
     let(:stale_plan) do
-      p = CoPlan::Plan.create!(title: "Stale Plan", created_by_user: alice)
-      v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: "# Stale\n\nAAAA\n\nBBBB\n\nCCCC", actor_type: "human", actor_id: alice.id)
+      p = Coplan::Plan.create!(title: "Stale Plan", created_by_user: alice)
+      v = Coplan::PlanVersion.create!(plan: p, revision: 1, content_markdown: "# Stale\n\nAAAA\n\nBBBB\n\nCCCC", actor_type: "human", actor_id: alice.id)
       p.update!(current_plan_version: v, current_revision: 1)
       agent_has_read(p, alice_token)
       # Another agent inserts "XX" inside CCCC.
-      v2 = CoPlan::PlanVersion.create!(
+      v2 = Coplan::PlanVersion.create!(
         plan: p, revision: 2, content_markdown: "# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC", actor_type: "local_agent", actor_id: alice.id,
         operations_json: [ { "op" => "replace_exact", "old_text" => "", "new_text" => "XX",
           "resolved_range" => [ 23, 23 ], "new_range" => [ 23, 25 ], "delta" => 2 } ]

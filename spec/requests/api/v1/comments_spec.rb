@@ -16,7 +16,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: content)
     plan.update!(current_plan_version: version, current_revision: 2)
     html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
-    doc = CoPlan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
+    doc = Coplan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
     target = JSON.parse(doc.css("[data-source-target]").last["data-source-target"])
     thread = plan.comment_threads.create!(plan_version: version, created_by_user: alice, source_token: target["token"])
     get api_v1_plan_comment_path(plan, thread), headers: headers
@@ -63,6 +63,17 @@ RSpec.describe "Api::V1::Comments", type: :request do
       get api_v1_plan_comment_path(plan, thread_record), headers: headers
       expect(JSON.parse(response.body)["comments"].first["reactions"]).to eq([])
     end
+
+    it "serves a deleted comment flagged and without its text" do
+      comment.soft_delete!
+      get api_v1_plan_comment_path(plan, thread_record), headers: headers
+      served = JSON.parse(response.body)["comments"].first
+      expect(served).to include("deleted" => true, "body_markdown" => Coplan::Comment::DELETED_BODY)
+
+      get snapshot_api_v1_plan_path(plan), headers: headers
+      snapshot = JSON.parse(response.body)["comment_threads"].first["comments"].first
+      expect(snapshot).to include("deleted" => true, "body_markdown" => Coplan::Comment::DELETED_BODY)
+    end
   end
 
   it "create comment thread" do
@@ -75,13 +86,13 @@ RSpec.describe "Api::V1::Comments", type: :request do
         },
         headers: headers,
         as: :json
-    }.to change(CoPlan::CommentThread, :count).by(1).and change(CoPlan::Comment, :count).by(1)
+    }.to change(Coplan::CommentThread, :count).by(1).and change(Coplan::Comment, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["thread_id"]).to be_present
     expect(body["comment_id"]).to be_present
 
-    comment = CoPlan::Comment.find(body["comment_id"])
+    comment = Coplan::Comment.find(body["comment_id"])
     expect(comment.author_type).to eq("local_agent")
     expect(comment.author_id).to eq(alice.id)
     expect(comment.author_id).not_to eq(alice_token.id)
@@ -90,14 +101,14 @@ RSpec.describe "Api::V1::Comments", type: :request do
   end
 
   it "create general comment thread" do
-    expect(CoPlan::Broadcaster).to receive(:replace_to).with(plan,
+    expect(Coplan::Broadcaster).to receive(:replace_to).with(plan,
       target: "plan-general-comment-list", partial: "coplan/plans/general_comment_list", locals: anything)
     expect {
       post api_v1_plan_comments_path(plan),
         params: { body_markdown: "General API feedback" },
         headers: headers,
         as: :json
-    }.to change(CoPlan::CommentThread, :count).by(1)
+    }.to change(Coplan::CommentThread, :count).by(1)
     expect(response).to have_http_status(:created)
   end
 
@@ -122,12 +133,12 @@ RSpec.describe "Api::V1::Comments", type: :request do
         params: { body_markdown: "API reply" },
         headers: headers,
         as: :json
-    }.to change(CoPlan::Comment, :count).by(1)
+    }.to change(Coplan::Comment, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["thread_id"]).to eq(thread_record.id)
 
-    comment = CoPlan::Comment.find(body["comment_id"])
+    comment = Coplan::Comment.find(body["comment_id"])
     expect(comment.author_id).to eq(alice.id)
     expect(comment.author_id).not_to eq(alice_token.id)
     expect(comment.api_token_id).to eq(alice_token.id)
@@ -184,7 +195,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
       headers: headers,
       as: :json
     expect(response).to have_http_status(:created)
-    comment = CoPlan::Comment.find(JSON.parse(response.body)["comment_id"])
+    comment = Coplan::Comment.find(JSON.parse(response.body)["comment_id"])
     expect(comment.agent_name).to eq(alice_token.name)
   end
 
@@ -196,7 +207,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
       headers: headers,
       as: :json
     expect(response).to have_http_status(:created)
-    comment = CoPlan::Comment.find(JSON.parse(response.body)["comment_id"])
+    comment = Coplan::Comment.find(JSON.parse(response.body)["comment_id"])
     expect(comment.agent_name).to eq(alice_token.name)
   end
 

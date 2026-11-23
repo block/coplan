@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Broadcaster
     # Prefer partial:/locals: over html: — partials are rendered here in a
     # requestless context. Never pass request-rendered HTML that contains
@@ -103,8 +103,8 @@ module CoPlan
       # newly extracted resources rather than the previous revision's list.
       def replace_plan_references(plan)
         references = plan.references.order(reference_type: :asc, created_at: :desc)
-        back_matter = CoPlan::ApplicationController.helpers.plan_citation_back_matter(plan, references)
-        listed_references = CoPlan::ApplicationController.helpers.listed_plan_references(references, back_matter[:cited_urls])
+        back_matter = Coplan::ApplicationController.helpers.plan_citation_back_matter(plan, references)
+        listed_references = Coplan::ApplicationController.helpers.listed_plan_references(references, back_matter[:cited_urls])
         extracted_references = listed_references.select { |reference| reference.source == "extracted" }
         reference_count = back_matter[:count] + listed_references.size
         extracted_html = render(
@@ -115,7 +115,7 @@ module CoPlan
           plan,
           action: "coplan-replace-if-clean",
           target: "plan-citations",
-          html: CoPlan::ApplicationController.helpers.citation_edit_controls(back_matter[:html]),
+          html: Coplan::ApplicationController.helpers.citation_edit_controls(back_matter[:html]),
           attrs: { "data-revision" => plan.current_revision }
         )
         custom_action_to(
@@ -148,7 +148,7 @@ module CoPlan
       end
 
       def render(partial:, locals:)
-        CoPlan::ApplicationController.render(partial: partial, locals: locals)
+        Coplan::ApplicationController.render(partial: partial, locals: locals)
       end
     end
   end

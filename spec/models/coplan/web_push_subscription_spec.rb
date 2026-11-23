@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::WebPushSubscription, type: :model do
+RSpec.describe Coplan::WebPushSubscription, type: :model do
   let(:user) { create(:coplan_user) }
 
   describe "validations" do

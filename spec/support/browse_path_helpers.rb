@@ -42,7 +42,7 @@ module BrowsePathHelpers
   # what `plans_path` used to point at, now that it has an address.
   # Takes a user or a library.
   def library_page_path(owner, **params)
-    library = owner.is_a?(CoPlan::Library) ? owner : owner.library
+    library = owner.is_a?(Coplan::Library) ? owner : owner.library
     coplan_routes.browse_library_path(handle: library.handle, **params)
   end
 
@@ -54,7 +54,7 @@ module BrowsePathHelpers
   private
 
   def coplan_routes
-    CoPlan::Engine.routes.url_helpers
+    Coplan::Engine.routes.url_helpers
   end
 
   def split_plan_path(plan)

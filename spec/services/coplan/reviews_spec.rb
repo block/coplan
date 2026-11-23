@@ -8,30 +8,30 @@ RSpec.describe "Coplan reviews" do
   let(:request) { create(:review_request, plan: plan, reviewer: reviewer) }
 
   def respond(decision: "approved", note: nil, **attributes)
-    CoPlan::Reviews::Respond.call(request: request, actor: reviewer, revision: plan.current_revision,
+    Coplan::Reviews::Respond.call(request: request, actor: reviewer, revision: plan.current_revision,
       decision: decision, note: note, generation: request.reload.generation, **attributes)
   end
 
   it "requests optional review and sends a notification without granting permissions" do
     watcher = create(:api_token, user: reviewer)
-    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
-    task = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, requirement: "optional")
+    Coplan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    task = Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, requirement: "optional")
     expect(task.requirement).to eq("optional")
     expect(watcher.agent_events.last!.payload).to include("action" => "requested", "requirement" => "optional")
     expect(task.notifications.last).to have_attributes(user_id: reviewer.id, reason: "review_requested", comment_thread_id: nil)
-    expect(CoPlan::PlanPolicy.new(reviewer, plan).update?).to be(false)
+    expect(Coplan::PlanPolicy.new(reviewer, plan).update?).to be(false)
     expect(plan.plan_collaborators).to be_empty
   end
 
   it "re-requests the existing task using its current requirement unless overridden" do
     stale = request
-    CoPlan::ReviewRequest.find(stale.id).update!(requirement: "optional")
+    Coplan::ReviewRequest.find(stale.id).update!(requirement: "optional")
 
-    repeated = CoPlan::Reviews::Request.again(request: stale, actor: plan.created_by_user)
+    repeated = Coplan::Reviews::Request.again(request: stale, actor: plan.created_by_user)
     expect(repeated).to have_attributes(id: stale.id, requirement: "optional", status: "pending")
     expect(plan.plan_events.where(event_type: "review_requested").last.metadata).to include("requirement" => "optional")
 
-    overridden = CoPlan::Reviews::Request.again(request: stale, actor: plan.created_by_user, requirement: "required")
+    overridden = Coplan::Reviews::Request.again(request: stale, actor: plan.created_by_user, requirement: "required")
     expect(overridden).to have_attributes(id: stale.id, requirement: "required", status: "pending")
   end
 
@@ -39,11 +39,11 @@ RSpec.describe "Coplan reviews" do
     response = respond(note: "Looks right")
     expect(response.comment_thread.comments.first.body_markdown).to eq("Looks right")
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A revised plan")
-    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
+    plan.with_lock { Coplan::Plans::AdvanceVersion.call(plan: plan, version: version) }
     expect(request.reload.status).to eq("pending")
     expect(request.effective_response).to be_nil
     expect(response.reload.plan_version.revision).to eq(1)
-    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
     expect(request.reload).to be_pending
     expect(request.latest_approval.id).to eq(response.id)
     expect(request.requested_plan_version).to eq(version)
@@ -55,10 +55,10 @@ RSpec.describe "Coplan reviews" do
     original_actor = original.requested_by_user
     respond
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A revised plan")
-    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
+    plan.with_lock { Coplan::Plans::AdvanceVersion.call(plan: plan, version: version) }
     next_actor = create(:coplan_user)
     travel_to(1.hour.from_now) do
-      CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: next_actor, requirement: "optional")
+      Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: next_actor, requirement: "optional")
     end
     events = plan.plan_events.where(event_type: "review_requested").order(:created_at).to_a
     expect(events.size).to eq(2)
@@ -66,7 +66,7 @@ RSpec.describe "Coplan reviews" do
     expect(events.first.metadata).to include("revision" => 1, "requirement" => "required")
     expect(events.last).to have_attributes(actor_id: next_actor.id, after_value: original.id)
     expect(events.last.metadata).to include("revision" => 2, "requirement" => "optional")
-    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: next_actor)
+    Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: next_actor)
     expect(plan.plan_events.where(event_type: "review_requested").count).to eq(3)
     expect(events.first.reload.created_at).to eq(original_at)
   end
@@ -74,11 +74,11 @@ RSpec.describe "Coplan reviews" do
   it "keeps pending requests on the latest plan and binds only the completed response" do
     task = request
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "Latest plan")
-    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
-    expect(CoPlan::Reviews::Serialize.call(task)).not_to have_key(:requested_revision)
+    plan.with_lock { Coplan::Plans::AdvanceVersion.call(plan: plan, version: version) }
+    expect(Coplan::Reviews::Serialize.call(task)).not_to have_key(:requested_revision)
     response = respond
     expect(response.plan_version).to eq(version)
-    expect(CoPlan::Reviews::Serialize.call(task.reload)[:responses].first[:revision]).to eq(2)
+    expect(Coplan::Reviews::Serialize.call(task.reload)[:responses].first[:revision]).to eq(2)
   end
 
   it "creates a public ordinary comment thread for requested changes and notifies the author" do
@@ -94,10 +94,10 @@ RSpec.describe "Coplan reviews" do
       co_author = create(:coplan_user)
       create(:plan_collaborator, plan: plan, user: co_author, role: "author")
       token = create(:api_token, user: plan.created_by_user)
-      CoPlan::AgentSession.create!(plan: plan, api_token: token, state: "watching", agent_name: "Authorbot")
+      Coplan::AgentSession.create!(plan: plan, api_token: token, state: "watching", agent_name: "Authorbot")
 
       response = nil
-      perform_enqueued_jobs(only: CoPlan::CreateNotificationsJob) do
+      perform_enqueued_jobs(only: Coplan::CreateNotificationsJob) do
         response = respond(decision: decision, note: "Please verify retries")
       end
 
@@ -105,10 +105,10 @@ RSpec.describe "Coplan reviews" do
       expect(notifications.where(user: plan.created_by_user).pluck(:reason)).to eq([ "review_response" ])
       expect(notifications.where(user: co_author).pluck(:reason)).to eq([ "new_comment" ])
       expect(notifications.where(user: reviewer)).to be_empty
-      expect(CoPlan::AgentEvent.pluck(:event_type)).to contain_exactly("comment.created", "review.responded")
+      expect(Coplan::AgentEvent.pluck(:event_type)).to contain_exactly("comment.created", "review.responded")
 
       reply = response.comment_thread.comments.create!(body_markdown: "Updated the example", author_type: "human", author_id: co_author.id)
-      CoPlan::CreateNotificationsJob.perform_now(comment_thread_id: response.comment_thread.id,
+      Coplan::CreateNotificationsJob.perform_now(comment_thread_id: response.comment_thread.id,
         actor_id: co_author.id, comment_id: reply.id, reason: "reply")
       expect(notifications.where(user: plan.created_by_user).pluck(:reason)).to contain_exactly("review_response", "reply")
       expect(notifications.where(user: reviewer).pluck(:reason)).to eq([ "reply" ])
@@ -119,34 +119,34 @@ RSpec.describe "Coplan reviews" do
     request
     expect { respond(decision: "changes_requested", note: " ") }.to raise_error(ActiveRecord::RecordInvalid)
     expect(plan.comment_threads).to be_empty
-    expect { CoPlan::Reviews::Respond.call(request: request, actor: reviewer, revision: 0, decision: "approved") }.to raise_error(CoPlan::Reviews::Respond::Conflict)
+    expect { Coplan::Reviews::Respond.call(request: request, actor: reviewer, revision: 0, decision: "approved") }.to raise_error(Coplan::Reviews::Respond::Conflict)
     request.update!(status: "withdrawn")
-    expect { respond }.to raise_error(CoPlan::Reviews::Respond::Conflict)
+    expect { respond }.to raise_error(Coplan::Reviews::Respond::Conflict)
     expect(request.review_responses).to be_empty
   end
 
   it "does not duplicate sign-offs on a retry" do
     first = respond(note: "Reviewed")
-    expect { expect(respond(note: "Reviewed").id).to eq(first.id) }.not_to change(CoPlan::ReviewResponse, :count)
+    expect { expect(respond(note: "Reviewed").id).to eq(first.id) }.not_to change(Coplan::ReviewResponse, :count)
   end
 
   it "returns an old keyed response without completing a re-requested task" do
     key = SecureRandom.uuid
     first = respond(note: "Reviewed", idempotency_key: key)
-    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
-    counts = [ CoPlan::ReviewResponse.count, CoPlan::CommentThread.count, CoPlan::Notification.count, CoPlan::AgentEvent.count ]
+    Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    counts = [ Coplan::ReviewResponse.count, Coplan::CommentThread.count, Coplan::Notification.count, Coplan::AgentEvent.count ]
     expect(respond(note: "Reviewed", idempotency_key: key).id).to eq(first.id)
     expect(request.reload.status).to eq("pending")
-    expect([ CoPlan::ReviewResponse.count, CoPlan::CommentThread.count, CoPlan::Notification.count, CoPlan::AgentEvent.count ]).to eq(counts)
+    expect([ Coplan::ReviewResponse.count, Coplan::CommentThread.count, Coplan::Notification.count, Coplan::AgentEvent.count ]).to eq(counts)
   end
 
   it "replays a keyed response after the plan changes without signing off the new task" do
     key = SecureRandom.uuid
     first = respond(note: "Reviewed", idempotency_key: key)
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A newer plan")
-    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
-    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
-    replay = CoPlan::Reviews::Respond.call(request: request, actor: reviewer,
+    plan.with_lock { Coplan::Plans::AdvanceVersion.call(plan: plan, version: version) }
+    Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    replay = Coplan::Reviews::Respond.call(request: request, actor: reviewer,
       revision: 1, decision: "approved", note: "Reviewed", idempotency_key: key)
     expect(replay.id).to eq(first.id)
     expect(replay.plan_version.revision).to eq(1)
@@ -165,7 +165,7 @@ RSpec.describe "Coplan reviews" do
 
   it "records an intentional identical review with a fresh response key" do
     first = respond(note: "Reviewed", idempotency_key: SecureRandom.uuid)
-    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
     second = respond(note: "Reviewed", idempotency_key: SecureRandom.uuid)
     expect(second.id).not_to eq(first.id)
     expect(request.reload.status).to eq("approved")
@@ -183,7 +183,7 @@ RSpec.describe "Coplan reviews" do
   it "rejects a response key owned by another request" do
     key = SecureRandom.uuid
     other_task = create(:review_request)
-    CoPlan::Reviews::Respond.call(request: other_task, actor: other_task.reviewer,
+    Coplan::Reviews::Respond.call(request: other_task, actor: other_task.reviewer,
       revision: other_task.plan.current_revision, decision: "approved", idempotency_key: key)
     expect { respond(idempotency_key: key) }.to raise_error(ActiveRecord::RecordInvalid)
     expect(request.reload.status).to eq("pending")
@@ -197,7 +197,7 @@ RSpec.describe "Coplan reviews" do
 
   it "keeps a re-requested task pending on a legacy identical retry" do
     first = respond(note: "Reviewed")
-    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
     expect(respond(note: "Reviewed").id).to eq(first.id)
     expect(request.reload.status).to eq("pending")
     expect(request.review_responses.size).to eq(1)
@@ -212,36 +212,36 @@ RSpec.describe "Coplan reviews" do
   it "bounds attribution from older tokens with long display names" do
     token = create(:api_token, user: reviewer, name: "A legacy token with a long display name", agent_name: nil)
     response = respond(api_token: token)
-    expect(response.agent_name.length).to be <= CoPlan::ApiToken::AGENT_NAME_LIMIT
+    expect(response.agent_name.length).to be <= Coplan::ApiToken::AGENT_NAME_LIMIT
   end
 
   it "publishes responses to attached agents with the narrow approval meaning" do
     token = create(:api_token, user: plan.created_by_user)
-    CoPlan::AgentSession.create!(plan: plan, api_token: token, state: "watching", agent_name: "Authorbot")
+    Coplan::AgentSession.create!(plan: plan, api_token: token, state: "watching", agent_name: "Authorbot")
     respond
-    event = CoPlan::AgentEvent.where(event_type: "review.responded").last
+    event = Coplan::AgentEvent.where(event_type: "review.responded").last
     expect(event.payload).to include("revision" => 1, "approval_meaning" => "Satisfied with this version; grants no execution authority or permissions.")
   end
 
   it "can cascade a deleted request's immutable history" do
     respond
     expect { request.destroy! }.not_to raise_error
-    expect(CoPlan::ReviewResponse.where(review_request_id: request.id)).to be_empty
+    expect(Coplan::ReviewResponse.where(review_request_id: request.id)).to be_empty
   end
 
-  describe CoPlan::Reviews::Suggest do
+  describe Coplan::Reviews::Suggest do
     let(:withdrawn) { create(:coplan_user) }
     let(:owner) { create(:coplan_user) }
     let(:helper) { create(:coplan_user) }
 
     def suggest_with(hook)
-      allow(CoPlan.configuration).to receive(:suggest_reviewers).and_return(hook)
+      allow(Coplan.configuration).to receive(:suggest_reviewers).and_return(hook)
       described_class.call(plan: plan)
     end
 
     it "offers the host's people once each, minus the author and active reviewers" do
       request
-      CoPlan::Reviews::Withdraw.call(request: create(:review_request, plan: plan, reviewer: withdrawn), actor: plan.created_by_user)
+      Coplan::Reviews::Withdraw.call(request: create(:review_request, plan: plan, reviewer: withdrawn), actor: plan.created_by_user)
       suggestions = suggest_with(->(given) {
         expect(given).to eq(plan)
         [ plan.created_by_user, reviewer, nil, build(:coplan_user),
@@ -259,7 +259,7 @@ RSpec.describe "Coplan reviews" do
     it "suggests nobody without a hook, and reports a failing hook instead of raising" do
       expect(suggest_with(nil)).to eq([])
       reported = []
-      allow(CoPlan.configuration).to receive(:error_reporter).and_return(->(error, context) { reported << [ error.message, context ] })
+      allow(Coplan.configuration).to receive(:error_reporter).and_return(->(error, context) { reported << [ error.message, context ] })
       expect(suggest_with(->(_plan) { raise "Ownership API down" })).to eq([])
       expect(reported).to eq([ [ "Ownership API down", { source: "suggest_reviewers", plan_id: plan.id } ] ])
     end
