@@ -92,36 +92,49 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
 
   // The textarea owns the caret, input method, selection, history and sizing.
   // Show its native text until a matching colored copy is ready.
-  let highlighter, loading, disposed = false, composing = false
+  let highlighter, loading, timer, paintedSource, disposed = false, composing = false
   function syncColors() {
-    colors.style.width = script.clientWidth + "px"
-    colors.style.height = script.clientHeight + "px"
     colors.scrollTop = script.scrollTop
     colors.scrollLeft = script.scrollLeft
   }
-  function paint() {
-    sourceBox.classList.remove("is-colored")
-    if (disposed || editor.hidden || composing || !script.value || script.value.length > 20000) return
-    if (!highlighter) {
-      loading ||= loadHljs().then(async hljs => {
-        if (await loadLanguage(hljs, "javascript")) {
+  function schedulePaint() {
+    clearTimeout(timer)
+    const source = script.value
+    const enabled = highlighter && !editor.hidden && !composing && source.length > 0 && source.length <= 20000
+    const ready = enabled && paintedSource === source
+    sourceBox.classList.toggle("is-colored", Boolean(ready))
+    if (!enabled || ready) return
+    timer = setTimeout(() => {
+      try {
+        colors.innerHTML = highlighter.highlight(source, { language: "javascript", ignoreIllegals: true }).value
+        // A trailing newline in a textarea has its own editable line.
+        colors.append("\u200b")
+        paintedSource = source
+        sourceBox.classList.add("is-colored")
+        syncColors()
+      } catch { paintedSource = null } // Native text stays visible.
+    }, 80)
+  }
+  function openHighlighting() {
+    if (!highlighter && !loading) {
+      // A failed load can retry when Edit opens again.
+      loading = loadHljs().then(async hljs => {
+        if (await loadLanguage(hljs, "javascript") && !disposed) {
           highlighter = hljs
-          paint()
+          schedulePaint()
         }
       }).catch(() => {}).finally(() => { loading = null })
-      return
     }
-    try {
-      colors.innerHTML = highlighter.highlight(script.value, { language: "javascript", ignoreIllegals: true }).value
-    } catch { return } // Keep plain text available if tokenization fails.
-    // A trailing newline in a textarea has its own editable line.
-    colors.append("\u200b")
-    sourceBox.classList.add("is-colored")
-    syncColors()
+    schedulePaint()
   }
   dom.coplanSyncColors = syncColors
-  dom.coplanCompose = active => { composing = active; paint() }
-  const resize = new ResizeObserver(syncColors)
+  dom.coplanCompose = active => { composing = active; schedulePaint() }
+  const resize = new ResizeObserver(([entry]) => {
+    // The fractional content box excludes the textarea's scrollbar and padding.
+    colors.style.width = entry.contentRect.width + "px"
+    colors.style.height = entry.contentRect.height + "px"
+    syncColors()
+  })
   resize.observe(script)
 
   let parts = componentParts(node.attrs.source)
@@ -132,9 +145,13 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
     }
     type.value = parts.type
     const choices = new Set([...(catalog.libraries || []), ...parts.libraries])
+    for (const name of catalog.typeModules?.[parts.type] || []) choices.delete(name)
     moduleButton.hidden = choices.size === 0
-    moduleButton.textContent = parts.libraries.length ? `Modules (${parts.libraries.length})` : "Modules"
-    const typeModules = catalog.typeModules?.[parts.type]
+    const selectedCount = parts.libraries.filter(name => choices.has(name)).length
+    moduleButton.textContent = selectedCount ? `Modules (${selectedCount})` : "Modules"
+    for (const input of libraries.querySelectorAll("input")) {
+      if (!choices.has(input.value)) input.parentElement.remove()
+    }
     for (const name of choices) {
       let input = [...libraries.querySelectorAll("input")].find(input => input.value === name)
       if (!input) {
@@ -143,14 +160,10 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
         input.value = name
         input.dataset.action = "change->coplan--editor#componentFieldChanged"
         const label = document.createElement("label")
-        const note = document.createElement("small")
-        note.textContent = "Included with type"
-        label.append(input, document.createTextNode(name), note)
+        label.append(input, document.createTextNode(name))
         libraries.append(label)
       }
-      input.disabled = Array.isArray(typeModules) && typeModules.includes(name) && !parts.libraries.includes(name)
-      input.checked = input.disabled || parts.libraries.includes(name)
-      input.parentElement.querySelector("small").hidden = !input.disabled
+      input.checked = parts.libraries.includes(name)
     }
   }
   dom.coplanComponentSource = field => {
@@ -186,9 +199,9 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
     for (const button of buttons) button.setAttribute("aria-pressed", String(button.dataset.componentView === mode))
     if (editing) {
       generation++
-      paint()
+      openHighlighting()
       script.focus({ preventScroll: true })
-    } else render()
+    } else { clearTimeout(timer); render() }
   }
   script.value = parts.body
   syncSettings()
@@ -202,12 +215,12 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
         const previousHeader = parts.header
         parts = componentParts(node.attrs.source)
         if (script.value !== parts.body) script.value = parts.body
-        paint()
+        schedulePaint()
         if (previousHeader !== parts.header) syncSettings()
         if (!output.hidden) render()
       }
       return true
     },
-    stopEvent: () => true, ignoreMutation: () => true, destroy() { disposed = true; generation++; resize.disconnect() }
+    stopEvent: () => true, ignoreMutation: () => true, destroy() { disposed = true; generation++; clearTimeout(timer); resize.disconnect() }
   }
 }

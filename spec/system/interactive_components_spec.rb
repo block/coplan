@@ -210,10 +210,15 @@ RSpec.describe "Interactive components", type: :system do
     block.click_button("Edit", exact: true)
     expect(block).to have_link("Component guide", href: agent_instructions_guide_path(guide: "components", format: :html), exact: false)
     block.click_button("Modules")
-    expect(block).to have_css('input[value="diagram@1"]:checked:disabled')
-    expect(block).to have_text("Included with type")
+    expect(block).to have_unchecked_field("amount@1")
+    expect(block).to have_no_field("diagram@1")
     block.click_button("Modules")
     expect(block).to have_css('.document-editor__component-colors .hljs-string', text: "'Original'", wait: 15)
+    token = block.find(".document-editor__component-colors .hljs-string", text: "'Original'")
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      expect(token.evaluate_script("getComputedStyle(this).color")).not_to eq(token.evaluate_script("getComputedStyle(this.parentElement).color"))
+    end
     expect(block.find(script_field).value).to eq("diagram.node('a', 'Original');")
     expect(block).to have_no_css("iframe", visible: true)
     click_button "Raw", exact: true
@@ -224,6 +229,7 @@ RSpec.describe "Interactive components", type: :system do
     block.select("receipt", from: "Type")
     block.select("Plain JavaScript", from: "Type")
     block.click_button("Modules")
+    expect(block).to have_unchecked_field("diagram@1")
     block.check("amount@1")
     code = 'root.textContent = "Cents " + (await import("amount")).cents;'
     block.find(script_field).set(code)

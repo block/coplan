@@ -44,7 +44,7 @@ diagram.edge("checkout", "retry", "on failure");
 <% end -%>
 ## JavaScript modules
 
-A **module** is bundled JavaScript that your script can import. The Markdown attribute `uses` takes exact module keys separated by spaces. For example, `uses="diagram@1"` makes `await import("diagram")` available. A type already includes the modules in its table row. Each saved document version retains the module code it used.
+A **module** is bundled JavaScript that your script can import. The Markdown attribute `uses` takes exact module keys separated by spaces. For example, `uses="diagram@1"` makes `await import("diagram")` available. A type already includes the modules in its table row. The editor’s Modules picker offers additional libraries. You can leave `uses` out when the type supplies everything your script needs. Each saved document version retains the module code it used.
 
 | Module key for `uses` | Name for `await import()` |
 |---|---|
