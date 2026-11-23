@@ -254,4 +254,18 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 .document-editor__module-picker label:hover, .document-editor__module-picker label:focus-within { background: var(--color-interaction-hover-bg); }
 .document-editor__module-picker input { margin: 0; width: auto; accent-color: var(--color-primary); }
 .document-editor__module-picker small { color: var(--color-text-muted); font: inherit; font-size: 11px; }
-.document-editor__component .document-editor__block-source { field-sizing: content; min-height: 8em; max-height: 55vh; padding: 12px; }
+.document-editor__component-code { position: relative; background: var(--color-surface); }
+.document-editor__component-code .document-editor__block-source, .document-editor__component-colors {
+  box-sizing: border-box; margin: 0; border: 0; padding: 12px;
+  font: 14px/1.7 var(--font-mono, monospace); letter-spacing: normal; tab-size: 8;
+  white-space: pre-wrap; overflow-wrap: break-word; text-align: start;
+}
+.document-editor__component-code .document-editor__block-source { position: relative; field-sizing: content; min-height: 8em; max-height: 55vh; }
+.document-editor__component-colors { position: absolute; inset: 0 auto auto 0; overflow: hidden; pointer-events: none; user-select: none; visibility: hidden; color: var(--color-text); }
+.document-editor__component-code.is-colored .document-editor__component-colors { visibility: visible; }
+.document-editor__component-code.is-colored textarea { background: transparent; color: transparent; caret-color: var(--color-text); }
+.document-editor__component-code.is-colored textarea::selection { background: Highlight; color: HighlightText; }
+@media (forced-colors: active) {
+  .document-editor__component-code.is-colored .document-editor__component-colors { visibility: hidden; }
+  .document-editor__component-code.is-colored textarea { color: CanvasText; background: Canvas; caret-color: auto; }
+}

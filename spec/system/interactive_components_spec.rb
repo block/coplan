@@ -213,6 +213,7 @@ RSpec.describe "Interactive components", type: :system do
     expect(block).to have_css('input[value="diagram@1"]:checked:disabled')
     expect(block).to have_text("Included with type")
     block.click_button("Modules")
+    expect(block).to have_css('.document-editor__component-colors .hljs-string', text: "'Original'", wait: 15)
     expect(block.find(script_field).value).to eq("diagram.node('a', 'Original');")
     expect(block).to have_no_css("iframe", visible: true)
     click_button "Raw", exact: true
@@ -226,11 +227,37 @@ RSpec.describe "Interactive components", type: :system do
     block.check("amount@1")
     code = 'root.textContent = "Cents " + (await import("amount")).cents;'
     block.find(script_field).set(code)
+    expect(block).to have_css(".document-editor__component-colors .hljs-keyword", text: "await")
+    modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
+    block.find(script_field).send_keys([ modifier, "z" ])
+    expect(block).to have_css(".document-editor__component-colors .hljs-string", text: "'Original'")
+    block.find(script_field).send_keys([ modifier, :shift, "z" ])
+    expect(block).to have_css(".document-editor__component-colors .hljs-keyword", text: "await")
     expect(block.find("figure", visible: :all)["data-coplan--component-program-value"]).to include("Original")
     block.click_button("Preview", exact: true)
     within_frame(block.find("iframe")) { expect(page).to have_text("Cents 250") }
     click_button "Raw", exact: true
     expect(page.evaluate_script("arguments[0].textContent", raw)).to include(%(::: {.component #path title="Legacy label" uses="amount@1"}\n\n#{code}\n\n:::))
+  end
+
+  it "keeps long, scrolled JavaScript aligned and leaves oversized programs editable" do
+    lines = (1..90).map { |i| "// Row #{i}" }.join("\n")
+    markdown = "# Scrolling\n\n::: {.component}\n\n#{lines}\n\n:::\n"
+    plan = Coplan::Plans::Create.call(title: "Scrolling", content: markdown, user: author, actor_type: "human")
+    visit plan_edit_page_path(plan)
+    block = find(".document-editor__component", wait: 20)
+    block.click_button("Edit", exact: true)
+    input = block.find('textarea[aria-label="Component JavaScript"]')
+    colors = block.find(".document-editor__component-colors")
+    expect(colors).to have_css(".hljs-comment", count: 90, visible: :all, wait: 15)
+    page.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", input)
+    expect(block).to have_css(".is-colored") {
+      page.evaluate_script("arguments[0].scrollTop > 0 && arguments[0].scrollTop === arguments[1].scrollTop", input, colors)
+    }
+    large = "// " + "word " * 4200
+    input.set(large)
+    expect(block).to have_no_css(".is-colored")
+    expect(input.value).to eq(large)
   end
 
   it "inserts a plain JavaScript component without a title or type" do

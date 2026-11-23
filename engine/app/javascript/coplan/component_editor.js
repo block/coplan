@@ -1,3 +1,5 @@
+import { loadHljs, loadLanguage } from "coplan/syntax_highlight"
+
 // Region parsing has already identified the first and last lines as markers.
 // Keep their spelling, optional metadata and line endings when editing a field.
 function componentParts(source) {
@@ -78,8 +80,49 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
   script.spellcheck = false
   script.setAttribute("aria-label", "Component JavaScript")
   script.dataset.action = "input->coplan--editor#componentFieldChanged keydown->coplan--editor#blockKeydown"
-  editor.append(settings, script)
+  const sourceBox = document.createElement("div")
+  sourceBox.className = "document-editor__component-code"
+  const colors = document.createElement("div")
+  colors.className = "document-editor__component-colors"
+  colors.setAttribute("aria-hidden", "true")
+  script.dataset.action += " scroll->coplan--editor#syncComponentColors compositionstart->coplan--editor#componentComposition compositionend->coplan--editor#componentComposition"
+  sourceBox.append(colors, script)
+  editor.append(settings, sourceBox)
   dom.append(header, editor, output)
+
+  // The textarea owns the caret, input method, selection, history and sizing.
+  // Show its native text until a matching colored copy is ready.
+  let highlighter, loading, disposed = false, composing = false
+  function syncColors() {
+    colors.style.width = script.clientWidth + "px"
+    colors.style.height = script.clientHeight + "px"
+    colors.scrollTop = script.scrollTop
+    colors.scrollLeft = script.scrollLeft
+  }
+  function paint() {
+    sourceBox.classList.remove("is-colored")
+    if (disposed || editor.hidden || composing || !script.value || script.value.length > 20000) return
+    if (!highlighter) {
+      loading ||= loadHljs().then(async hljs => {
+        if (await loadLanguage(hljs, "javascript")) {
+          highlighter = hljs
+          paint()
+        }
+      }).catch(() => {}).finally(() => { loading = null })
+      return
+    }
+    try {
+      colors.innerHTML = highlighter.highlight(script.value, { language: "javascript", ignoreIllegals: true }).value
+    } catch { return } // Keep plain text available if tokenization fails.
+    // A trailing newline in a textarea has its own editable line.
+    colors.append("\u200b")
+    sourceBox.classList.add("is-colored")
+    syncColors()
+  }
+  dom.coplanSyncColors = syncColors
+  dom.coplanCompose = active => { composing = active; paint() }
+  const resize = new ResizeObserver(syncColors)
+  resize.observe(script)
 
   let parts = componentParts(node.attrs.source)
   function syncSettings() {
@@ -143,6 +186,7 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
     for (const button of buttons) button.setAttribute("aria-pressed", String(button.dataset.componentView === mode))
     if (editing) {
       generation++
+      paint()
       script.focus({ preventScroll: true })
     } else render()
   }
@@ -158,11 +202,12 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
         const previousHeader = parts.header
         parts = componentParts(node.attrs.source)
         if (script.value !== parts.body) script.value = parts.body
+        paint()
         if (previousHeader !== parts.header) syncSettings()
         if (!output.hidden) render()
       }
       return true
     },
-    stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++ }
+    stopEvent: () => true, ignoreMutation: () => true, destroy() { disposed = true; generation++; resize.disconnect() }
   }
 }

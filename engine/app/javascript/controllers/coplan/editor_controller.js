@@ -799,6 +799,12 @@ export default class extends Controller {
   switchComponentView(event) {
     event.currentTarget.closest(".document-editor__component").coplanComponentView(event.currentTarget.dataset.componentView)
   }
+  syncComponentColors(event) {
+    event.currentTarget.closest(".document-editor__component").coplanSyncColors()
+  }
+  componentComposition(event) {
+    event.currentTarget.closest(".document-editor__component").coplanCompose(event.type === "compositionstart")
+  }
   componentFieldChanged(event) {
     const field = event.currentTarget
     const block = field.closest(".document-editor__component")
