@@ -145,7 +145,8 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
     }
     type.value = parts.type
     const choices = new Set([...(catalog.libraries || []), ...parts.libraries])
-    for (const name of catalog.typeModules?.[parts.type] || []) choices.delete(name)
+    const typeModules = catalog.typeModules?.[parts.type]
+    if (Array.isArray(typeModules)) typeModules.forEach(name => choices.delete(name))
     moduleButton.hidden = choices.size === 0
     const selectedCount = parts.libraries.filter(name => choices.has(name)).length
     moduleButton.textContent = selectedCount ? `Modules (${selectedCount})` : "Modules"
