@@ -59,7 +59,8 @@ RSpec.describe "Interactive components", type: :system do
       fill_in "comment_thread[body_markdown]", with: "Explain this retry delay."
       click_button "Comment"
     end
-    expect(page).to have_css(".source-comments .comment__body img.component-snapshot", visible: true)
+    posted_image = find(".source-comments .comment__body img.component-snapshot", visible: true)
+    expect(page.evaluate_async_script("arguments[0].decode().then(() => arguments[1](arguments[0].naturalWidth), () => arguments[1](0))", posted_image)).to be_positive
     comment = plan.comments.reload.sole
     expect(comment.component_selection).to include("revision" => plan.current_revision, "w" => 0)
     expect(comment.component_snapshot.download).to start_with(CoPlan::Comments::ComponentAnnotation::PNG_HEADER)

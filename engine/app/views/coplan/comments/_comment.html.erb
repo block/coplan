@@ -33,7 +33,8 @@
         <small><%= comment.selection_description %></small>
         <% if comment.component_selection["image"] %>
           <%= image_tag snapshot_plan_comment_thread_comment_path(comment.comment_thread.plan_id, comment.comment_thread_id, comment),
-                class: "component-snapshot", alt: comment.selection_description, loading: "lazy" %>
+                class: "component-snapshot", alt: comment.selection_description, width: comment.component_selection["width"],
+                height: comment.component_selection["height"], loading: "lazy" %>
         <% end %>
       <% end %>
       <%= cache(["comment-body-v2", comment], expires_in: 15.minutes, skip_digest: true) do %>

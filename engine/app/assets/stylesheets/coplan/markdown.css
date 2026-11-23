@@ -1062,7 +1062,7 @@
   border: 2px solid var(--color-primary);
   background: var(--color-interaction-hover-bg);
 }
-.component-snapshot { display: block; max-width: 100%; max-height: 14rem; object-fit: contain; margin: .35rem 0; }
+.component-snapshot { display: block; height: auto; max-width: 100%; max-height: 14rem; object-fit: contain; margin: .35rem 0; }
 .component-snapshot[hidden] { display: none; }
 .document-component pre { overflow: auto; max-height: 26rem; white-space: pre; }
 .document-component:popover-open {

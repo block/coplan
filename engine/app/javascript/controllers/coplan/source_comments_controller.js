@@ -389,6 +389,7 @@ export default class extends Controller {
         if (reactions) previous.querySelector(".comment-reactions")?.replaceWith(reactions)
         comment.replaceWith(previous)
       })
+      copy.querySelectorAll("img.component-snapshot").forEach(image => { image.loading = "eager" })
       const previousReply = replies.get(copy.dataset.threadId)
       const nextReply = copy.querySelector(".thread-popover__reply")
       if (previousReply && nextReply) nextReply.replaceWith(previousReply)
