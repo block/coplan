@@ -7,7 +7,7 @@ module Coplan
         def comment_json(comment)
           result = {
             id: comment.id, author_type: comment.author_type, author_id: comment.author_id,
-            agent_name: comment.agent_name, body_markdown: comment.body_markdown, deleted: comment.deleted?,
+            agent_name: comment.agent_name, body_markdown: comment.public_body_markdown, deleted: comment.deleted?,
             created_at: comment.created_at, reactions: CommentReaction.as_api_json(comment), attachments: []
           }
           if comment.component_annotation?

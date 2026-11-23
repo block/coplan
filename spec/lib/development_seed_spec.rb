@@ -3,6 +3,25 @@ require "coplan/development_seed"
 
 RSpec.describe Coplan::DevelopmentSeed do
   describe ".call" do
+    it "provides a retained deleted-comment scenario without recreating permanently deleted content on re-seed" do
+      described_class.call
+      document = seeded_plan("deleted-comments")
+      expect(document.current_content.scan(/^# /).length).to eq(1)
+      thread = document.comment_threads.sole
+      deleted = thread.comments.find_by!(body_markdown: "Draft note retained for admin review.")
+      expect(deleted).to be_deleted
+      expect(thread.comments.kept.count).to eq(1)
+      expect(seeded_plan("demo-library").current_content).to include(document.url_path)
+
+      described_class.call
+      expect(deleted.reload.body_markdown).to eq("Draft note retained for admin review.")
+      expect(thread.comments.count).to eq(2)
+      Coplan::Comments::PermanentlyDelete.call(comment: deleted, actor: document.created_by_user)
+      described_class.call
+      expect(thread.comments.count).to eq(1)
+      expect(Coplan::Comment.exists?(deleted.id)).to be(false)
+    end
+
     it "provides the canonical title demo and preserves subsequent edits on reseeding" do
       described_class.call
       document = seeded_plan("document-title")

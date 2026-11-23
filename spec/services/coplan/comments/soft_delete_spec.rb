@@ -31,21 +31,16 @@ RSpec.describe Coplan::Comments::SoftDelete do
       }.not_to change { Coplan::PlanEvent.count }
     end
 
-    it "leaves no copy of the deleted text in the comment, its history or its queued agent events" do
+    it "retains the original body and queued payload while marking the comment deleted" do
       token = create(:api_token, user: user)
-      Coplan::AgentEvent.create!(api_token: token, plan: plan, comment_thread_id: thread.id, comment_id: comment.id,
+      event = Coplan::AgentEvent.create!(api_token: token, plan: plan, comment_thread_id: thread.id, comment_id: comment.id,
         event_type: "comment.created", payload: { "comment_body" => "Hello world", "plan_title" => plan.title })
 
       described_class.call(comment: comment, actor: user)
 
-      expect(comment.reload.body_markdown).to eq(Coplan::Comment::DELETED_BODY)
-      stored = [
-        Coplan::Comment.where(id: comment.id).pluck(:body_markdown),
-        Coplan::PlanEvent.where(plan: plan).pluck(:metadata),
-        Coplan::AgentEvent.where(comment_id: comment.id).pluck(:payload)
-      ].to_json
-      expect(stored).not_to include("Hello world")
-      expect(Coplan::AgentEvent.find_by(comment_id: comment.id).payload["plan_title"]).to eq(plan.title)
+      expect(comment.reload).to have_attributes(body_markdown: "Hello world", deleted_at: be_present)
+      expect(event.reload.payload["comment_body"]).to eq("Hello world")
+      expect(event.as_api_json[:payload]["comment_body"]).to eq(Coplan::Comment::DELETED_BODY)
     end
   end
 end

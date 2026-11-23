@@ -74,7 +74,7 @@ module Coplan
               events = fetch_events
               if events.any? || Time.current >= deadline
                 render json: {
-                  events: events.map(&:as_api_json),
+                  events: AgentEvent.as_api_json_batch(events),
                   cursor: events.last&.id || params[:cursor],
                   **(granted ? {} : { throttled: true })
                 }
@@ -113,8 +113,8 @@ module Coplan
 
           while Time.current < deadline
             events = fetch_events(cursor: cursor)
-            events.each do |event|
-              response.stream.write("id: #{event.id}\nevent: #{event.event_type}\ndata: #{event.as_api_json.to_json}\n\n")
+            events.zip(AgentEvent.as_api_json_batch(events)).each do |event, serialized|
+              response.stream.write("id: #{event.id}\nevent: #{event.event_type}\ndata: #{serialized.to_json}\n\n")
               cursor = event.id
             end
 

@@ -102,6 +102,7 @@ RSpec.describe "Document components", type: :request do
       comment.soft_delete!
       get api_v1_plan_comment_path(plan, comment.comment_thread), headers: headers
       deleted = response.parsed_body.fetch("comments").sole
+      expect(deleted.fetch("body_markdown")).to eq(Coplan::Comment::DELETED_BODY)
       expect(deleted.fetch("attachments")).to be_empty
       expect(deleted).not_to have_key("component_selection")
       get attachment.fetch("download_url"), headers: headers

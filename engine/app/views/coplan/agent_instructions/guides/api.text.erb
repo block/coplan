@@ -150,3 +150,5 @@ A non-string `new_content` for `replace_section` is invalid (`422`). A stale ses
 ## Iframe domains
 
 `GET /api/v1/embed_domains` returns `{"hostnames":["embed.example.com"]}`. This is the exact-host allowlist for iframe content blocks. It requires your Bearer token. An empty list means no hosts are approved. Only an administrator can change the list, through Coplan Admin. See <<%= @base %>/agent-instructions/embeds> for block syntax.
+
+Comment DELETE requests soft-delete the record. Stored text is retained for admin access; ordinary API reads return a deleted placeholder. Permanent deletion is available only in the admin interface, not the agent API.

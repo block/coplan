@@ -30,7 +30,7 @@ module Coplan
 
         # The job that publishes may have loaded the comment before it was
         # deleted. Lock and re-read it: a delete either finished first (skip,
-        # nothing to retract) or waits for these rows and then scrubs them.
+        # nothing to publish) or later readers redact the queued payload.
         Comment.transaction do
           @comment = Comment.lock.find_by(id: @comment.id)
           publish if @comment && !@comment.deleted?

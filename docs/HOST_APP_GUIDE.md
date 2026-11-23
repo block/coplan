@@ -323,6 +323,15 @@ Coplan provides a REST API for programmatic access. Users create API tokens in t
 
 Coplan inherits from your `::ApplicationController` for layout and middleware. The engine's nav bar will render a "Sign out" link if your app defines a `sign_out_path` route helper.
 
+## AI failure diagnostics
+
+Chat and transcription errors append the provider's error type, code and message,
+including gateway-specific reasons and plain-string gateway errors. The combined
+diagnostic is limited to 300 characters and normalized to one line. Only string
+fields are included; request objects and other fields are omitted. Providers are
+trusted to supply suitable diagnostic text. Malformed bodies fall back to the
+existing transport error, and the original exception remains available as the cause.
+
 ## Configuration reference
 
 ```ruby
@@ -442,3 +451,11 @@ redact both connection codes, and approval/token responses disable caching.
 The helper stores the credential with mode 0600 without printing it. A second
 host needs its own credentials file; the helper never overwrites another host's
 configuration.
+
+## Deleted comment retention
+
+Ordinary comment deletion sets `deleted_at` and preserves the stored body. Public pages, notification previews, API responses, and queued agent event responses hide the text. Admins can inspect retained content under Plan Comments. The separate permanent deletion form requires a soft-deleted comment and explicit confirmation; it removes the comment and its associated copies. A metadata-only history entry records the admin who performed permanent deletion.
+
+The historical `ScrubDeletedCommentBodies` migration now only adds the agent-event comment lookup index. Keep its historical migration version when updating an installed host copy, so Rails does not run the same migration twice. Replace any pending copy of the old destructive implementation before deploying this revision. Text erased by an earlier release cannot be recovered by migrating down.
+
+Review notes also belong to immutable review receipts. Deleting the linked discussion comment does not change its receipt. The admin comment purge refuses these notes and leaves the receipt intact.

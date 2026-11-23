@@ -5,9 +5,7 @@ module Coplan
     # Attribution labels sit inline next to the body, so they stay short.
     AGENT_NAME_LIMIT = 20
 
-    # What a deleted comment's body becomes. Deleting a comment retracts its
-    # words, so none of the readers that copy the body (the API, the inbox,
-    # web push, Slack DMs, agent events) can serve them afterwards.
+    # Public readers see a tombstone; the stored body remains available to admins.
     DELETED_BODY = "_This comment was deleted._".freeze
 
     has_one_attached :component_snapshot
@@ -15,13 +13,13 @@ module Coplan
     # Notifications reference the comment, so deleting one used to fail on
     # a foreign key. They're delivery records for a comment that no longer
     # exists — they go with it.
-    has_many :notifications, class_name: "Coplan::Notification", dependent: :delete_all
+    has_many :notifications, class_name: "Coplan::Notification", dependent: :destroy
     has_many :reactions, class_name: "Coplan::CommentReaction", dependent: :delete_all
     belongs_to :api_token, class_name: "Coplan::ApiToken", optional: true
     belongs_to :agent_harness, class_name: "Coplan::AgentHarness", optional: true
 
     def self.ransackable_attributes(_auth_object = nil)
-      %w[id comment_thread_id author_type author_id created_at]
+      %w[id comment_thread_id author_type author_id created_at deleted_at]
     end
 
     def self.ransackable_associations(_auth_object = nil)
@@ -64,7 +62,16 @@ module Coplan
     end
 
     def soft_delete!
-      update!(deleted_at: Time.current, body_markdown: DELETED_BODY)
+      update!(deleted_at: Time.current)
+    end
+
+    def public_body_markdown
+      deleted? ? DELETED_BODY : body_markdown
+    end
+
+    def review_note?
+      ReviewResponse.exists?(comment_thread_id: comment_thread_id) &&
+        comment_thread.comments.order(:created_at, :id).pick(:id) == id
     end
 
     # Call in the same transaction that changes this comment's reactions.

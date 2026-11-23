@@ -100,6 +100,7 @@ look up this key rather than copying generated UUIDs.
 | pending-review | Two approvers, neither approved |
 | review-reassignment | Alex Pending after reassignment; earlier approval and removal remain in activity, Noura stays Approved |
 | approved-review | Two approvers, both approved |
+| deleted-comments | A retained soft-deleted comment, a visible reply, and an explicit admin-only permanent deletion form |
 | collab-showcase | Agent edit, human and agent comments, open/resolved and overlapping anchors, general thread, citations and references |
 | api-gateway | Architecture proposal with a wide flowchart, trust-boundary table, rollout, external links |
 | launch-deck | Presentation with speaker notes |

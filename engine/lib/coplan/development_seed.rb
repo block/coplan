@@ -50,6 +50,9 @@ module Coplan
     AGENT_ORGANIZED_KEYS = %w[agent-pick-metrics agent-pick-postmortem agent-pick-vendors].freeze
 
     DOCUMENTS = [
+      { key: "deleted-comments", author: "hampton", type: "General", title: "Comments: soft deletion and admin retention",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
+        showcase: "A deleted comment stays hidden in the discussion while admins can inspect its retained text and explicitly delete it permanently" },
       { key: "document-title", author: "hampton", type: "General", title: "One document, one title",
         tags: %w[demo editing], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Edit the opening title; autosave keeps its URL stable until Done. Backspace and formatting cannot remove the title block." },
@@ -354,6 +357,7 @@ module Coplan
         seed_reading_specimen(users, plans)
         seed_collapsed_discussions(users, plans)
         seed_comment_reactions(users, plans)
+        seed_deleted_comments(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         catalog = seed_catalog(users, plans, plan_types, base_url: base_url)
         seed_writing_history(users, plans, catalog)
@@ -1127,6 +1131,16 @@ module Coplan
           add_seed_reactions(comment, users, reply[:reactions])
         end
       end
+    end
+
+    def seed_deleted_comments(users, plans)
+      thread = seed_thread(plan: plans.fetch("deleted-comments"), user: users.fetch("hampton"),
+        body: "Draft note retained for admin review.")
+      return unless thread
+
+      thread.comments.create!(author_type: "human", author_id: users.fetch("alex").id,
+        body_markdown: "This reply keeps the discussion visible after the opening comment is deleted.")
+      Comments::SoftDelete.call(comment: thread.comments.order(:created_at).first, actor: users.fetch("hampton"))
     end
 
     def add_seed_reactions(comment, users, reactions)

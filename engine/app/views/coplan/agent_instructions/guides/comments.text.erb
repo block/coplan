@@ -20,7 +20,7 @@ Each thread in the snapshot (`comment_threads`) includes:
 - For a component annotation, read the comment’s `component_selection`. Its `x, y, w, h` are CSS pixels in the original view of size `width × height`. Zero width and height mark a point. The revision and optional label identify the original state. When a PNG is available, the comment also has an attachment of type `component_snapshot`.
 <% end -%>
 
-When a person deletes a comment, it stays in the thread with `deleted: true` and a `body_markdown` that only says it was deleted. The original text is gone. Live events already queued for that comment also lose their `comment_body`. Do not act on a deleted comment.
+When a person deletes a comment, it stays in the thread with `deleted: true` and a `body_markdown` that only says it was deleted. The original text stays in the database for admin access. API responses and queued live events show only a deleted placeholder. Only an admin can permanently delete retained content. Do not act on a deleted comment.
 
 ## Reactions
 
@@ -114,3 +114,5 @@ link without posting the comment. Escape or Cancel link preserves the draft.
 Pasting a URI over selected text also creates a link. Browser-executable
 schemes (javascript, vbscript, data, blob) are not accepted. Both paths escape label and destination delimiters. These controls work
 for new comments, replies, and comment edits.
+
+Review notes also belong to immutable review receipts. Deleting the linked discussion comment does not change its receipt. The admin comment purge refuses these notes and leaves the receipt intact.
