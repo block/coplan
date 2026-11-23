@@ -1,4 +1,4 @@
-name: Verify Coplan migration
+name: Verify Coplan migration on PostgreSQL
 on:
   push:
     branches: [verify-coplan-namespace-migration]
@@ -11,15 +11,19 @@ jobs:
       group: ubuntu-x86-runners
     env:
       RAILS_ENV: test
-      DATABASE_URL: mysql2://root:root@127.0.0.1:3306/planning_department_test
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/planning_department_test?encoding=unicode
+      PGPASSWORD: test-password-do-not-use
+      SCHEMA: tmp/pg_schema.rb
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - run: sudo systemctl start mysql
+      - run: |
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'test-password-do-not-use';"
       - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-      - run: bin/rails db:create db:schema:load
+      - run: bin/rails db:create db:migrate
       - name: Run migration spec
         continue-on-error: true
         run: bundle exec rspec spec/migrations/rename_coplan_class_names_spec.rb --seed 50468 --format progress --format json --out tmp/coplan-migration-report.json
@@ -41,24 +45,4 @@ jobs:
                       '-f','state=' + ('failure' if error else 'success'),
                       '-f',f'context=Migration diagnostic {n} {section}',
                       '-f','description=' + body[:136]], check=True)
-          PY
-      - name: Reproduce MySQL full suite
-        continue-on-error: true
-        run: bundle exec rspec --exclude-pattern 'spec/system/**/*_spec.rb' --seed 50468 --format progress --format json --out tmp/coplan-full-report.json
-      - name: Report failed example locations
-        if: ${{ !cancelled() }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 - <<'PY'
-          import json, os, pathlib, subprocess
-          report = pathlib.Path('tmp/coplan-full-report.json')
-          parsed = json.loads(report.read_text()) if report.exists() else {}
-          for n, example in enumerate(item for item in parsed.get('examples', []) if item['status'] == 'failed'):
-              error = example.get('exception', {})
-              source = f'{example["file_path"]}:{example["line_number"]} {error.get("class","")}'
-              subprocess.run(['gh','api','--method','POST',
-                  f'repos/{os.environ["GITHUB_REPOSITORY"]}/statuses/{os.environ["GITHUB_SHA"]}',
-                  '-f','state=failure','-f',f'context=Failed MySQL example {n}',
-                  '-f',f'description={source[:136]}'], check=True)
           PY
