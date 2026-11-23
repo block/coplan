@@ -646,7 +646,10 @@ export function serializeDocument(doc, recordRange = null) {
   let output = "", previousChanged = false
   doc.forEach((node, position) => {
     const unchanged = node.type.name === "preserved" ? !node.attrs.inserted : (node.attrs.source !== null && node.attrs.snapshot === signature(node))
-    const source = unchanged ? node.attrs.source : node.type.name === "template_note" ?
+    // Even a newly inserted component owns its exact JavaScript and marker
+    // spacing. The Markdown serializer can collapse blank lines inside atoms.
+    const component = node.type === schema.nodes.preserved && node.attrs.kind === "component"
+    const source = unchanged || component ? node.attrs.source : node.type.name === "template_note" ?
       node.attrs.opening + node.textContent + node.attrs.closing : serializeBlock(node)
     // New/changed blocks need a block separator, including after an original
     // final paragraph with no trailing newline. Untouched boundaries stay exact.
