@@ -236,13 +236,22 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
   .document-editor__upload-placeholder::before { animation: none; }
 }
 
-.document-editor__component > .document-editor__block-header { justify-content: flex-end; gap: 2px; padding: 4px 8px; }
-.document-editor__component .document-editor__block-header button { border-radius: 4px; color: var(--color-text-muted); }
-.document-editor__component .document-editor__block-header [aria-pressed="true"] { background: var(--color-surface); color: var(--color-text); }
-.document-editor__component-settings { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; padding: 8px 12px; color: var(--color-text-muted); font: 13px/1.5 var(--font-sans, sans-serif); }
-.document-editor__component-settings select { font: inherit; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 4px; padding: 2px 5px; }
-.document-editor__component-settings details, .document-editor__component-settings details[open] { margin: 0; padding: 0; border: 0; }
-.document-editor__component-settings details > summary, .document-editor__component-settings details[open] > summary { cursor: pointer; margin: 0; padding: 2px; border: 0; font-weight: normal; }
+/* Reuse the document mode switch at the scale of a single component. */
+.document-editor__component > .document-editor__block-header { justify-content: flex-end; padding: 4px 8px; }
+.document-editor__component-mode { padding: 2px; border-radius: 8px; }
+.document-editor__component-mode button[aria-pressed="false"] { color: var(--color-text-muted); }
+.document-editor__component-mode button { min-width: 0; padding: 3px 9px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+.document-editor__component-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px; font: 13px/1.5 var(--font-sans, sans-serif); color: var(--color-text-muted); }
+.document-editor__component-settings select, .document-editor__module-button { padding: 3px 7px; border: 1px solid var(--color-border); border-radius: 5px; font: inherit; color: var(--color-text); background: var(--color-surface); }
+.document-editor__module-button { cursor: pointer; }
+.document-editor__module-button::after { content: ""; display: inline-block; width: .4em; height: .4em; margin: 0 2px .2em 7px; border: solid currentColor; border-width: 0 1px 1px 0; transform: rotate(45deg); }
+.document-editor__component-settings > a { margin-inline-start: auto; font-size: 12px; }
+.document-editor__module-picker { box-sizing: border-box; width: max-content; max-width: min(330px, calc(100vw - 16px)); max-height: 16rem; overflow: auto; padding: 4px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); }
+@supports (position-area: bottom) {
+  .document-editor__module-picker { position-area: bottom span-right; position-try-fallbacks: flip-block, flip-inline; inset: auto; margin: 4px 0; justify-self: start; }
+}
+.document-editor__module-picker label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; overflow-wrap: anywhere; }
+.document-editor__module-picker label:hover, .document-editor__module-picker label:focus-within { background: var(--color-interaction-hover-bg); }
+.document-editor__module-picker input { margin: 0; width: auto; accent-color: var(--color-primary); }
+.document-editor__module-picker small { color: var(--color-text-muted); font: inherit; font-size: 11px; }
 .document-editor__component .document-editor__block-source { field-sizing: content; min-height: 8em; max-height: 55vh; padding: 12px; }
-.document-editor__component-settings details label { display: block; }
-.document-editor__component-settings input[type="checkbox"] { width: auto; margin: 0 .4em 0 0; }

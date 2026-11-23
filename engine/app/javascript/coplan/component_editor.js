@@ -31,15 +31,18 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
   dom.coplanPosition = getPos
   const header = document.createElement("div")
   header.className = "document-editor__block-header"
-  header.setAttribute("role", "group")
-  header.setAttribute("aria-label", "Component view")
+  const modes = document.createElement("div")
+  modes.className = "document-editor__mode document-editor__component-mode"
+  modes.setAttribute("role", "group")
+  modes.setAttribute("aria-label", "Component view")
+  header.append(modes)
   const buttons = ["Preview", "Edit"].map(label => {
     const button = document.createElement("button")
     button.type = "button"
     button.textContent = label
     button.dataset.componentView = label.toLowerCase()
     button.dataset.action = "coplan--editor#switchComponentView"
-    header.append(button)
+    modes.append(button)
     return button
   })
   const output = document.createElement("div")
@@ -52,11 +55,24 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
   const type = document.createElement("select")
   type.dataset.action = "change->coplan--editor#componentFieldChanged"
   typeLabel.append(type)
-  const libraries = document.createElement("details")
-  const summary = document.createElement("summary")
-  summary.textContent = "Libraries"
-  libraries.append(summary)
-  settings.append(typeLabel, libraries)
+  const moduleButton = document.createElement("button")
+  moduleButton.type = "button"
+  moduleButton.className = "document-editor__module-button"
+  const libraries = document.createElement("div")
+  libraries.className = "document-editor__module-picker"
+  libraries.popover = "auto"
+  libraries.setAttribute("role", "group")
+  libraries.setAttribute("aria-label", "JavaScript modules")
+  moduleButton.popoverTargetElement = libraries
+  settings.append(typeLabel, moduleButton, libraries)
+  if (catalog.guide) {
+    const help = document.createElement("a")
+    help.href = catalog.guide
+    help.target = "_blank"
+    help.rel = "noopener"
+    help.textContent = "Component guide ↗"
+    settings.append(help)
+  }
   const script = document.createElement("textarea")
   script.className = "document-editor__block-source"
   script.spellcheck = false
@@ -73,7 +89,9 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
     }
     type.value = parts.type
     const choices = new Set([...(catalog.libraries || []), ...parts.libraries])
-    libraries.hidden = choices.size === 0
+    moduleButton.hidden = choices.size === 0
+    moduleButton.textContent = parts.libraries.length ? `Modules (${parts.libraries.length})` : "Modules"
+    const typeModules = catalog.typeModules?.[parts.type]
     for (const name of choices) {
       let input = [...libraries.querySelectorAll("input")].find(input => input.value === name)
       if (!input) {
@@ -82,10 +100,14 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
         input.value = name
         input.dataset.action = "change->coplan--editor#componentFieldChanged"
         const label = document.createElement("label")
-        label.append(input, name)
+        const note = document.createElement("small")
+        note.textContent = "Included with type"
+        label.append(input, document.createTextNode(name), note)
         libraries.append(label)
       }
-      input.checked = parts.libraries.includes(name)
+      input.disabled = Array.isArray(typeModules) && typeModules.includes(name) && !parts.libraries.includes(name)
+      input.checked = input.disabled || parts.libraries.includes(name)
+      input.parentElement.querySelector("small").hidden = !input.disabled
     }
   }
   dom.coplanComponentSource = field => {

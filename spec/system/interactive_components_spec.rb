@@ -80,7 +80,7 @@ RSpec.describe "Interactive components", type: :system do
     expect(page.evaluate_async_script("arguments[0].decode().then(() => arguments[1](arguments[0].naturalWidth), () => arguments[1](0))", posted_image)).to be_positive
     comment = plan.comments.reload.sole
     expect(comment.component_selection).to include("revision" => plan.current_revision, "w" => 80, "h" => 16)
-    expect(comment.component_snapshot.download).to start_with(Coplan::Comments::ComponentAnnotation::PNG_HEADER)
+    expect(comment.component_snapshot.download).to start_with(Coplan::Comments::CanvasPng::SIGNATURE)
     visit plan_page_path(plan)
     simulator = find("figure:has(iframe[title='Component'])")
     find("#plan-title").hover
@@ -208,6 +208,11 @@ RSpec.describe "Interactive components", type: :system do
     script_field = 'textarea[aria-label="Component JavaScript"]'
     expect(block).to have_no_css(script_field)
     block.click_button("Edit", exact: true)
+    expect(block).to have_link("Component guide", href: agent_instructions_guide_path(guide: "components", format: :html), exact: false)
+    block.click_button("Modules")
+    expect(block).to have_css('input[value="diagram@1"]:checked:disabled')
+    expect(block).to have_text("Included with type")
+    block.click_button("Modules")
     expect(block.find(script_field).value).to eq("diagram.node('a', 'Original');")
     expect(block).to have_no_css("iframe", visible: true)
     click_button "Raw", exact: true
@@ -217,7 +222,7 @@ RSpec.describe "Interactive components", type: :system do
 
     block.select("receipt", from: "Type")
     block.select("Plain JavaScript", from: "Type")
-    block.find("summary", text: "Libraries").click
+    block.click_button("Modules")
     block.check("amount@1")
     code = 'root.textContent = "Cents " + (await import("amount")).cents;'
     block.find(script_field).set(code)

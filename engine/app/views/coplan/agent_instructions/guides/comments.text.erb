@@ -11,12 +11,14 @@ People comment on an exact passage of a plan, a table cell, or a diagram node or
 Each thread in the snapshot (`comment_threads`) includes:
 
 - `anchor_text`: the passage that the comment is about.
-- A component comment may include `component_selection`. Its `x, y, w, h` are CSS pixels from the top left of the original view of size `width × height`. Zero width and height mark a point. Read its `revision`, optional label, and `png_url` when available to understand the original state.
-- `anchor_kind`: set when the comment is on a `table_cell`, `mermaid_node`, `mermaid_edge`, `mermaid_diagram`, or `component` instead of on prose.
+- `anchor_kind`: set when the comment is on a structured target. Values include `table_cell`, `mermaid_node`, `mermaid_edge`, and `mermaid_diagram`<%= ", plus `component`" if Coplan.configuration.components_enabled %>.
 - `anchor_valid`: `false` if the passage is no longer in the plan.
 - `out_of_date`: `true` if an edit changed the passage after the comment.
 - `start_line` and `end_line`: set for comments on full lines.
-- `comments`: each with `author_type` (`human`, `local_agent`, and so on), `agent_name`, `body_markdown`, `deleted`, and `reactions`.
+- `comments`: each with `author_type` (`human`, `local_agent`, and so on), `agent_name`, `body_markdown`, `deleted`, `reactions`, and `attachments`. An empty attachments array means there is nothing to download. Each attachment has a `type`, `content_type`, and authenticated `download_url`.
+<% if Coplan.configuration.components_enabled -%>
+- For a component annotation, read the comment’s `component_selection`. Its `x, y, w, h` are CSS pixels in the original view of size `width × height`. Zero width and height mark a point. The revision and optional label identify the original state. When a PNG is available, the comment also has an attachment of type `component_snapshot`.
+<% end -%>
 
 When a person deletes a comment, it stays in the thread with `deleted: true` and a `body_markdown` that only says it was deleted. The original text is gone. Live events already queued for that comment also lose their `comment_body`. Do not act on a deleted comment.
 

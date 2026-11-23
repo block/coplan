@@ -1,6 +1,35 @@
 # Interactive components
 
-Write a top-level component between standalone region markers. Leave a blank line before and after each marker. The body is JavaScript. Use DOM APIs on the supplied `root` to build controls, HTML, SVG, canvas, and animation. Each reader starts with fresh state. A region ID such as `#retry-path` is optional and supplies a deep link. The optional title names the frame for assistive technology. Comment and Expand slide out below the bottom-right edge when the pointer approaches the component or its tab. Keyboard focus reveals the controls. On touch screens, tap the small grip beneath the corner. Expand preserves the current state. In Comment mode, click a point or drag a box. The reader previews a PNG of the live view with the selection marked. Enter selects the whole view. Reopening Comment resumes an unfinished annotation and its image. Discard annotation starts over. If capture is unavailable, for example after scrolling a nested panel, the selection and its dimensions still accompany the comment. No capture code is required from the author.
+Use an interactive component for a diagram, animation, or small app that belongs in a document. Put JavaScript inside a top-level Markdown region. Leave blank lines around the markers. The script receives a DOM element named `root`. Append HTML, SVG, or a canvas to it.
+
+````markdown
+::: {.component}
+
+const button = document.createElement("button");
+let attempts = 0;
+button.textContent = "Try payment";
+button.onclick = () => { button.textContent = `Attempts: ${++attempts}`; };
+root.append(button);
+
+:::
+````
+
+Each reader starts with fresh state. A component can respond to input and animate inside its frame. It cannot read the surrounding document or its session, fetch remote resources, submit a form, or navigate the parent. Include the data your program needs in its source. Avoid secrets. The appearance follows the reader's theme. Use `--coplan-text`, `--coplan-text-muted`, `--coplan-surface`, `--coplan-surface-muted`, `--coplan-border`, and `--coplan-primary` for custom colors.
+
+## Available component types
+
+A **type** gives the script named objects and can render the result after the script finishes. Set at most one `type`. Plain JavaScript receives `root` and needs no attributes. Add an optional ID such as `#retry-path` if you need a deep link.
+
+<% catalog = Coplan.configuration.component_catalog -%>
+| Type | Available in the script | Included modules |
+|---|---|---|
+| Plain JavaScript (omit `type`) | `root` | — |
+<% catalog.types.each do |name, entry| -%>
+| `<%= name %>` | <%= (["root"] + entry.fetch("bindings")).map { |key| "`#{key}`" }.join(", ") %> | <%= entry.fetch("uses").map { |key| "`#{key}`" }.join(", ").presence || "—" %> |
+<% end -%>
+
+<% if catalog.types.key?("diagram") -%>
+For example, the diagram type supplies `diagram` and draws the graph when your script returns.
 
 ````markdown
 ::: {.component type="diagram"}
@@ -12,46 +41,35 @@ diagram.edge("checkout", "retry", "on failure");
 :::
 ````
 
-The rich editor opens each component in Preview. Choose Edit to change its JavaScript, select a type, or pick additional libraries. Choose Preview to run the edited script. Raw shows the complete Markdown region. Plain JavaScript needs only the body.
+<% end -%>
+## JavaScript modules
 
-A type sets up its bindings and mounts the result after the script returns. To use a library separately, declare its exact catalog key in `uses`. Separate multiple keys with spaces. Load each library by its bare name with `await import("name")` inside the body.
+A **module** is bundled JavaScript that your script can import. The Markdown attribute `uses` takes exact module keys separated by spaces. For example, `uses="diagram@1"` makes `await import("diagram")` available. A type already includes the modules in its table row. Each saved document version retains the module code it used.
 
-````markdown
-::: {.component}
+| Module key for `uses` | Name for `await import()` |
+|---|---|
+<% catalog.libraries.each_key do |key| -%>
+| `<%= key %>` | `"<%= key.split("@").first %>"` |
+<% end -%>
 
-const button = document.createElement("button");
-let count = 0;
-button.textContent = "Try payment";
-button.onclick = () => { button.textContent = `Attempts: ${++count}`; };
-root.append(button);
+## Examples and implementation
 
-:::
-````
+<% { "Type" => catalog.types, "Module" => catalog.libraries }.each do |kind, entries| -%>
+<% entries.each do |name, entry| -%>
+### <%= kind %> `<%= name %>`
 
-Appearance changes reach a running component automatically. The frame sets its light or dark color scheme, text color, and form accent. To follow the host palette, use the CSS variables `--coplan-text`, `--coplan-text-muted`, `--coplan-surface`, `--coplan-surface-muted`, `--coplan-border`, and `--coplan-primary`. Explicit colors in your script keep their authored values.
+<% fence = "`" * [ 3, (entry.values_at("source", "example").join.scan(/`+/).map(&:length).max || 0) + 1 ].max -%>
+Example
 
-The reader's browser runs the script inside an opaque sandbox. Bundle dependencies locally. The sandbox blocks fetch, remote scripts and images, form submissions, and parent navigation. Components have no access to the surrounding plan or its session storage. Browser support for blocking every outbound connection varies. Use components for document data intended for their readers. Its source stays available if execution is disabled or a dependency cannot be resolved. Source revisions retain their selected libraries and wrappers.
+<%= fence %>javascript
+<%= raw entry.fetch("example").rstrip %>
+<%= fence %>
 
-Component execution on this host is <%= Coplan.configuration.components_enabled ? "enabled" : "disabled" %>.
+Implementation
 
-## Host catalog
-
-<% catalog = Coplan.configuration.component_catalog %>
-<% { "Types" => catalog.types, "Libraries" => catalog.libraries }.each do |heading, entries| %>
-### <%= heading %>
-
-<% entries.each do |name, entry| %>
-#### <%= name %>
-
-<% if entry["bindings"] %>
-Bindings: <%= entry["bindings"].join(", ") %>. Libraries: <%= entry["uses"].join(", ").presence || "none" %>.
-<% end %>
-Example: `<%= raw entry.fetch("example") %>`
-
-<% fence = "`" * [ 3, (entry["source"].scan(/`+/).map(&:length).max || 0) + 1 ].max %>
 <%= fence %>javascript
 <%= raw entry.fetch("source").rstrip %>
 <%= fence %>
 
-<% end %>
-<% end %>
+<% end -%>
+<% end -%>

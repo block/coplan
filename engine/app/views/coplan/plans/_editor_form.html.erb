@@ -10,7 +10,9 @@
     "coplan--editor-token-url-value": creating ? new_plan_path : "",
     "coplan--editor-lease-url-value": creating ? "" : editor_lease_plan_path(@plan),
     "coplan--editor-attachments-url-value": creating ? "" : plan_attachments_path(@plan),
-    "coplan--editor-component-catalog-value": { types: Coplan.configuration.component_catalog.types.keys, libraries: Coplan.configuration.component_catalog.libraries.keys }.to_json,
+    "coplan--editor-component-catalog-value": { types: Coplan.configuration.component_catalog.types.keys, libraries: Coplan.configuration.component_catalog.libraries.keys,
+      typeModules: Coplan.configuration.component_catalog.types.transform_values { |entry| entry.fetch("uses") },
+      guide: (agent_instructions_guide_path(guide: "components", format: :html) if Coplan.configuration.components_enabled) }.to_json,
     "coplan--editor-embed-domains-value": Coplan::EmbedDomain.order(:hostname).pluck(:hostname).to_json,
     "coplan--editor-preview-url-value": preview_draft_plans_path } do %>
   <% if creating %>

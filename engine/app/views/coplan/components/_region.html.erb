@@ -1,0 +1,32 @@
+<%= tag.figure class: "document-component", id: region.id, data: frame_data do %>
+  <% if enabled %>
+    <iframe sandbox="allow-scripts" title="<%= title %>" referrerpolicy="no-referrer" data-coplan--component-target="frame"></iframe>
+  <% else %>
+    <% if issue %><p role="status"><%= issue %></p><% end %>
+    <details open><summary>Source</summary><pre><code><%= region.source %></code></pre></details>
+  <% end %>
+  <% if interactive && enabled %>
+    <div class="document-component__selection" hidden tabindex="0" role="button"
+         aria-label="Click or drag to annotate. Press Enter for the whole view or Escape to cancel."
+         data-coplan--component-target="selection"
+         data-action="pointerdown->coplan--component#start pointermove->coplan--component#move pointerup->coplan--component#finish pointercancel->coplan--component#cancel keydown->coplan--component#key"><span class="document-component__mark"></span></div>
+  <% end %>
+  <% if interactive || enabled %>
+    <div class="document-component__tab" tabindex="-1">
+      <div class="document-component__actions">
+        <% if interactive %>
+          <button type="button" title="Comment on component" aria-label="Comment on component"
+                  data-component-comment-line="<%= region.start_line %>"
+                  data-action="<%= enabled ? "click->coplan--component#annotate keydown.c->coplan--component#annotate:prevent" : "coplan--source-comments#commentOnDiagram" %>"><%= component_icon(:comment) %></button>
+          <% if enabled %>
+            <button type="button" hidden data-component-discussions data-action="coplan--source-comments#componentDiscussions"></button>
+          <% end %>
+        <% end %>
+        <% if enabled %>
+          <button type="button" title="Expand component" aria-label="Expand component" aria-expanded="false"
+                  data-coplan--component-target="expand" data-action="coplan--component#toggleExpanded"><%= component_icon(:expand) %></button>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+<% end %>

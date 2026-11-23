@@ -196,7 +196,9 @@ Coplan::Engine.routes.draw do
           post :reply, on: :member
           patch :resolve, on: :member
         end
-        get "comments/:id/snapshot", to: "comments#snapshot", as: :comment_snapshot
+        get "comments/:id/attachments/:type", to: "comments#attachment", as: :comment_attachment,
+          constraints: { type: /component_snapshot/ }
+        get "comments/:id/snapshot", to: "comments#attachment", as: :comment_snapshot
         # Presence/state for an agent working this plan (drives the
         # "Claude is editing…" pill and subscribes the token to events).
         resource :agent_session, only: [ :create, :update, :destroy ], controller: "agent_sessions"

@@ -85,17 +85,26 @@ RSpec.describe "Document components", type: :request do
       create(:api_token, user:, raw_token: "component-agent")
       headers = { "Authorization" => "Bearer component-agent" }
       get api_v1_plan_comment_path(plan, comment.comment_thread), headers: headers
-      selection = JSON.parse(response.body).fetch("comments").sole.fetch("component_selection")
-      get selection.fetch("png_url")
+      payload = response.parsed_body.fetch("comments").sole
+      expect(payload.fetch("component_selection")).to include("label" => "Retry", "revision" => plan.current_revision)
+      attachment = payload.fetch("attachments").sole
+      expect(attachment).to include("type" => "component_snapshot", "content_type" => "image/png")
+      get snapshot_api_v1_plan_path(plan), headers: headers
+      expect(response.parsed_body.fetch("comment_threads").sole.fetch("comments").sole.fetch("attachments")).to eq([ attachment ])
+      get attachment.fetch("download_url")
       expect(response).to have_http_status(:unauthorized)
-      get selection.fetch("png_url"), headers: headers
+      get attachment.fetch("download_url"), headers: headers
       expect(response.media_type).to eq("image/png")
       expect(response.body.b).to eq(png)
       other_plan = create(:plan, created_by_user: user)
-      get api_v1_plan_comment_snapshot_path(other_plan, comment), headers: headers
+      get api_v1_plan_comment_attachment_path(other_plan, comment, "component_snapshot"), headers: headers
       expect(response).to have_http_status(:not_found)
       comment.soft_delete!
-      get selection.fetch("png_url"), headers: headers
+      get api_v1_plan_comment_path(plan, comment.comment_thread), headers: headers
+      deleted = response.parsed_body.fetch("comments").sole
+      expect(deleted.fetch("attachments")).to be_empty
+      expect(deleted).not_to have_key("component_selection")
+      get attachment.fetch("download_url"), headers: headers
       expect(response).to have_http_status(:not_found)
     end
 
@@ -114,6 +123,9 @@ RSpec.describe "Document components", type: :request do
       comment = plan.comments.sole
       expect(comment.component_snapshot).not_to be_attached
       expect(comment.component_selection).to include("image" => false, "x" => selection[:x], "w" => selection[:w])
+      create(:api_token, user:, raw_token: "selection-agent")
+      get api_v1_plan_comment_path(plan, comment.comment_thread), headers: { "Authorization" => "Bearer selection-agent" }
+      expect(response.parsed_body.fetch("comments").sole.fetch("attachments")).to be_empty
     end
 
     it "rejects an invalid image, coordinates, or an unsigned anchor without leaving an empty thread" do
@@ -124,6 +136,7 @@ RSpec.describe "Document components", type: :request do
         form.merge(component_snapshot: Rack::Test::UploadedFile.new(StringIO.new(corrupt_png), "image/png", original_filename: "corrupt.png")),
         form.merge(component_snapshot: fixture_file_upload("sample.txt", "image/png")),
         form.merge(component_selection: selection.merge(x: 499).to_json),
+        form.merge(component_selection: selection.merge(label: { nested: [ "Retry" ] }).to_json),
         form.except(:source_token)
       ]
       invalid.each do |values|

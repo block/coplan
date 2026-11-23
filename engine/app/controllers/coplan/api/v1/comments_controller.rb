@@ -2,6 +2,8 @@ module Coplan
   module Api
     module V1
       class CommentsController < BaseController
+        include CommentSerialization
+
         before_action :set_plan
         before_action :authorize_plan_access!
 
@@ -18,7 +20,7 @@ module Coplan
           render json: thread_json(thread)
         end
 
-        def snapshot
+        def attachment
           comment = @plan.comments.kept.find_by(id: params[:id])
           return head :not_found unless comment&.component_snapshot&.attached?
           response.headers["Cache-Control"] = "private, no-store"
@@ -194,18 +196,7 @@ module Coplan
             out_of_date: thread.out_of_date,
             created_by: thread.created_by_user&.name,
             created_at: thread.created_at,
-            comments: thread.comments.sort_by(&:created_at).map { |c|
-              {
-                id: c.id,
-                author_type: c.author_type,
-                author_id: c.author_id,
-                agent_name: c.agent_name,
-                body_markdown: c.body_markdown,
-                deleted: c.deleted?,
-                created_at: c.created_at,
-                reactions: CommentReaction.as_api_json(c)
-              }.merge(component_annotation_json(c))
-            }
+            comments: thread.comments.sort_by(&:created_at).map { |comment| comment_json(comment) }
           }
         end
 

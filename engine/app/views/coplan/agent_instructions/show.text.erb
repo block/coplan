@@ -151,8 +151,10 @@ Fetch a guide when your task needs it. Each guide is Markdown, like this page.
 | Connecting a computer without a credential | <<%= @base %>/agent-instructions/connecting> |
 | Diagrams, tables, code blocks, footnotes, section links, task lists, images | <<%= @base %>/agent-instructions/markdown> |
 | Slide decks inside a plan (`::: {.presentation}` regions) | <<%= @base %>/agent-instructions/presentations> |
-- Interactive JavaScript components, types, and bundled libraries: <<%= @base %>/agent-instructions/components>
-- Embedded pages: <<%= @base %>/agent-instructions/embeds>
+<% if Coplan.configuration.components_enabled -%>
+| Interactive JavaScript components, types, and modules | <<%= @base %>/agent-instructions/components> |
+<% end -%>
+| Embedded pages | <<%= @base %>/agent-instructions/embeds> |
 | Plan types, folders, tags, references, visibility, archiving | <<%= @base %>/agent-instructions/creating> |
 | Conflicts, human edits, targeted edits, title, tag, and type changes, version history | <<%= @base %>/agent-instructions/editing> |
 | Comments, mentions, table and diagram comments, reviewing a plan | <<%= @base %>/agent-instructions/comments> |
