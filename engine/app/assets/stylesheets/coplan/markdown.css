@@ -1077,6 +1077,7 @@
 .document-component__actions button:focus-visible { outline: 2px solid var(--color-primary); }
 .document-component__selection {
   position: absolute;
+  z-index: 2; /* Continue the outline across the top edge of the tab. */
   inset: 0;
   cursor: crosshair;
   touch-action: none;
