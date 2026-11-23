@@ -3,7 +3,11 @@ require "rails_helper"
 RSpec.describe CoPlan::SummarizePlanJob, type: :job do
   include ActiveJob::TestHelper
 
-  let(:plan) { create(:plan) }
+  let(:plan) do
+    create(:plan).tap do |record|
+      set_version_fixture(record.current_plan_version, created_at: 2.minutes.ago)
+    end
+  end
   let(:current_sha) { plan.current_plan_version.content_sha256 }
 
   before do
@@ -11,6 +15,19 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
   end
 
   describe "#perform" do
+    it "uses gpt-6-luna as the default summary model" do
+      allow(CoPlan::Ai).to receive(:call).and_call_original
+      allow(CoPlan::AiProviders::OpenAi).to receive(:call).and_return("Fresh summary.")
+
+      described_class.perform_now(plan_id: plan.id)
+
+      expect(CoPlan::AiProviders::OpenAi).to have_received(:call).with(
+        system_prompt: File.read(described_class::PROMPT_PATH),
+        user_content: plan.current_content,
+        model: "gpt-6-luna"
+      )
+    end
+
     it "passes the summarize prompt and plan content to CoPlan::Ai" do
       described_class.perform_now(plan_id: plan.id)
 
@@ -59,7 +76,9 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
                                           content_markdown: "# New content\n\nDifferent text.")
       plan.update!(current_plan_version: new_version, current_revision: new_version.revision)
 
-      described_class.perform_now(plan_id: plan.id)
+      travel_to(new_version.created_at + 1.minute, with_usec: true) do
+        described_class.perform_now(plan_id: plan.id)
+      end
 
       expect(plan.reload.summary).to eq("Fresh summary.")
       expect(plan.summary_content_sha256).to eq(new_version.content_sha256)
@@ -109,6 +128,37 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       expect(plan.reload.summary).to eq("Fresh summary.")
     end
 
+    it "does not claim a revision superseded after the job reads it" do
+      existing_plan = plan
+      job = described_class.new
+      allow(job).to receive(:claim_version).and_wrap_original do |claim, record, version|
+        CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Newer\n\nStill editing.",
+          base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
+        claim.call(record, version)
+      end
+
+      job.perform(plan_id: existing_plan.id, version_id: existing_plan.current_plan_version_id)
+
+      expect(CoPlan::Ai).not_to have_received(:call)
+      expect(existing_plan.reload.summary_content_sha256).to be_nil
+    end
+
+    it "skips a superseded job even when the latest version is already quiet" do
+      existing_plan = plan
+      old_version_id = existing_plan.current_plan_version_id
+      result = CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Newer\n\nFinal content.",
+        base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
+
+      travel_to(result.fetch(:version).created_at + 1.minute, with_usec: true) do
+        described_class.perform_now(plan_id: existing_plan.id, version_id: old_version_id)
+        expect(CoPlan::Ai).not_to have_received(:call)
+
+        described_class.perform_now(plan_id: existing_plan.id, version_id: result.fetch(:version).id)
+        described_class.perform_now(plan_id: existing_plan.id)
+        expect(CoPlan::Ai).to have_received(:call).once
+      end
+    end
+
     # Race-condition guard: a slow job started against revision N must
     # NOT overwrite a fresher summary already persisted for revision N+1.
     it "does not overwrite a fresher summary when a newer version landed mid-flight" do
@@ -131,6 +181,25 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
 
       expect(plan.reload.summary).to eq("Fresher summary persisted by the newer job.")
       expect(plan.summary_content_sha256).not_to eq(stale_sha)
+    end
+
+    it "defers an early job with legacy arguments until the current revision is quiet" do
+      freeze_time do
+        fresh_plan = create(:plan)
+        version = fresh_plan.current_plan_version
+        clear_enqueued_jobs
+
+        expect {
+          described_class.perform_now(plan_id: fresh_plan.id)
+        }.to have_enqueued_job(described_class)
+          .with(plan_id: fresh_plan.id, version_id: version.id).at(1.minute.from_now)
+        expect(CoPlan::Ai).not_to have_received(:call)
+        expect(fresh_plan.reload.summary_content_sha256).to be_nil
+
+        travel 1.minute
+        perform_enqueued_jobs(only: described_class, at: Time.current)
+        expect(CoPlan::Ai).to have_received(:call).once
+      end
     end
 
     it "discards on AI errors instead of retrying" do
@@ -173,12 +242,71 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
   end
 
   describe "PlanVersion after_create_commit hook" do
-    it "enqueues SummarizePlanJob when a new version is created" do
-      existing_plan = create(:plan)
+    it "uses the host's quiet period for new versions and legacy jobs" do
+      allow(CoPlan.configuration).to receive(:summary_debounce_delay).and_return(120)
 
-      expect {
-        create(:plan_version, plan: existing_plan, revision: existing_plan.current_revision + 1)
-      }.to have_enqueued_job(described_class).with(plan_id: existing_plan.id)
+      freeze_time do
+        fresh_plan = create(:plan)
+        version = fresh_plan.current_plan_version
+        ready_at = 2.minutes.from_now
+        expect(described_class).to have_been_enqueued
+          .with(plan_id: fresh_plan.id, version_id: version.id).at(ready_at)
+
+        travel 1.minute
+        expect {
+          described_class.perform_now(plan_id: fresh_plan.id)
+        }.to have_enqueued_job(described_class)
+          .with(plan_id: fresh_plan.id, version_id: version.id).at(ready_at)
+
+        travel 59.seconds
+        perform_enqueued_jobs(only: described_class, at: Time.current)
+        expect(CoPlan::Ai).not_to have_received(:call)
+
+        travel 1.second
+        perform_enqueued_jobs(only: described_class, at: Time.current)
+        expect(CoPlan::Ai).to have_received(:call).once
+      end
+    end
+
+    it "can skip the quiet period when the host configures zero" do
+      allow(CoPlan.configuration).to receive(:summary_debounce_delay).and_return(0)
+      fresh_plan = create(:plan)
+
+      described_class.perform_now(plan_id: fresh_plan.id, version_id: fresh_plan.current_plan_version_id)
+
+      expect(CoPlan::Ai).to have_received(:call).once
+      expect(fresh_plan.reload.summary).to eq("Fresh summary.")
+    end
+
+    it "summarizes only the last revision after a full minute without edits" do
+      freeze_time do
+        existing_plan = plan
+        clear_enqueued_jobs
+
+        CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Draft\n\nFirst edit.",
+          base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
+
+        travel 45.seconds
+        latest_content = "# Draft\n\nFinal edit."
+        result = CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: latest_content,
+          base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
+        expect(described_class).to have_been_enqueued
+          .with(plan_id: existing_plan.id, version_id: result.fetch(:version).id).at(1.minute.from_now)
+
+        travel 59.seconds
+        perform_enqueued_jobs(only: described_class, at: Time.current)
+        expect(CoPlan::Ai).not_to have_received(:call)
+        expect(existing_plan.reload.summary_content_sha256).to be_nil
+
+        travel 1.second
+        perform_enqueued_jobs(only: described_class, at: Time.current)
+        expect(CoPlan::Ai).to have_received(:call).with(
+          system_prompt: File.read(described_class::PROMPT_PATH),
+          user_content: latest_content,
+          intensity: :low
+        ).once
+        expect(existing_plan.reload.summary_content_sha256).to eq(result.fetch(:version).content_sha256)
+      end
     end
   end
 end
