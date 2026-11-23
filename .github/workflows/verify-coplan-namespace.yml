@@ -1,38 +1,54 @@
-name: Read prior Coplan browser failure
+name: Verify the outline scroll race
 on:
   push:
     branches: [verify-coplan-namespace-migration]
 permissions:
-  actions: read
   contents: read
   statuses: write
 jobs:
-  inspect:
+  outline:
+    name: Outline (${{ matrix.guard }})
     runs-on:
       group: ubuntu-x86-runners
+    strategy:
+      fail-fast: false
+      matrix:
+        guard: [enabled, disabled]
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: mysql2://root:root@127.0.0.1:3306/planning_department_test
     steps:
-      - name: Fetch failed shard report
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download 45208366111 --repo "$GITHUB_REPOSITORY" --name rspec-mysql-browser-1-1 --dir tmp/browser-failure-artifact
-      - name: Report results
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+      - run: sudo systemctl start mysql
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - run: bin/rails db:create db:schema:load
+      - if: ${{ matrix.guard == 'disabled' }}
+        run: git show HEAD^:engine/app/javascript/controllers/coplan/live_update_controller.js > engine/app/javascript/controllers/coplan/live_update_controller.js
+      - name: Run outline regression
+        run: bundle exec rspec spec/system/outline_collapse_spec.rb:257 --format progress --format json --out tmp/cop-outline-report.json
+      - name: Report regression result
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
+          OUTLINE_GUARD: ${{ matrix.guard }}
         run: |
           python3 - <<'PY'
           import json, os, pathlib, subprocess
-          report = next(pathlib.Path('tmp/browser-failure-artifact').rglob('rspec-results.json'), pathlib.Path('missing.json'))
-          data = json.loads(report.read_text()) if report.exists() else {}
-          def publish(context, state, value):
-              subprocess.run(['gh', 'api', '--method', 'POST',
-                f'repos/{os.environ["GITHUB_REPOSITORY"]}/statuses/{os.environ["GITHUB_SHA"]}',
-                '-f', 'state='+state, '-f', 'context='+context, '-f', 'description='+value[:136]], check=True)
+          path = pathlib.Path('tmp/cop-outline-report.json')
+          data = json.loads(path.read_text()) if path.exists() else {}
           failed = [x for x in data.get('examples', []) if x['status'] == 'failed']
-          publish('Browser diagnostic summary', 'success' if data and not failed else 'failure', str(data.get('summary_line', 'RSpec did not produce a report')))
-          for n, ex in enumerate(failed):
-              err = ex.get('exception', {})
-              publish(f'Browser diagnostic {n} example', 'failure', f'{ex["file_path"]}:{ex["line_number"]} {err.get("class", "")}')
-              for i, line in enumerate(line.strip() for line in err.get('message', '').splitlines()[:8] if line.strip()):
-                  publish(f'Browser diagnostic {n} detail {i}', 'failure', line)
+          def publish(context, state, description):
+              subprocess.run(['gh','api','--method','POST',
+                  f'repos/{os.environ["GITHUB_REPOSITORY"]}/statuses/{os.environ["GITHUB_SHA"]}',
+                  '-f','state='+state,'-f','context='+context,'-f','description='+description[:136]], check=True)
+          label = 'Outline guard ' + os.environ['OUTLINE_GUARD']
+          publish(label, 'success' if data and not failed else 'failure', data.get('summary_line', 'No RSpec report'))
+          for ex in failed:
+              for i, line in enumerate(line.strip() for line in ex.get('exception', {}).get('message', '').splitlines()[:6] if line.strip()):
+                  publish(f'{label} failure {i}', 'failure', line)
           PY
