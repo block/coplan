@@ -20,7 +20,11 @@ module CoPlan
           .to_a
         return if deliveries.empty?
 
-        skipped, deliverable = deliveries.partition { |delivery| delivery.notification.read? || delivery.notification.comment.nil? }
+        # A comment deleted during the debounce window is retracted: don't send it.
+        skipped, deliverable = deliveries.partition do |delivery|
+          comment = delivery.notification.comment
+          delivery.notification.read? || comment.nil? || comment.deleted?
+        end
         mark(skipped, status: "skipped")
         return if deliverable.empty?
         @attempted_delivery_ids = deliverable.map(&:id)

@@ -4,9 +4,11 @@ module CoPlan
     # in a single transaction. Idempotent — calling on an already-deleted
     # comment is a no-op so retries or double-clicks don't write duplicate
     # history entries.
+    #
+    # Deleting retracts the words: the body becomes Comment::DELETED_BODY,
+    # the history event keeps no preview, and agent events already queued
+    # for the comment lose their copy of the body.
     class SoftDelete
-      BODY_PREVIEW_LENGTH = 120
-
       def self.call(**kwargs)
         new(**kwargs).call
       end
@@ -25,6 +27,7 @@ module CoPlan
 
         ActiveRecord::Base.transaction do
           @comment.soft_delete!
+          scrub_agent_events
           Plans::LogEvent.call(
             plan: @comment.comment_thread.plan,
             actor: @actor,
@@ -35,13 +38,22 @@ module CoPlan
             event_type: "comment_deleted",
             metadata: {
               comment_id: @comment.id,
-              thread_id: @comment.comment_thread_id,
-              body_preview: @comment.body_markdown.to_s.truncate(BODY_PREVIEW_LENGTH)
+              thread_id: @comment.comment_thread_id
             }
           )
         end
 
         @comment
+      end
+
+      private
+
+      def scrub_agent_events
+        AgentEvent.where(comment_id: @comment.id).find_each do |event|
+          next unless event.payload.is_a?(Hash) && event.payload.key?("comment_body")
+
+          event.update_columns(payload: event.payload.merge("comment_body" => Comment::DELETED_BODY))
+        end
       end
     end
   end
