@@ -16,7 +16,8 @@ module CoPlan
 
         plan = plan_from_legacy_path(supplied.path, base.path) ||
                plan_from_browsable_path(supplied.path, base.path)
-        return unless plan
+        # Private plans, including archived drafts, do not unfurl in Slack.
+        return unless plan&.published?
 
         for_plan(plan, base_url: base_url)
       rescue URI::InvalidURIError

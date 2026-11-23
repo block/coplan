@@ -9,11 +9,13 @@ module CoPlan
   class WebPushDeliveryJob < ApplicationJob
     queue_as :default
 
-    # SolidQueue retries everything else with backoff. We don't retry the
-    # known terminal cases below: ExpiredSubscription / InvalidSubscription
-    # are handled inside Deliver and surface as :expired.
+    # Push-service errors, rate limits and timeouts are retried with
+    # backoff; nothing else is (Solid Queue does not retry on its own).
+    # ExpiredSubscription / InvalidSubscription are handled inside Deliver
+    # and surface as :expired.
     retry_on ::WebPush::PushServiceError, wait: :polynomially_longer, attempts: 5
     retry_on ::WebPush::TooManyRequests,  wait: :polynomially_longer, attempts: 5
+    retry_on Net::OpenTimeout, Net::ReadTimeout, wait: :polynomially_longer, attempts: 5
 
     def perform(notification_id:, subscription_id:)
       notification = Notification.find_by(id: notification_id)

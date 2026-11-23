@@ -1,4 +1,9 @@
 ActiveAdmin.register CoPlan::Plan, as: "Plan" do
+  # No destroy and no batch delete: destroying a plan cascades to its
+  # versions, threads, events and attachments, and nothing in Coplan can
+  # restore them. Archive it instead.
+  actions :all, except: [ :destroy ]
+  config.batch_actions = false
   permit_params :visibility, :archived_at
 
   filter :title
@@ -9,7 +14,6 @@ ActiveAdmin.register CoPlan::Plan, as: "Plan" do
   filter :updated_at
 
   index do
-    selectable_column
     id_column
     column :title
     column :visibility

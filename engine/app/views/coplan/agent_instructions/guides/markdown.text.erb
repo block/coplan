@@ -120,6 +120,8 @@ On slides, inline TeX source length and display-math rows count toward layout si
 
 Always put a language tag on a code fence. Coplan highlights the syntax with highlight.js and accepts any language name that highlight.js supports. Use the canonical names: `ruby`, `python`, `javascript`, `typescript`, `go`, `java`, `kotlin`, `swift`, `rust`, `c`, `cpp`, `csharp`, `sql`, `json`, `yaml`, `xml` (also for HTML), `css`, `graphql`, `protobuf`, `bash` (scripts), `shell` (terminal sessions with `$` prompts), `diff`, `http`. Use `plaintext` for logs. Do not invent tags: Coplan shows an unknown tag as plain text.
 
+To show a rendered Markdown preview, use a blockquote (prefix each line with `>`); a `markdown` code block shows literal source, not a rendered preview.
+
 ## Task lists
 
 `- [ ] Item` and `- [x] Done item` render as checkboxes. Readers can select a checkbox in the web UI. **Each selection is a hand edit.** After a person selects a checkbox, Coplan refuses your next write until you read the plan again.
@@ -212,3 +214,5 @@ When a paragraph starts with an image, text in that paragraph wraps beside it fr
 - Only the plan author can upload or delete attachments. Any reader can list and download them.
 - List the attachments: `GET <%= @base %>/api/v1/plans/$PLAN_ID/attachments`. Delete one: `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID`.
 - If a Mermaid diagram can show the content, use Mermaid instead of an image. A person can edit Mermaid; nobody can edit an image of a diagram.
+
+Document outline: section headings H1 through H6 appear in the outline. The leading document title is omitted because it is already in the top bar. Long outlines fold by heading hierarchy. Clicking a heading toggles its branch and navigates to it. Clicked branches stay as the reader set them when navigating elsewhere. Automatically opened branches close when the reader leaves; manually opened branches stay open.

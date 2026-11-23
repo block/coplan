@@ -1,4 +1,8 @@
 ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
+  # No destroy and no batch delete: a hard delete leaves no trace, and
+  # nothing in Coplan can restore it. Authors soft-delete their own comments.
+  actions :all, except: [ :destroy ]
+  config.batch_actions = false
   permit_params :body_markdown
 
   filter :comment_thread_id
@@ -6,7 +10,6 @@ ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
   filter :created_at
 
   index do
-    selectable_column
     id_column
     column :comment_thread
     column :author_type

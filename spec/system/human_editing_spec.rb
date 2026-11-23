@@ -56,7 +56,7 @@ RSpec.describe "Human plan editing", type: :system do
     bold_x = find_button("Bold").rect.x
     select_document_paragraph
     editor.send_keys("Revised body from the browser.")
-    expect(page).to have_css(".content-nav__list:not(.content-nav__list--footnotes) li", text: "Editable Plan")
+    expect(page).to have_no_css(".content-nav__list:not(.content-nav__list--footnotes) li", text: "Editable Plan", visible: :all)
     expect(find_button("Bold").rect.x).to be_within(1).of(bold_x)
     select_document_paragraph
     click_button "Bold"
@@ -77,7 +77,7 @@ RSpec.describe "Human plan editing", type: :system do
       paper_x = editor.rect.x
       click_button "Hide table of contents", enable_aria_label: true if page.has_button?("Hide table of contents", wait: 0)
       bold_x = find_button("Bold").rect.x
-      expect(page).to have_button("Toggle table of contents", disabled: false, enable_aria_label: true)
+      expect(page).to have_button("Toggle table of contents", disabled: true, enable_aria_label: true)
       select_document_paragraph
       editor.send_keys("New heading")
       select "Heading 1", from: "Paragraph style", enable_aria_label: true
@@ -163,7 +163,7 @@ RSpec.describe "Human plan editing", type: :system do
       editor
       page.evaluate_async_script('const done = arguments[0]; Promise.all(document.querySelector(".plan-layout").getAnimations({subtree: true}).filter(a => a.effect.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))).then(done)')
       paper_x = editor.rect.x
-      expect(page).to have_button("Toggle table of contents", enable_aria_label: true, disabled: false)
+      expect(page).to have_button("Toggle table of contents", enable_aria_label: true, disabled: true)
       select_document_paragraph
       editor.send_keys("New heading")
       select "Heading 1", from: "Paragraph style", enable_aria_label: true

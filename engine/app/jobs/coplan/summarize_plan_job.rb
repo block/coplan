@@ -1,17 +1,7 @@
 module CoPlan
-  # Regenerates a plan's AI-generated summary.
-  #
-  # Enqueued from PlanVersion#after_create_commit. Debounced via
-  # `plan.summary_content_sha256`: each job atomically "claims" the
-  # current content sha before calling the AI. Two workers that wake
-  # up against the same plan-and-sha will race on the claim — only one
-  # wins, the other no-ops. Without the atomic claim, both would pass
-  # a naive pre-check, both call the AI, and waste a full AI request.
-  #
-  # AI errors are discarded rather than retried — a stale summary is
-  # fine, and the next PlanVersion will trigger another attempt. The
-  # claim survives the failure, which is intentional: we'd rather skip
-  # this revision than retry a broken prompt in a loop.
+  # Wait for a quiet period before summarizing the current plan version.
+  # The atomic content claim deduplicates jobs that reach the same revision.
+  # AI failures keep their claim so jobs for that content won't retry the call.
   class SummarizePlanJob < ApplicationJob
     PROMPT_PATH = CoPlan::Engine.root.join("prompts", "summarize.md").freeze
 
@@ -19,38 +9,40 @@ module CoPlan
 
     discard_on CoPlan::Ai::Error
 
-    def perform(plan_id:)
+    def perform(plan_id:, version_id: nil)
       plan = Plan.find_by(id: plan_id)
       return unless plan
+      return if version_id && version_id != plan.current_plan_version_id
 
-      current_sha = plan.current_plan_version&.content_sha256
-      return if current_sha.blank?
+      version = plan.current_plan_version
+      return if version&.content_sha256.blank?
 
-      return unless claim_sha(plan, current_sha)
+      # Backfill jobs and jobs queued before deployment can arrive early.
+      ready_at = version.created_at + CoPlan.configuration.summary_debounce_delay
+      if ready_at.future?
+        self.class.set(wait_until: ready_at).perform_later(plan_id: plan.id, version_id: version.id)
+        return
+      end
 
-      summary = generate_summary(plan)
+      return unless claim_version(plan, version)
+
+      summary = generate_summary(version.content_markdown)
       return if summary.blank?
 
-      persist_summary(plan, summary, current_sha)
+      persist_summary(plan, summary, version.content_sha256)
     end
 
     private
 
-    # Atomic claim: set summary_content_sha256 = current_sha only if it
-    # isn't already current_sha. Returns true if THIS job won the claim.
-    #
-    # Using a single conditional UPDATE (one round-trip, atomic at the
-    # DB) means concurrent workers can't both pass the check and both
-    # call the AI — exactly one row update succeeds per sha.
-    def claim_sha(plan, current_sha)
-      claimed = Plan.where(id: plan.id)
-                    .where("summary_content_sha256 IS NULL OR summary_content_sha256 != ?", current_sha)
-                    .update_all(summary_content_sha256: current_sha)
-      claimed.positive?
+    # Only claim a version that is still current. The conditional update also
+    # lets just one worker call the AI for the same content.
+    def claim_version(plan, version)
+      Plan.where(id: plan.id, current_plan_version_id: version.id)
+          .where("summary_content_sha256 IS NULL OR summary_content_sha256 != ?", version.content_sha256)
+          .update_all(summary_content_sha256: version.content_sha256).positive?
     end
 
-    def generate_summary(plan)
-      content = plan.current_content
+    def generate_summary(content)
       return nil if content.blank?
 
       CoPlan::Ai.call(
@@ -60,9 +52,8 @@ module CoPlan
       ).to_s.strip.presence
     end
 
-    # Write the summary only if our claim is still current — if a newer
-    # version landed mid-flight, a fresher job has already re-claimed
-    # the sha and we'd be stomping its work.
+    # Keep the previous summary visible until a call succeeds. A newer
+    # claim supersedes this result if another call has already started.
     def persist_summary(plan, summary, expected_sha)
       Plan.where(id: plan.id, summary_content_sha256: expected_sha)
           .update_all(summary: summary, summary_generated_at: Time.current)

@@ -382,14 +382,17 @@ RSpec.describe "Inline plan editing", type: :system do
       original_path = current_path
       within("#plan-toolbar") { click_link "Edit" }
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
-      expect(page).to have_css(".content-nav", text: "A plan")
+      expect(page).to have_css(".content-nav__link", text: "Details")
+      expect(page).to have_no_css(".content-nav__link", text: "A plan", visible: :all)
 
       CoPlan::Plans::ReplaceContent.call(plan: plan.reload,
-        new_content: content.sub("# A plan", "# Revised plan"),
+        new_content: content.sub("# A plan", "# Revised plan").sub("## Details", "## Revised details"),
         base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
 
       expect(page).to have_css(".inline-editor .ProseMirror h1", text: "Revised plan", wait: 10)
-      expect(page).to have_css(".content-nav__link", text: "Revised plan", wait: 10)
+      expect(page).to have_css(".inline-editor .ProseMirror h2", text: "Revised details", wait: 10)
+      expect(page).to have_css(".content-nav__link", text: "Revised details", wait: 10)
+      expect(page).to have_no_css(".content-nav__link", text: "Revised plan", visible: :all)
       expect(page).to have_current_path(original_path)
     end
   end
