@@ -27,6 +27,24 @@ RSpec.describe CoPlan::Plans::TextDiff do
     expect(described_class.hunks("one two three\n", "one TWO three\n")).to eq([ { from: 4, to: 7, text: "TWO" } ])
   end
 
+  it "scans long Unicode edges without repeatedly indexing characters" do
+    edge = "é🙂e\u0301" * 4_000
+    [ [ "#{edge}x", "#{edge}y", edge.length ], [ "x#{edge}", "y#{edge}", 0 ] ].each do |before, after, offset|
+      [ before, after ].each do |text|
+        allow(text).to receive(:[]).and_call_original
+        expect(text).not_to receive(:[]).with(kind_of(Integer))
+      end
+
+      expect(described_class.hunks(before, after)).to eq([ { from: offset, to: offset + 1, text: "y" } ])
+    end
+  end
+
+  it "does not overlap common Unicode edges when inserting or removing text" do
+    [ [ "é🙂é", "é🙂🙂é" ], [ "é🙂🙂é", "é🙂é" ], [ "", "🙂" ], [ "🙂", "" ] ].each do |before, after|
+      expect(apply(before, described_class.hunks(before, after))).to eq(after)
+    end
+  end
+
   it "diffs a long document with two distant edits without a whole-document character LCS" do
     paragraphs = Array.new(1_100) { |i| "Paragraph #{i} says something about the rollout.\n" }
     before = paragraphs.join

@@ -110,18 +110,21 @@ module CoPlan
         before.length * after.length <= MAX_CHARACTER_CELLS
       end
 
-      def common_prefix_length(before, after)
-        limit = [ before.length, after.length ].min
+      def common_prefix_length(before, after, limit = [ before.length, after.length ].min)
+        # String#[] at successive character indexes rescans UTF-8 from the
+        # start. Walk characters once so non-ASCII documents stay linear too.
+        characters = after.each_char
         length = 0
-        length += 1 while length < limit && before[length] == after[length]
+        before.each_char do |character|
+          break if length == limit || character != characters.next
+          length += 1
+        end
         length
       end
 
       def common_suffix_length(before, after, prefix)
         limit = [ before.length, after.length ].min - prefix
-        length = 0
-        length += 1 while length < limit && before[-1 - length] == after[-1 - length]
-        length
+        common_prefix_length(before.reverse, after.reverse, limit)
       end
 
       def line_offsets(lines)
