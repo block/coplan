@@ -42,4 +42,36 @@ RSpec.describe CoPlan::Comments::PermanentlyDelete do
     expect(audit.metadata).to eq("comment_id" => comment.id, "thread_id" => thread.id)
     expect(event.as_api_json[:payload]["comment_body"]).to eq(CoPlan::Comment::DELETED_BODY)
   end
+
+  it "protects immutable review notes while allowing unrelated replies to be purged" do
+    request = create(:review_request, plan: plan)
+    receipt = create(:review_response, review_request: request, comment_thread: thread, note: comment.body_markdown)
+    comment.soft_delete!
+    expect { described_class.call(comment: comment, actor: admin) }.to raise_error(described_class::NotAllowed, /immutable review receipt/)
+    expect(comment.reload.body_markdown).to eq(receipt.reload.note)
+
+    reply = create(:comment, comment_thread: thread)
+    reply.soft_delete!
+    described_class.call(comment: reply, actor: admin)
+    expect(CoPlan::Comment.exists?(reply.id)).to be(false)
+    expect(receipt.reload.note).to eq("Retained original")
+  end
+
+  it "rolls back permanent deletion if its broadcast job cannot be queued" do
+    comment.soft_delete!
+    allow(CoPlan::BroadcastPermanentCommentDeletionJob).to receive(:perform_later).and_return(false)
+    expect { described_class.call(comment: comment, actor: admin) }.to raise_error(ActiveJob::EnqueueError)
+    expect(comment.reload.body_markdown).to eq("Retained original")
+    expect(plan.plan_events.where(event_type: "comment_permanently_deleted")).to be_empty
+  end
+
+  it "commits successfully while Cable is unavailable and queues retryable updates" do
+    comment.soft_delete!
+    admin
+    allow(CoPlan::Broadcaster).to receive(:prepend_to).and_raise("Cable unavailable")
+    expect { described_class.call(comment: comment, actor: admin) }
+      .to have_enqueued_job(CoPlan::BroadcastPermanentCommentDeletionJob)
+    expect(CoPlan::Comment.exists?(comment.id)).to be(false)
+    expect(CoPlan::Broadcaster).not_to have_received(:prepend_to)
+  end
 end

@@ -26,6 +26,19 @@ RSpec.describe "Admin permanent comment deletion", type: :request do
     expect(comment.reload.body_markdown).to eq("Retained original comment")
   end
 
+  it "explains why a review-note comment cannot be purged as an ordinary comment" do
+    request = create(:review_request, plan: comment.comment_thread.plan)
+    create(:review_response, review_request: request, comment_thread: comment.comment_thread, note: comment.body_markdown)
+    comment.soft_delete!
+    sign_in_as(admin)
+    get "/_/admin/plan_comments/#{comment.id}"
+    expect(response.body).to include("immutable review receipt")
+    expect(response.body).not_to include("Type DELETE")
+    delete path, params: { confirmation: "DELETE" }, as: :json
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(comment.reload.body_markdown).to eq("Retained original comment")
+  end
+
   it "lets an admin inspect and explicitly permanently delete retained text" do
     comment.soft_delete!
     sign_in_as(admin)

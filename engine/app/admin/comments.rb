@@ -43,7 +43,9 @@ ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
         row :updated_at
         row :deleted_at
       end
-      if resource.deleted?
+      if resource.review_note?
+        para "This comment belongs to an immutable review receipt. Permanent deletion is unavailable here."
+      elsif resource.deleted?
         panel "Permanently delete comment" do
           render "coplan/admin/comment_deletion", comment: resource
         end

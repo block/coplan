@@ -56,6 +56,11 @@ module CoPlan
       deleted? ? DELETED_BODY : body_markdown
     end
 
+    def review_note?
+      ReviewResponse.exists?(comment_thread_id: comment_thread_id) &&
+        comment_thread.comments.order(:created_at, :id).pick(:id) == id
+    end
+
     # Call in the same transaction that changes this comment's reactions.
     # Pages keep whichever render of the reactions has the highest version,
     # so an older render that arrives late can't undo a newer one. A render
