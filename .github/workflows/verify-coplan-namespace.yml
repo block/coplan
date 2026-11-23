@@ -1,27 +1,20 @@
-name: Diagnose Coplan browser shard
+name: Read prior Coplan browser failure
 on:
   push:
     branches: [verify-coplan-namespace-migration]
 permissions:
+  actions: read
   contents: read
   statuses: write
 jobs:
-  reproduce:
+  inspect:
     runs-on:
       group: ubuntu-x86-runners
-    env:
-      RAILS_ENV: test
-      DATABASE_URL: mysql2://root:root@127.0.0.1:3306/planning_department_test
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - run: sudo systemctl start mysql
-      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
-        with:
-          ruby-version: .ruby-version
-          bundler-cache: true
-      - run: bin/rails db:create db:schema:load
-      - name: Run shard
-        run: bin/rspec-system-shard 1 4 --seed 60447 --format progress --format json --out tmp/cop-browser-report.json
+      - name: Fetch failed shard report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 45208366111 --repo "$GITHUB_REPOSITORY" --name rspec-mysql-browser-1-1 --dir tmp/browser-failure-artifact
       - name: Report results
         if: ${{ !cancelled() }}
         env:
@@ -29,7 +22,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, os, pathlib, subprocess
-          report = pathlib.Path('tmp/cop-browser-report.json')
+          report = next(pathlib.Path('tmp/browser-failure-artifact').rglob('rspec-results.json'), pathlib.Path('missing.json'))
           data = json.loads(report.read_text()) if report.exists() else {}
           def publish(context, state, value):
               subprocess.run(['gh', 'api', '--method', 'POST',
