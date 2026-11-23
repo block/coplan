@@ -86,7 +86,7 @@ module Coplan
         when "tag_added", "tag_removed" then "tags"
         when "reference_added", "reference_removed" then "references"
         when "attachment_added", "attachment_removed" then "attachments"
-        when "comment_deleted" then "comments"
+        when "comment_deleted", "comment_permanently_deleted" then "comments"
         when "moved_to_folder" then "folder"
         end
       end

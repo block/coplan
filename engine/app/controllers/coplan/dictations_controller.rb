@@ -174,7 +174,7 @@ module Coplan
     end
 
     def recent_comments
-      # kept: a deleted comment's text was removed on purpose, and this
+      # kept: deleted comments are hidden from normal readers, and this
       # context leaves the building — it must not resurface there.
       Comment.kept.joins(:comment_thread)
         .where(comment_thread: { plan_id: @plan.id })

@@ -79,6 +79,9 @@ RSpec.describe Coplan::Comment, type: :model do
     it "soft_delete! sets deleted_at" do
       expect { comment.soft_delete! }.to change { comment.reload.deleted_at }.from(nil)
       expect(comment.deleted?).to be(true)
+      expect(comment.reload.body_markdown).to be_present
+      expect(comment.body_markdown).not_to eq(Coplan::Comment::DELETED_BODY)
+      expect(comment.public_body_markdown).to eq(Coplan::Comment::DELETED_BODY)
     end
 
     it "kept scope excludes deleted comments" do

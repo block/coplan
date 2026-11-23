@@ -70,6 +70,27 @@ RSpec.describe "Plan history page", type: :system do
   end
 
   describe "live update via Turbo Streams" do
+    it "shows only one audit entry after permanent-deletion broadcasts are replayed" do
+      thread = create(:comment_thread, plan: plan)
+      event = Coplan::PlanEvent.create!(plan: plan, event_type: "comment_permanently_deleted", actor_type: "human", actor_id: user.id,
+        metadata: { "comment_id" => SecureRandom.uuid, "thread_id" => thread.id })
+      visit plan_history_page_path(plan)
+      expect(page).to have_content("Permanently deleted comment")
+      page.execute_script(<<~JS)
+        document.documentElement.dataset.historyPrepends = "0"
+        document.addEventListener("turbo:before-stream-render", event => {
+          if (event.target.getAttribute("action") === "prepend" && event.target.getAttribute("target") === "plan-history-list") {
+            document.documentElement.dataset.historyPrepends = String(Number(document.documentElement.dataset.historyPrepends) + 1)
+          }
+        })
+      JS
+
+      2.times { Coplan::BroadcastPermanentCommentDeletionJob.perform_now(event_id: event.id, user_ids: []) }
+      expect(page).to have_css("html[data-history-prepends='2']", visible: :all)
+      expect(page).to have_css("##{ActionView::RecordIdentifier.dom_id(event)}", count: 1)
+      expect(page).to have_css("#history-count", text: "2 entries")
+    end
+
     it "shows a new version created while the history page is open" do
       # Create v2 after opening history — the broadcast prepends it live.
       visit plan_history_page_path(plan)

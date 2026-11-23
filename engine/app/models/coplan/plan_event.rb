@@ -32,6 +32,7 @@ module Coplan
       attachment_added
       attachment_removed
       comment_deleted
+      comment_permanently_deleted
       review_requested
       review_withdrawn
       review_removed
@@ -66,9 +67,7 @@ module Coplan
       :event
     end
 
-    after_create_commit :broadcast_history_update
-
-    private
+    after_create_commit :broadcast_history_update, unless: -> { event_type == "comment_permanently_deleted" }
 
     # Prepend the new event into the open history tab and bump the count
     # badge so anyone watching the plan sees metadata changes appear live

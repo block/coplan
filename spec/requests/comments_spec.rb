@@ -145,7 +145,7 @@ RSpec.describe "Comments", type: :request do
       comment.soft_delete!
       update_comment
       expect(response).to have_http_status(:not_found)
-      expect(comment.reload.body_markdown).to eq(Coplan::Comment::DELETED_BODY)
+      expect(comment.reload.body_markdown).to eq("Original")
     end
 
     it "rejects a comment nested under a different thread" do
