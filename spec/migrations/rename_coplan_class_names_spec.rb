@@ -24,9 +24,9 @@ RSpec.describe RenameCoplanClassNames do
       { name: "avatar", record_type: "User", record_id: user.id, blob_id: blob.id }
     ])
     ActiveAdmin::Comment.insert_all!([
-      { author_type: "CoPlan::User", author_id: 1, resource_type: "CoPlan::Plan", resource_id: 1,
+      { id: SecureRandom.uuid, author_type: "CoPlan::User", author_id: 1, resource_type: "CoPlan::Plan", resource_id: 1,
         namespace: "admin", body: "Legacy comment" },
-      { author_type: "User", author_id: 1, resource_type: "User", resource_id: 1,
+      { id: SecureRandom.uuid, author_type: "User", author_id: 1, resource_type: "User", resource_id: 1,
         namespace: "admin", body: "Host comment" }
     ])
 
