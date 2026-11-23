@@ -11,6 +11,21 @@ RSpec.describe "Notifications", type: :request do
   end
 
   describe "GET /notifications" do
+    it "hides retained text from deleted-comment previews in the inbox and panel" do
+      comment = create(:comment, comment_thread: thread, body_markdown: "Retained private wording")
+      create(:notification, user: user, plan: plan, comment_thread: thread, comment: comment)
+      comment.soft_delete!
+
+      get notifications_path
+      expect(response.body).not_to include("Retained private wording")
+      expect(response.body).to include(CoPlan::Comment::DELETED_BODY)
+
+      get notifications_path(panel: true)
+      expect(response.body).not_to include("Retained private wording")
+      expect(response.body).to include(CoPlan::Comment::DELETED_BODY)
+      expect(comment.reload.body_markdown).to eq("Retained private wording")
+    end
+
     it "shows unread notifications by default" do
       unread = create(:notification, user: user, plan: plan, comment_thread: thread)
       create(:notification, user: user, plan: plan, comment_thread: thread, read_at: Time.current)

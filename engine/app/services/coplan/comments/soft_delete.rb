@@ -5,9 +5,8 @@ module CoPlan
     # comment is a no-op so retries or double-clicks don't write duplicate
     # history entries.
     #
-    # Deleting retracts the words: the body becomes Comment::DELETED_BODY,
-    # the history event keeps no preview, and agent events already queued
-    # for the comment lose their copy of the body.
+    # The database retains the body. Public readers redact deleted comments,
+    # including copies in the durable agent inbox.
     class SoftDelete
       def self.call(**kwargs)
         new(**kwargs).call
@@ -27,7 +26,6 @@ module CoPlan
 
         ActiveRecord::Base.transaction do
           @comment.soft_delete!
-          scrub_agent_events
           Plans::LogEvent.call(
             plan: @comment.comment_thread.plan,
             actor: @actor,
@@ -44,16 +42,6 @@ module CoPlan
         end
 
         @comment
-      end
-
-      private
-
-      def scrub_agent_events
-        AgentEvent.where(comment_id: @comment.id).find_each do |event|
-          next unless event.payload.is_a?(Hash) && event.payload.key?("comment_body")
-
-          event.update_columns(payload: event.payload.merge("comment_body" => Comment::DELETED_BODY))
-        end
       end
     end
   end

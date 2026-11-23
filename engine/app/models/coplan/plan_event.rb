@@ -32,6 +32,7 @@ module CoPlan
       attachment_added
       attachment_removed
       comment_deleted
+      comment_permanently_deleted
       review_requested
       review_withdrawn
       review_removed

@@ -84,7 +84,7 @@ RSpec.describe "Coplan administration", type: :request do
     expect(response.body).to include("2 notification intents created", "Delivered: 2", "1 Slack message sent")
   end
 
-  it "cannot destroy plans, comment threads or comments, one at a time or in a batch" do
+  it "has no generic or batch destroy route for plans, comment threads or comments" do
     sign_in_as(create(:coplan_user, admin: true))
     comment = create(:comment)
     thread = comment.comment_thread

@@ -407,3 +407,9 @@ redact both connection codes, and approval/token responses disable caching.
 The helper stores the credential with mode 0600 without printing it. A second
 host needs its own credentials file; the helper never overwrites another host's
 configuration.
+
+## Deleted comment retention
+
+Ordinary comment deletion sets `deleted_at` and preserves the stored body. Public pages, notification previews, API responses, and queued agent event responses hide the text. Admins can inspect retained content under Plan Comments. The separate permanent deletion form requires a soft-deleted comment and explicit confirmation; it removes the comment and its associated copies. A metadata-only history entry records the admin who performed permanent deletion.
+
+The historical `ScrubDeletedCommentBodies` migration now only adds the agent-event comment lookup index. Keep its historical migration version when updating an installed host copy, so Rails does not run the same migration twice. Replace any pending copy of the old destructive implementation before deploying this revision. Text erased by an earlier release cannot be recovered by migrating down.

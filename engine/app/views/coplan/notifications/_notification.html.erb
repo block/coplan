@@ -16,7 +16,7 @@
     <% end %>
     <% first_comment = thread.comments.first %>
     <% if first_comment %>
-      <p class="notifications-list__comment text-sm"><%= truncate(first_comment.body_markdown, length: 120) %></p>
+      <p class="notifications-list__comment text-sm"><%= truncate(first_comment.public_body_markdown, length: 120) %></p>
     <% end %>
   </div>
   <div class="notifications-list__meta text-sm text-muted">

@@ -1,13 +1,23 @@
 ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
-  # No destroy and no batch delete: a hard delete leaves no trace, and
-  # nothing in Coplan can restore it. Authors soft-delete their own comments.
-  actions :all, except: [ :destroy ]
+  # Inspect retained content here; permanent deletion is a separate action.
+  actions :index, :show
   config.batch_actions = false
-  permit_params :body_markdown
 
   filter :comment_thread_id
   filter :author_type
   filter :created_at
+  filter :deleted_at
+
+  member_action :permanently_delete, method: :delete do
+    unless params[:confirmation] == "DELETE"
+      return render json: { error: "Type DELETE to confirm permanent deletion." }, status: :unprocessable_content
+    end
+
+    CoPlan::Comments::PermanentlyDelete.call(comment: resource, actor: current_coplan_admin_user)
+    render json: { html: render_to_string(partial: "coplan/admin/comment_permanently_deleted", formats: [ :html ]) }
+  rescue CoPlan::Comments::PermanentlyDelete::NotAllowed => error
+    render json: { error: error.message }, status: :unprocessable_content
+  end
 
   index do
     id_column
@@ -16,18 +26,28 @@ ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
     column :author_id
     column(:body_markdown) { |c| truncate(c.body_markdown, length: 80) }
     column :created_at
+    column :deleted_at
     actions
   end
 
   show do
-    attributes_table do
-      row :id
-      row :comment_thread
-      row :author_type
-      row :author_id
-      row :body_markdown
-      row :created_at
-      row :updated_at
+    text_node javascript_import_module_tag("coplan/admin_comments")
+    div data: { controller: "coplan--admin-comment-deletion" } do
+      attributes_table do
+        row :id
+        row :comment_thread
+        row :author_type
+        row :author_id
+        row :body_markdown
+        row :created_at
+        row :updated_at
+        row :deleted_at
+      end
+      if resource.deleted?
+        render "coplan/admin/comment_deletion", comment: resource
+      else
+        para "This comment is active. Its author must soft-delete it before an admin can permanently delete it."
+      end
     end
   end
 end

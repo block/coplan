@@ -13,6 +13,20 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     other_token
   end
 
+  it "redacts retained queued comment bodies when read after soft deletion, including cursor replay" do
+    comment = create(:comment, comment_thread: create(:comment_thread, plan: plan), body_markdown: "Stored comment text")
+    event = CoPlan::AgentEvent.create!(api_token: agent_token, plan: plan, comment_id: comment.id,
+      event_type: "comment.created", payload: { "comment_body" => comment.body_markdown, "plan_title" => plan.title })
+    get "/api/v1/agent/events", params: { wait: 0 }, headers: agent_headers
+    expect(response.parsed_body["events"].first.dig("payload", "comment_body")).to eq("Stored comment text")
+
+    comment.soft_delete!
+    event.update!(acked_at: Time.current)
+    get "/api/v1/agent/events", params: { wait: 0, cursor: "00000000-0000-0000-0000-000000000000" }, headers: agent_headers
+    expect(response.parsed_body["events"].first.dig("payload", "comment_body")).to eq(CoPlan::Comment::DELETED_BODY)
+    expect(event.reload.payload["comment_body"]).to eq("Stored comment text")
+  end
+
   describe "agent sessions" do
     it "claims a session, drives states, and rejects bogus states" do
       post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json

@@ -81,6 +81,8 @@ module CoPlan
         safe_join([ "Withdrew the review request for ", content_tag(:strong, event.metadata["reviewer_name"]) ])
       when "comment_deleted"
         "Deleted comment"
+      when "comment_permanently_deleted"
+        "Permanently deleted comment"
       else
         "#{event.event_type}: #{event.before_value || "—"} → #{event.after_value || "—"}"
       end

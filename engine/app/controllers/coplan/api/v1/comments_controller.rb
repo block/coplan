@@ -193,7 +193,7 @@ module CoPlan
                 author_type: c.author_type,
                 author_id: c.author_id,
                 agent_name: c.agent_name,
-                body_markdown: c.body_markdown,
+                body_markdown: c.public_body_markdown,
                 deleted: c.deleted?,
                 created_at: c.created_at,
                 reactions: CommentReaction.as_api_json(c)

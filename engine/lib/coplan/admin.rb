@@ -31,6 +31,9 @@ module CoPlan
       active_admin.current_user_method = :current_coplan_admin_user
       active_admin.logout_link_path = false
       active_admin.comments = false
+      ActiveAdmin.importmap.pin "@hotwired/stimulus", to: "stimulus.min.js"
+      ActiveAdmin.importmap.pin "coplan/admin_comments", to: "coplan/admin_comments.js"
+      ActiveAdmin.importmap.pin "controllers/coplan/admin_comment_deletion_controller", to: "controllers/coplan/admin_comment_deletion_controller.js"
       active_admin.namespace :admin do |namespace|
         namespace.route_options = { path: path }
         namespace.site_title = "Coplan Admin"

@@ -22,17 +22,17 @@ RSpec.describe ScrubDeletedCommentBodies do
     comment
   end
 
-  it "removes deleted comments' text from the row, the history event and queued agent events, and can rerun" do
+  it "preserves deleted text in every stored record and can rerun" do
     deleted = legacy_deleted_comment("Retracted salary numbers")
     kept = create(:comment, comment_thread: thread, author_type: "human", author_id: user.id, body_markdown: "Still here")
 
     migration.up
     migration.up
 
-    expect(deleted.reload.body_markdown).to eq(CoPlan::Comment::DELETED_BODY)
+    expect(deleted.reload.body_markdown).to eq("Retracted salary numbers")
     expect(kept.reload.body_markdown).to eq("Still here")
     stored = [ CoPlan::PlanEvent.where(plan: plan).pluck(:metadata), CoPlan::AgentEvent.where(plan: plan).pluck(:payload) ].to_json
-    expect(stored).not_to include("Retracted salary numbers")
-    expect(CoPlan::PlanEvent.find_by(event_type: "comment_deleted").metadata).to eq("comment_id" => deleted.id, "thread_id" => thread.id)
+    expect(stored).to include("Retracted salary numbers")
+    expect(CoPlan::PlanEvent.find_by(event_type: "comment_deleted").metadata).to eq("comment_id" => deleted.id, "thread_id" => thread.id, "body_preview" => "Retracted salary numbers")
   end
 end

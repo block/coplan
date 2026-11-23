@@ -39,9 +39,18 @@ module CoPlan
         plan_id: plan_id,
         comment_thread_id: comment_thread_id,
         comment_id: comment_id,
-        payload: payload,
+        payload: public_payload,
         created_at: created_at
       }
+    end
+
+    private
+
+    def public_payload
+      return payload unless comment_id.present? && payload.is_a?(Hash) && payload.key?("comment_body")
+      return payload if Comment.kept.exists?(id: comment_id)
+
+      payload.merge("comment_body" => Comment::DELETED_BODY)
     end
   end
 end
