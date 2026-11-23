@@ -273,6 +273,34 @@ RSpec.describe Coplan::Plans::DiffToOperations do
   end
 
   describe "OT compatibility (anchor preservation through generated ops)" do
+    it "keeps comments on the same repeated passage across distant character edits" do
+      prefix = "# Report\n\n"
+      middle = (1..100).map { |i| "Unchanged line #{i}.\n" }.join
+      old = prefix + "repeat\nrepeat\nrepeat\n" + middle + "c\nb"
+      updated = prefix + "Xrepeat\nrepeat\nrepeat\n" + middle + "ac\nb"
+      operations = described_class.call(old_content: old, new_content: updated, granularity: :character)
+      result = Coplan::Plans::ApplyOperations.call(content: old, operations: operations)
+      version = double(operations_json: result[:applied])
+
+      expect(result[:content]).to eq(updated)
+      expect(Coplan::Plans::TransformRange.transform_comment_through_versions([ 10, 16 ], [ version ])).to eq([ [ 11, 17 ], false ])
+    end
+
+    it "preserves a quote between thousands of blank lines after sparse edits" do
+      quote = "exact quote for review"
+      old = "# Report\n\nbegin\n" + ("\n" * 1_100) + quote + "\n" + ("\n" * 1_100) + "end\n"
+      updated = old.sub("begin", "begin?").sub("end", "end!")
+      operations = described_class.call(old_content: old, new_content: updated, granularity: :character)
+      result = Coplan::Plans::ApplyOperations.call(content: old, operations: operations)
+      version = double(operations_json: result[:applied])
+      start = old.index(quote)
+
+      expect(result[:content]).to eq(updated)
+      expect(Coplan::Plans::TransformRange.transform_comment_through_versions([ start, start + quote.length ], [ version ])).to eq(
+        [ [ start + 1, start + quote.length + 1 ], false ]
+      )
+    end
+
     # The whole point of fine-grained hunks is that anchors in unchanged
     # regions can be transformed forward by Plans::TransformRange.
     it "lets an anchor before all changes survive unchanged" do

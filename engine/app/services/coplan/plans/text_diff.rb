@@ -2,28 +2,18 @@ require "diff/lcs"
 
 module Coplan
   module Plans
-    # Hunks between two versions of a document, in character offsets of the
-    # older one. A character LCS costs time and memory proportional to the
-    # product of the two lengths, and web saves run it while holding the plan
-    # row lock, so it is only ever run on text small enough to be cheap:
-    #
-    #   1. The common prefix and suffix are skipped (one linear scan).
-    #   2. If one side of what remains is empty, it is one hunk.
-    #   3. If what remains is small, it gets a character diff.
-    #   4. Otherwise lines are diffed first, and each changed run of lines
-    #      is refined the same way; a run too large stays one hunk.
-    #   5. If even the line diff would be slow, the whole middle is one hunk.
-    #
-    # A coarser hunk can turn a merge into a conflict, never into a splice.
+    # Character-offset replacements between two document versions. Skip common
+    # edges, use LCS for small changes, and use a bounded Myers shortest-edit
+    # search for larger changes. Never infer character positions from lines:
+    # matching the wrong repeated line can misplace comments or concurrent edits.
+    # If the search exhausts its budget, replace the entire changed middle.
     module TextDiff
-      # Cells (old length x new length) a character diff may cost. About a
-      # tenth of a second with Diff::LCS; matches WritingProvenance.
       MAX_CHARACTER_CELLS = 1_000_000
 
-      # A line LCS costs about one step per pair of equal lines, so mostly
-      # unique prose is cheap at any length, while thousands of blank or
-      # repeated lines are not. A million pairs is about a quarter second.
-      MAX_LINE_MATCHES = 1_000_000
+      # One budget for the whole search, counting frontier states and character
+      # comparisons. Stored frontier entries also consume this budget, bounding
+      # the backtracking trace as well as CPU work.
+      MAX_SEARCH_STEPS = 1_000_000
 
       module_function
 
@@ -35,26 +25,73 @@ module Coplan
         suffix = common_suffix_length(before, after, prefix)
         old_middle = before[prefix...(before.length - suffix)]
         new_middle = after[prefix...(after.length - suffix)]
-        return refine(old_middle, new_middle, prefix) if small?(old_middle, new_middle)
-        return [ { from: prefix, to: prefix + old_middle.length, text: new_middle } ] if line_matches(old_middle, new_middle) > MAX_LINE_MATCHES
+        replacement = [ { from: prefix, to: prefix + old_middle.length, text: new_middle } ]
+        return replacement if old_middle.empty? || new_middle.empty?
+        return character_hunks(old_middle, new_middle, prefix) if small?(old_middle, new_middle)
 
-        line_hunks(old_middle, new_middle).flat_map do |old_from, old_to, new_from, new_to|
-          refine(old_middle[old_from...old_to], new_middle[new_from...new_to], prefix + old_from)
+        bounded_character_hunks(old_middle, new_middle, prefix) || replacement
+      end
+
+      # Myers' frontier records the furthest old-text position on each diagonal
+      # after d insertions/deletions. An array index i represents diagonal 2*i-d.
+      # Equal characters advance along a diagonal without another edit. A found
+      # path is shortest; an exhausted search returns no partial alignment.
+      def bounded_character_hunks(before, after, offset)
+        return if [ before.length, after.length ].max > MAX_SEARCH_STEPS
+
+        old = before.codepoints
+        fresh = after.codepoints
+        frontier = [ 0 ]
+        trace = []
+        steps = 0
+        (0..old.length + fresh.length).each do |distance|
+          next_frontier = []
+          (0..distance).each do |index|
+            steps += 1
+            return if steps > MAX_SEARCH_STEPS
+
+            insertion = index.zero? || (index < distance && frontier[index - 1] < frontier[index])
+            x = insertion ? frontier[index] : frontier[index - 1] + 1
+            y = x - (2 * index - distance)
+            while x < old.length && y < fresh.length
+              steps += 1
+              return if steps > MAX_SEARCH_STEPS
+              break unless old[x] == fresh[y]
+              x += 1
+              y += 1
+            end
+            next_frontier << x
+            if x >= old.length && y >= fresh.length
+              return backtrack(trace, old.length, fresh.length, fresh, after.encoding, offset)
+            end
+          end
+          trace << next_frontier
+          frontier = next_frontier
         end
       end
 
-      # One replacement of before by after, split by character when cheap.
-      def refine(before, after, offset)
-        if !before.empty? && !after.empty? && small?(before, after)
-          character_hunks(before, after, offset)
-        else
-          [ { from: offset, to: offset + before.length, text: after } ]
+      def backtrack(trace, x, y, fresh, encoding, offset)
+        edits = []
+        trace.length.downto(1) do |distance|
+          frontier = trace[distance - 1]
+          diagonal = x - y
+          index = (diagonal + distance) / 2
+          insertion = index.zero? || (index < distance && frontier[index - 1] < frontier[index])
+          previous_x = insertion ? frontier[index] : frontier[index - 1]
+          previous_y = previous_x - (insertion ? diagonal + 1 : diagonal - 1)
+          edits << { from: offset + previous_x, to: offset + previous_x + (insertion ? 0 : 1),
+                     text: insertion ? fresh[previous_y].chr(encoding) : +"" }
+          x, y = previous_x, previous_y
         end
-      end
 
-      def line_matches(before, after)
-        new_counts = after.lines.tally
-        before.lines.tally.sum { |line, count| count * new_counts.fetch(line, 0) }
+        edits.reverse_each.with_object([]) do |edit, hunks|
+          if hunks.last && hunks.last[:to] == edit[:from]
+            hunks.last[:to] = edit[:to]
+            hunks.last[:text] << edit[:text]
+          else
+            hunks << edit
+          end
+        end
       end
 
       # [[old_from, old_to, new_from, new_to]]: runs of changed whole lines,

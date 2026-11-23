@@ -56,12 +56,12 @@ RSpec.describe Coplan::Plans::TextDiff do
 
     expect(apply(before, hunks)).to eq(after)
     expect(hunks.map { |hunk| hunk[:text].strip }).to eq([ "now", "also" ])
-    expect(cells.select { |count| count > described_class::MAX_CHARACTER_CELLS }.size).to be <= 1 # the line diff
-    expect(cells.max).to be < 2_000_000
+    expect(cells).to be_empty
   end
 
   it "keeps a rewrite too large for a character diff as one hunk" do
     stub_const("#{described_class}::MAX_CHARACTER_CELLS", 10)
+    stub_const("#{described_class}::MAX_SEARCH_STEPS", 1)
     before = "keep\nold text here\nkeep too\n"
     after = "keep\nnew words there\nkeep too\n"
 
@@ -77,9 +77,9 @@ RSpec.describe Coplan::Plans::TextDiff do
     expect(cells).to be_empty
   end
 
-  it "replaces the whole changed middle when even a line diff would be slow" do
-    before = "start\n" + ("\n" * 2_000) + "end\n"
-    after = "start!\n" + ("\n" * 1_500) + ("x\n" * 500) + "end!\n"
+  it "replaces the whole changed middle when the character search exhausts its budget" do
+    before = "start\n" + ("x" * 3_000) + "\nend\n"
+    after = "start!\n" + ("y" * 3_000) + "\nend!\n"
     cells = lcs_cells
 
     hunks = described_class.hunks(before, after)
@@ -87,6 +87,42 @@ RSpec.describe Coplan::Plans::TextDiff do
     expect(apply(before, hunks)).to eq(after)
     expect(hunks.size).to eq(1)
     expect(cells).to be_empty
+  end
+
+  it "discards a partial search when comparisons exhaust the shared budget" do
+    stub_const("#{described_class}::MAX_CHARACTER_CELLS", 0)
+    stub_const("#{described_class}::MAX_SEARCH_STEPS", 45)
+    before = "a" + ("z" * 40) + "b"
+    after = "c" + ("z" * 40) + "d"
+
+    expect(described_class.hunks(before, after)).to eq([ { from: 0, to: 42, text: after } ])
+  end
+
+  it "bounds comparisons and stored frontier states across an entire rewrite" do
+    stub_const("#{described_class}::MAX_SEARCH_STEPS", 200)
+    before, after = "a" * 100, "b" * 100
+    old_points, new_points = before.codepoints, after.codepoints
+    allow(before).to receive(:codepoints).and_return(old_points)
+    allow(after).to receive(:codepoints).and_return(new_points)
+    expect(old_points).to receive(:[]).at_most(200).times.and_call_original
+    expect(new_points).to receive(:[]).at_most(200).times.and_call_original
+    expect(described_class).not_to receive(:backtrack)
+
+    expect(described_class.bounded_character_hunks(before, after, 0)).to be_nil
+  end
+
+  it "finds shortest character edits with valid offsets for every small Unicode pair" do
+    stub_const("#{described_class}::MAX_CHARACTER_CELLS", 0)
+    alphabet = [ "a", "🙂", "\n" ]
+    texts = (0..3).flat_map { |length| alphabet.repeated_permutation(length).map(&:join) }
+    texts.product(texts).each do |before, after|
+      hunks = described_class.hunks(before, after)
+      expect(apply(before, hunks)).to eq(after)
+      expect(hunks.each_cons(2).all? { |left, right| left[:to] < right[:from] }).to be(true)
+      cost = hunks.sum { |hunk| hunk[:to] - hunk[:from] + hunk[:text].length }
+      lcs_length = Diff::LCS.lcs(before.chars, after.chars).length
+      expect(cost).to eq(before.length + after.length - 2 * lcs_length)
+    end
   end
 
   it "reports changed lines as offset ranges on both sides" do

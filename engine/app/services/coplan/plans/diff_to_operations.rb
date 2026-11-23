@@ -17,9 +17,9 @@ module Coplan
     #      (one entry per hunk, not one per character), which keeps OT
     #      transforms cheap when later edits rebase through this version.
     #
-    # `granularity: :character` (web saves) refines changed lines down to
-    # characters so a one-word edit stays one word. Plans::TextDiff bounds
-    # what that costs on a long document.
+    # `granularity: :character` (web saves) compares characters directly so
+    # a one-word edit stays one word. Plans::TextDiff bounds the search cost
+    # and falls back to one replacement if the budget is exhausted.
     #
     # Operations are emitted in left-to-right order over the OLD content, and
     # each `_pre_resolved_ranges` accounts for cumulative deltas from prior
