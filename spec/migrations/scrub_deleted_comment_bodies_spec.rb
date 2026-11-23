@@ -31,8 +31,7 @@ RSpec.describe ScrubDeletedCommentBodies do
 
     expect(deleted.reload.body_markdown).to eq("Retracted salary numbers")
     expect(kept.reload.body_markdown).to eq("Still here")
-    stored = [ CoPlan::PlanEvent.where(plan: plan).pluck(:metadata), CoPlan::AgentEvent.where(plan: plan).pluck(:payload) ].to_json
-    expect(stored).to include("Retracted salary numbers")
+    expect(CoPlan::AgentEvent.find_by!(comment_id: deleted.id).payload["comment_body"]).to eq("Retracted salary numbers")
     expect(CoPlan::PlanEvent.find_by(event_type: "comment_deleted").metadata).to eq("comment_id" => deleted.id, "thread_id" => thread.id, "body_preview" => "Retracted salary numbers")
   end
 end
