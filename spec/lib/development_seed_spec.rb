@@ -6,6 +6,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
     it "provides a retained deleted-comment scenario without recreating permanently deleted content on re-seed" do
       described_class.call
       document = seeded_plan("deleted-comments")
+      expect(document.current_content.scan(/^# /).length).to eq(1)
       thread = document.comment_threads.sole
       deleted = thread.comments.find_by!(body_markdown: "Draft note retained for admin review.")
       expect(deleted).to be_deleted
