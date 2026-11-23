@@ -574,7 +574,7 @@ module CoPlan
                 body_markdown: c.body_markdown,
                 created_at: c.created_at,
                 reactions: CommentReaction.as_api_json(c)
-              }
+              }.merge(component_annotation_json(c))
             }
           }
         end

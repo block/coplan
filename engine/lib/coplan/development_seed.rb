@@ -133,7 +133,7 @@ module CoPlan
         showcase: "All six callout types including Summary, a custom label, a list and code inside a callout, and plain quotes for comparison; comment on callout text or edit it in Editor" },
       { key: "interactive-components", author: "hampton", type: "Design Doc", title: "Interactive components: checkout retries",
         tags: %w[demo diagrams javascript], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
-        showcase: "A three-line diagram and a live retry simulator with component-level discussion" },
+        showcase: "A three-line diagram and a live retry simulator with point and area annotations on the live view" },
       { key: "math-gallery", author: "hampton", type: "Research Note", title: "Math: estimating a retry budget",
         tags: %w[demo markdown math], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "LaTeX math typeset with KaTeX: inline, display, a math fence, math in lists and tables, dollar amounts that stay text, and invalid math shown as source" },

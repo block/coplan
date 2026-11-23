@@ -2,7 +2,7 @@ module CoPlan
   # A fixed Rack response deliberately outside host authentication, templates,
   # Turbo and session callbacks. No plan bytes or request parameters enter it.
   class ComponentFrame
-    SHELL = File.read(File.join(__dir__, "components/frame.html")).freeze
+    SHELL = File.read(File.join(__dir__, "components/frame.html")).sub("/* SNAPSHOT_HELPER */") { File.read(File.join(__dir__, "components/snapshot.js")) }.freeze
 
     def self.call(_env)
       return [ 404, { "cache-control" => "no-store" }, [] ] unless CoPlan.configuration.components_enabled

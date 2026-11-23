@@ -64,6 +64,67 @@ RSpec.describe "Document components", type: :request do
     expect(first.reload.component_catalog.dig("libraries", "maths@1", "source")).to include("* 10")
   end
 
+  describe "component annotations" do
+    let(:plan) { CoPlan::Plans::Create.call(title: "Demo", content:, user:, actor_type: "human") }
+    let(:selection) { { width: 500, height: 200, x: 30, y: 15, w: 60, h: 20, label: "Retry" } }
+    let(:form) { { source_token: @source_token, component_selection: selection.to_json, body_markdown: "Check this delay" } }
+
+    before do
+      sign_in_as(user)
+      get plan_page_path(plan)
+      @source_token = JSON.parse(Nokogiri::HTML.fragment(response.body).at_css("#retry button[data-source-target]")["data-source-target"]).fetch("token")
+    end
+
+    it "keeps the marked view with the original comment and serves it to the plan's readers and agents" do
+      post plan_comment_threads_path(plan), params: { comment_thread: form.merge(component_snapshot: fixture_file_upload("sample.png", "image/png")) }
+      comment = plan.comments.sole
+      expect(comment.component_selection).to include("label" => "Retry", "image" => true, "revision" => plan.current_revision)
+      get snapshot_plan_comment_thread_comment_path(plan, comment.comment_thread, comment)
+      png = file_fixture("sample.png").binread
+      expect(response.body.b).to eq(png)
+      create(:api_token, user:, raw_token: "component-agent")
+      headers = { "Authorization" => "Bearer component-agent" }
+      get api_v1_plan_comment_path(plan, comment.comment_thread), headers: headers
+      selection = JSON.parse(response.body).fetch("comments").sole.fetch("component_selection")
+      get selection.fetch("png_url")
+      expect(response).to have_http_status(:unauthorized)
+      get selection.fetch("png_url"), headers: headers
+      expect(response.media_type).to eq("image/png")
+      expect(response.body.b).to eq(png)
+      other_plan = create(:plan, created_by_user: user)
+      get api_v1_plan_comment_snapshot_path(other_plan, comment), headers: headers
+      expect(response).to have_http_status(:not_found)
+      comment.soft_delete!
+      get selection.fetch("png_url"), headers: headers
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "keeps the selection when the frame cannot supply an image" do
+      post plan_comment_threads_path(plan), params: { comment_thread: form }
+      comment = plan.comments.sole
+      expect(comment.component_snapshot).not_to be_attached
+      expect(comment.component_selection).to include("image" => false, "x" => selection[:x], "w" => selection[:w])
+    end
+
+    it "rejects an invalid image, coordinates, or an unsigned anchor without leaving an empty thread" do
+      corrupt_png = file_fixture("sample.png").binread
+      pixel_data = corrupt_png.index("IDAT") + 4
+      corrupt_png.setbyte(pixel_data, corrupt_png.getbyte(pixel_data) ^ 1)
+      invalid = [
+        form.merge(component_snapshot: Rack::Test::UploadedFile.new(StringIO.new(corrupt_png), "image/png", original_filename: "corrupt.png")),
+        form.merge(component_snapshot: fixture_file_upload("sample.txt", "image/png")),
+        form.merge(component_selection: selection.merge(x: 499).to_json),
+        form.except(:source_token)
+      ]
+      invalid.each do |values|
+        expect {
+          post plan_comment_threads_path(plan, format: :turbo_stream), params: { comment_thread: values }
+        }.not_to change(CoPlan::CommentThread, :count)
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+    end
+  end
+
   it "keeps generated source inside its visible section when reading changes and replacing a section" do
     markdown = "# Demo\r\n\r\n## First\r\n\r\n::: {.component}\r\n\r\nroot.textContent = `\r\n~~~js\r\n## Later\r\n`;\r\n\r\n:::\r\n\r\n## Later\r\n\r\nKeep me."
     change = CoPlan::Plans::ChangedSections.call(old_content: markdown, new_content: markdown.sub("~~~js", "~~~ruby"))

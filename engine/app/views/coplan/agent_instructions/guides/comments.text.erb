@@ -11,6 +11,7 @@ People comment on an exact passage of a plan, a table cell, or a diagram node or
 Each thread in the snapshot (`comment_threads`) includes:
 
 - `anchor_text`: the passage that the comment is about.
+- A component comment may include `component_selection`. Its `x, y, w, h` are CSS pixels from the top left of the original view of size `width × height`. Zero width and height mark a point. Read its `revision`, optional label, and `png_url` when available to understand the original state.
 - `anchor_kind`: set when the comment is on a `table_cell`, `mermaid_node`, `mermaid_edge`, `mermaid_diagram`, or `component` instead of on prose.
 - `anchor_valid`: `false` if the passage is no longer in the plan.
 - `out_of_date`: `true` if an edit changed the passage after the comment.

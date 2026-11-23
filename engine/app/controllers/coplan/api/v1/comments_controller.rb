@@ -18,6 +18,13 @@ module CoPlan
           render json: thread_json(thread)
         end
 
+        def snapshot
+          comment = @plan.comments.kept.find_by(id: params[:id])
+          return head :not_found unless comment&.component_snapshot&.attached?
+          response.headers["Cache-Control"] = "private, no-store"
+          send_data comment.component_snapshot.download, type: "image/png", disposition: "inline"
+        end
+
         def create
           thread = @plan.comment_threads.new(
             plan_version: @plan.current_plan_version,
@@ -196,7 +203,7 @@ module CoPlan
                 body_markdown: c.body_markdown,
                 created_at: c.created_at,
                 reactions: CommentReaction.as_api_json(c)
-              }
+              }.merge(component_annotation_json(c))
             }
           }
         end

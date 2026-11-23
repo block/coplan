@@ -10,7 +10,7 @@ module CoPlan
 
       thread_params = params.expect(
         comment_thread: [ :anchor_text, :anchor_context, :anchor_occurrence, :anchor_occurrence_source,
-                          :start_line, :end_line, :body_markdown, :source_token ]
+                          :start_line, :end_line, :body_markdown, :source_token, :component_selection, :component_snapshot ]
       )
       thread = @plan.comment_threads.new(
         plan_version: @plan.current_plan_version,
@@ -34,11 +34,15 @@ module CoPlan
           @plan.lock!
           thread.plan_version = @plan.current_plan_version
           thread.save!
-          comment = thread.comments.create!(
+          comment = thread.comments.build(
             author_type: "human",
             author_id: current_user.id,
             body_markdown: thread_params[:body_markdown]
           )
+          if thread_params[:component_selection] || thread_params[:component_snapshot]
+            Comments::ComponentAnnotation.call(comment:, selection: thread_params[:component_selection], file: thread_params[:component_snapshot])
+          end
+          comment.save!
         end
       rescue ActiveRecord::RecordInvalid => e
         # Most likely an anchor that doesn't resolve — a thread that would

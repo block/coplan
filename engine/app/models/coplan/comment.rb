@@ -5,6 +5,7 @@ module CoPlan
     # Attribution labels sit inline next to the body, so they stay short.
     AGENT_NAME_LIMIT = 20
 
+    has_one_attached :component_snapshot
     belongs_to :comment_thread
     # Notifications reference the comment, so deleting one used to fail on
     # a foreign key. They're delivery records for a comment that no longer
@@ -43,6 +44,18 @@ module CoPlan
 
     def deleted?
       deleted_at.present?
+    end
+
+    def component_annotation?
+      !deleted? && component_selection.present?
+    end
+
+    def selection_description
+      return unless component_annotation?
+      point = "(#{component_selection["x"]}, #{component_selection["y"]})"
+      w, h = component_selection.values_at("w", "h")
+      area = w.zero? && h.zero? ? "Point #{point}" : "#{w} × #{h} at #{point}"
+      [ component_selection["label"].presence, area ].compact.join(" · ")
     end
 
     def soft_delete!

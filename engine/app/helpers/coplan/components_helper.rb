@@ -15,24 +15,30 @@ module CoPlan
         actions = []
         if interactive
           actions << tag.button(component_icon(:comment), type: "button", title: "Comment on component", aria: { label: "Comment on component" },
-            data: { component_comment_line: region.start_line, action: "coplan--source-comments#commentOnDiagram" })
+            data: { component_comment_line: region.start_line, action: (enabled ? "click->coplan--component#annotate keydown.c->coplan--component#annotate:prevent" : "coplan--source-comments#commentOnDiagram") })
+        end
+        if interactive && enabled
+          actions << tag.button("", type: "button", hidden: true, data: { component_discussions: "", action: "coplan--source-comments#componentDiscussions" })
         end
         if enabled
           actions << tag.button(component_icon(:expand), type: "button", title: "Expand component", aria: { label: "Expand component", expanded: false },
             data: { "coplan--component-target": "expand", action: "coplan--component#toggleExpanded" })
         end
-        content = [ tag.figcaption(title), tag.div(safe_join(actions), class: "document-component__actions") ]
+        content = []
         content << tag.iframe("", sandbox: "allow-scripts", title:, referrerpolicy: "no-referrer",
           data: { "coplan--component-target": "frame" }) if enabled
         content << tag.p(issue, role: "status") if issue
-        content << tag.details(open: !enabled, class: ("document-component__source" if enabled)) do
-          summary = if enabled
-            tag.summary(component_icon(:source), title: "View source", aria: { label: "View source" })
-          else
-            tag.summary("Source")
-          end
-          safe_join([ summary, tag.pre(tag.code(region.source)) ])
+        unless enabled
+          content << tag.details(safe_join([ tag.summary("Source"), tag.pre(tag.code(region.source)) ]), open: true)
         end
+        if interactive && enabled
+          gestures = %w[pointerdown->coplan--component#start pointermove->coplan--component#move
+                        pointerup->coplan--component#finish pointercancel->coplan--component#cancel keydown->coplan--component#key]
+          content << tag.div(tag.span("", class: "document-component__mark"), hidden: true, tabindex: 0,
+            role: "button", aria: { label: "Click or drag to annotate. Press Enter for the whole view or Escape to cancel." },
+            class: "document-component__selection", data: { "coplan--component-target": "selection", action: gestures.join(" ") })
+        end
+        content << tag.div(safe_join(actions), class: "document-component__actions") if actions.any?
         safe_join(content)
       end
     end
@@ -40,7 +46,7 @@ module CoPlan
     private
 
     def component_icon(name)
-      path = { comment: "M13.5 3.5h-11v8h3v2.5l3.5-2.5h4.5z", source: "m5.5 4.5-3.5 3.5 3.5 3.5m5-7L14 8l-3.5 3.5",
+      path = { comment: "M13.5 3.5h-11v8h3v2.5l3.5-2.5h4.5z",
         expand: "M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" }.fetch(name)
       tag.svg(tag.path(d: path), viewBox: "0 0 16 16", width: 16, height: 16, fill: "none", stroke: "currentColor",
         "stroke-width": 1.5, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": true)

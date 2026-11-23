@@ -19,6 +19,7 @@
   const nonce = document.currentScript.nonce
   document.currentScript.nonce = ""
   document.currentScript.remove()
+  /* SNAPSHOT_HELPER */
   const root = document.querySelector("main")
   const channel = new MessageChannel()
   const port = channel.port1
@@ -30,7 +31,16 @@
       for (const [name, value] of Object.entries(theme.colors)) style.setProperty("--coplan-" + name, value)
     }
     if (data.theme) applyTheme(data.theme)
-    port.onmessage = ({data}) => { if (data.theme) applyTheme(data.theme) }
+    port.onmessage = async ({data}) => {
+      if (data.theme) applyTheme(data.theme)
+      if (data.capture) {
+        const snapshot = await captureSnapshot(root, data.capture)
+        port.postMessage({captureId: data.capture.id, ...snapshot})
+      }
+    }
+    for (const type of ["pointerenter", "pointerleave"]) {
+      document.documentElement.addEventListener(type, () => port.postMessage({hovered: type === "pointerenter"}))
+    }
     const started = performance.now()
     const {source, title, libraries, wrapper, startLine} = data
     let authorURL

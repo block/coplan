@@ -32,7 +32,8 @@ RSpec.describe "Interactive components", type: :system do
       find('input[type="range"]').send_keys(:arrow_right)
       expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds")
     end
-    simulator = find("figure", text: "Retry simulator", match: :first)
+    simulator = find("figure:has(iframe[title='Retry simulator'])")
+    expect(simulator).to have_no_css("figcaption, summary", visible: :all)
     simulator.hover
     simulator.find('button[aria-label="Expand component"]').click
     expect(simulator).to match_css(":popover-open")
@@ -47,7 +48,31 @@ RSpec.describe "Interactive components", type: :system do
       expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds")
     end
     expect(page).to have_css(".document-component[data-render-ms]", count: 2)
-    find("figure", text: "Payment path", match: :first).find("button[data-source-target]").click
+    simulator.hover
+    tab = simulator.find(".document-component__actions")
+    expect(page.evaluate_script("arguments[0].getBoundingClientRect().top >= arguments[1].getBoundingClientRect().bottom - 1", tab, simulator.find("iframe"))).to be(true)
+    tab.find("button[data-source-target]").click
+    simulator.find(".document-component__selection").click
+    expect(page).to have_css(".source-comments textarea:focus", visible: true)
+    expect(page).to have_css(".source-comments img[src^='blob:']", visible: true)
+    within(".source-comments") do
+      fill_in "comment_thread[body_markdown]", with: "Explain this retry delay."
+      click_button "Comment"
+    end
+    expect(page).to have_css(".source-comments .comment__body img.component-snapshot", visible: true)
+    comment = plan.comments.reload.sole
+    expect(comment.component_selection).to include("revision" => plan.current_revision, "w" => 0)
+    expect(comment.component_snapshot.download).to start_with(CoPlan::Comments::ComponentAnnotation::PNG_HEADER)
+    visit plan_page_path(plan)
+    diagram = find("figure:has(iframe[title='Payment path'])")
+    diagram.hover
+    diagram.find("button[data-source-target]").click
+    diagram.find(".document-component__selection").send_keys(:enter)
+    expect(page).to have_css(".source-comments img[src^='blob:']", visible: true)
+    find("#source-comment-body").send_keys(:escape)
+    simulator.hover
+    simulator.find("button[data-source-target]").click
+    simulator.find(".document-component__selection").click
     expect(page).to have_css(".source-comments textarea:focus", visible: true)
   end
 
@@ -68,8 +93,7 @@ RSpec.describe "Interactive components", type: :system do
     plan = CoPlan::Plans::Create.call(title: "Receipt", content: markdown, user: author, actor_type: "human")
     visit plan_page_path(plan)
     within_frame(find('iframe[title="Amount"]')) { expect(page).to have_text("</script> 250") }
-    find('figure summary[aria-label="View source"]').click
-    expect(page).to have_css("figure pre", text: 'root.textContent = "</script> " + cents;')
+    expect(page).to have_no_css("figure pre, figure figcaption", visible: :all)
   end
 
   it "keeps repeated captions and source out of prose discussion and writing highlights" do

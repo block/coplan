@@ -19,6 +19,13 @@ module CoPlan
 
         private
 
+        def component_annotation_json(comment)
+          return {} unless comment.component_annotation?
+          selection = comment.component_selection.except("image")
+          selection["png_url"] = api_v1_plan_comment_snapshot_path(@plan, comment) if comment.component_selection["image"]
+          { component_selection: selection }
+        end
+
         def set_agent_instructions_header
           response.headers["X-Agent-Instructions"] = CoPlan::Engine.routes.url_helpers.agent_instructions_path
         end

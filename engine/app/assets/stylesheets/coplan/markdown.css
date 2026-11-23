@@ -996,63 +996,85 @@
   border-bottom: none;
 }
 
-/* Keep tools on the caption line, leaving the live surface to the reader. */
+/* Keep the tools outside the authored surface, including on touch screens. */
 .document-component {
   position: relative;
-  margin: 1rem 0;
-  padding: .8rem 1rem;
+  margin: 1rem 0 2.3rem;
+  padding: 0;
   border: 1px solid var(--color-border);
-  border-radius: .6rem;
+  border-radius: .45rem;
   color: var(--color-text);
   background: var(--color-surface);
 }
-.document-component figcaption {
-  min-height: 2rem;
+.document-component iframe { display: block; width: 100%; border: 0; border-radius: inherit; }
+.document-component__actions {
+  position: absolute;
+  inset: 100% .35rem auto auto;
   display: flex;
   align-items: center;
-  padding-inline-end: 6.5rem;
-  font-weight: 600;
+  gap: 1px;
+  padding: 0 .15rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0 0 .45rem .45rem;
+  background: var(--color-surface);
+  z-index: 1;
 }
-.document-component iframe { display: block; width: 100%; border: 0; }
-.document-component__actions, .document-component__source > summary {
-  position: absolute;
-  inset-block-start: .8rem;
-  inset-inline-end: .65rem;
-}
-.document-component__actions { display: flex; }
-.document-component__source > summary { inset-inline-end: 4.65rem; list-style: none; }
-.document-component__source > summary::-webkit-details-marker { display: none; }
-.document-component__actions button, .document-component__source > summary {
+.document-component__actions button {
   display: inline-grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
+  min-width: 1.85rem;
+  height: 1.65rem;
+  padding: 0 .25rem;
   border: 0;
-  border-radius: .35rem;
+  border-radius: .3rem;
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
 }
+.document-component__actions [hidden] { display: none; }
 @media (hover: hover) and (pointer: fine) {
-  .document-component:not(:hover):not(:focus-within):not(:popover-open) :is(.document-component__actions button:not(.has-source-comments), .document-component__source:not([open]) > summary) {
-    opacity: .65;
+  .document-component:not(:hover):not(.is-frame-hovered):not(:focus-within):not(:popover-open):not(:has(.has-source-comments)) > .document-component__actions {
+    opacity: 0;
   }
 }
-:is(.document-component__actions > button, .document-component__source > summary):is(:hover, :focus-visible), .document-component__source[open] > summary {
+@media (pointer: coarse) {
+  .document-component__actions button { min-width: 2.5rem; height: 2.25rem; }
+  .document-component { margin-bottom: 2.8rem; }
+}
+.document-component__actions button:is(:hover, :focus-visible, [aria-pressed="true"]) {
   color: var(--color-primary);
   background: var(--color-interaction-hover-bg);
 }
-:is(.document-component__actions > button, .document-component__source > summary):focus-visible { outline: 2px solid var(--color-primary); }
+.document-component__actions button:focus-visible { outline: 2px solid var(--color-primary); }
+.document-component__selection {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+  outline: 2px solid var(--color-primary);
+  border-radius: inherit;
+}
+.document-component__mark {
+  display: none;
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 2px solid var(--color-primary);
+  background: var(--color-interaction-hover-bg);
+}
+.component-snapshot { display: block; max-width: 100%; max-height: 14rem; object-fit: contain; margin: .35rem 0; }
+.component-snapshot[hidden] { display: none; }
 .document-component pre { overflow: auto; max-height: 26rem; white-space: pre; }
 .document-component:popover-open {
   position: fixed;
   inset: 0;
   margin: auto;
   width: min(72rem, calc(100vw - 2rem));
-  max-height: calc(100dvh - 2rem);
-  overflow: auto;
+  overflow: visible;
   box-sizing: border-box;
 }
-.document-component:popover-open iframe { min-height: min(65dvh, 50rem); }
+.document-component:popover-open iframe {
+  min-height: min(65dvh, 50rem);
+  max-height: calc(100dvh - 6rem);
+}
 .document-component:popover-open::backdrop { background: rgb(0 0 0 / .4); }

@@ -6,6 +6,6 @@
     sanitize, and this partial is re-rendered on every show AND every
     content-mutation broadcast. skip_digest avoids the template-digest cost
     on write paths; expiry picks up renderer changes within 15 minutes. -%>
-<% cache [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body-with-components", plan.id, plan.current_plan_version_id, CoPlan.configuration.components_enabled], expires_in: 15.minutes, skip_digest: true do %>
+<% cache [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body-with-component-tab", plan.id, plan.current_plan_version_id, CoPlan.configuration.components_enabled], expires_in: 15.minutes, skip_digest: true do %>
   <%= render_plan_document(plan.current_content, version: plan.current_plan_version) %>
 <% end %>

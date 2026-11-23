@@ -12,7 +12,7 @@ diagram.edge("checkout", "retry", "on failure");
 
 ## Explore backoff
 
-Choose how many attempts fail before a payment succeeds. Each retry doubles the previous wait.
+Choose how many attempts fail before a payment succeeds. Each retry doubles the previous wait. To discuss a particular delay, choose Comment below the simulator and drag across the result.
 
 ::: {.component title="Retry simulator"}
 

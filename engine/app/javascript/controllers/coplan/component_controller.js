@@ -3,13 +3,14 @@ import { Controller } from "@hotwired/stimulus"
 // Each fresh shell offers a private port. Never send a document to a Window
 // by wildcard origin: that browsing context could already have navigated.
 export default class extends Controller {
-  static targets = ["frame", "expand"]
+  static targets = ["frame", "expand", "selection"]
   static values = { url: String, program: Object }
 
   connect() {
     this.scheme = matchMedia("(prefers-color-scheme: dark)")
     this.schemeChanged = () => this.syncTheme()
     this.scheme.addEventListener("change", this.schemeChanged)
+    this.captureSequence = 0
     this.started = performance.now()
     this.challenge = Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16).padStart(8, "0")).join("")
     this.frameTarget.src = this.urlValue + "#" + this.challenge
@@ -21,6 +22,8 @@ export default class extends Controller {
     this.challenge = null
     this.port = event.ports[0]
     this.port.onmessage = ({data}) => {
+      if (typeof data?.hovered === "boolean") this.element.classList.toggle("is-frame-hovered", data.hovered)
+      if (data?.captureId && data.captureId === this.pending?.id) this.pending.resolve(data)
       if (Number.isFinite(data?.height)) {
         this.frameTarget.style.height = Math.min(1200, Math.max(48, data.height)) + "px"
       }
@@ -44,7 +47,127 @@ export default class extends Controller {
     if (this.port) this.port.postMessage({theme: this.theme()})
   }
 
+  annotate(event) {
+    if (!this.selectionTarget.hidden) return this.cancel()
+    this.commentButton = event.currentTarget
+    this.commentButton.setAttribute("aria-pressed", "true")
+    this.selectionTarget.hidden = false
+    this.selectionTarget.focus({preventScroll: true})
+  }
+
+  position(event) {
+    const box = this.selectionTarget.getBoundingClientRect()
+    const width = Math.max(1, Math.round(box.width)), height = Math.max(1, Math.round(box.height))
+    const x = Math.max(0, Math.min(width, Math.round(event.clientX - box.left)))
+    const y = Math.max(0, Math.min(height, Math.round(event.clientY - box.top)))
+    return {width, height, x, y}
+  }
+
+  start(event) {
+    if (!event.isPrimary || event.button !== 0 || this.gesture) return
+    this.selectionTarget.setPointerCapture(event.pointerId)
+    this.beginCapture(this.position(event), event.pointerId)
+    this.move(event)
+  }
+
+  beginCapture(point, pointerId) {
+    const id = ++this.captureSequence
+    const snapshot = new Promise(resolve => {
+      const timer = setTimeout(() => resolve({}), 3500)
+      this.pending = {id, resolve: value => { clearTimeout(timer); resolve(value) }}
+    })
+    this.gesture = {point, pointerId, snapshot}
+    this.port?.postMessage({capture: {id, x: point.x, y: point.y}})
+  }
+
+  region(end) {
+    const {width, height, x, y} = this.gesture.point
+    if (Math.abs(x - end.x) + Math.abs(y - end.y) < 5) return {width, height, x, y, w: 0, h: 0}
+    return {width, height, x: Math.min(x, end.x), y: Math.min(y, end.y), w: Math.abs(x - end.x), h: Math.abs(y - end.y)}
+  }
+
+  move(event) {
+    if (event.pointerId !== this.gesture?.pointerId) return
+    const {x, y, w, h} = this.region(this.position(event))
+    Object.assign(this.selectionTarget.firstElementChild.style, {
+      display: "block", left: x + "px", top: y + "px", width: Math.max(3, w) + "px", height: Math.max(3, h) + "px"
+    })
+  }
+
+  finish(event) {
+    if (event.pointerId !== this.gesture?.pointerId) return
+    const end = this.position(event)
+    if (end.width !== this.gesture.point.width || end.height !== this.gesture.point.height) return this.cancel()
+    this.compose(this.region(end))
+  }
+
+  key(event) {
+    if (event.key === "Escape") {
+      event.preventDefault()
+      this.cancel()
+    } else if (["Enter", " "].includes(event.key) && !this.gesture) {
+      event.preventDefault()
+      const {width, height} = this.position(event)
+      this.beginCapture({width, height, x: 0, y: 0}, null)
+      this.compose({width, height, x: 0, y: 0, w: width, h: height})
+    }
+  }
+
+  async compose(region) {
+    const gesture = this.gesture
+    this.selectionTarget.style.cursor = "progress"
+    const result = await gesture.snapshot
+    const png = await this.markSnapshot(result.png, region)
+    if (this.gesture !== gesture || !this.element.isConnected) return
+    const label = typeof result.label === "string" ? result.label.slice(0, 160) : ""
+    this.cancel()
+    this.commentButton.dispatchEvent(new CustomEvent("coplan:component-annotation", {
+      bubbles: true, detail: {region: {...region, label}, png}
+    }))
+  }
+
+  async markSnapshot(blob, region) {
+    if (!(blob instanceof Blob) || blob.type !== "image/png" || !blob.size || blob.size > 4 * 1024 * 1024) return
+    // The component controls its own pixels. Bound the decode before using
+    // them and pass only the parent canvas's PNG onward to the composer.
+    try {
+      const header = new DataView(await blob.slice(0, 24).arrayBuffer())
+      if (header.getUint32(0) !== 0x89504e47 || header.getUint32(4) !== 0x0d0a1a0a ||
+          header.getUint32(16) > 1536 || header.getUint32(20) > 1536) return
+      const image = await createImageBitmap(blob)
+      const canvas = document.createElement("canvas")
+      canvas.width = image.width
+      canvas.height = image.height
+      const context = canvas.getContext("2d")
+      context.drawImage(image, 0, 0)
+      image.close()
+      context.scale(canvas.width / region.width, canvas.height / region.height)
+      context.beginPath()
+      if (region.w || region.h) context.rect(region.x, region.y, Math.max(1, region.w), Math.max(1, region.h))
+      else context.arc(region.x, region.y, 7, 0, 2 * Math.PI)
+      for (const [width, color] of [[4, "white"], [2, "#176edf"]]) {
+        context.lineWidth = width
+        context.strokeStyle = color
+        context.stroke()
+      }
+      return await new Promise(resolve => canvas.toBlob(resolve, "image/png"))
+    } catch { return null }
+  }
+
+  cancel() {
+    this.pending?.resolve({})
+    this.pending = null
+    this.gesture = null
+    if (!this.hasSelectionTarget || this.selectionTarget.hidden) return
+    this.selectionTarget.hidden = true
+    this.selectionTarget.style.cursor = ""
+    this.selectionTarget.firstElementChild.style.display = "none"
+    this.commentButton.setAttribute("aria-pressed", "false")
+    this.commentButton.focus({preventScroll: true})
+  }
+
   toggleExpanded() {
+    this.cancel()
     if (this.element.matches(":popover-open")) return this.collapse()
     this.placeholder = document.createElement("div")
     this.placeholder.style.height = this.element.getBoundingClientRect().height + "px"
@@ -60,7 +183,9 @@ export default class extends Controller {
   }
 
   collapse() {
+    this.cancel()
     if (!this.placeholder) return
+    this.element.dispatchEvent(new CustomEvent("coplan:expander-closing", {bubbles: true}))
     if (this.element.matches(":popover-open")) this.element.hidePopover()
     this.element.removeAttribute("popover")
     this.placeholder.remove()
