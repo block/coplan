@@ -7,13 +7,13 @@ class ApplicationController < ActionController::Base
 
   before_action :authenticate_user!
 
-  helper CoPlan::ApplicationHelper
+  helper Coplan::ApplicationHelper
   helper_method :current_user, :signed_in?, :show_api_tokens?
 
   private
 
   def current_user
-    @current_user ||= CoPlan::User.find_by(id: session[:user_id]) if session[:user_id]
+    @current_user ||= Coplan::User.find_by(id: session[:user_id]) if session[:user_id]
   end
 
   def signed_in?
@@ -21,7 +21,7 @@ class ApplicationController < ActionController::Base
   end
 
   def show_api_tokens?
-    CoPlan.configuration.show_api_tokens?
+    Coplan.configuration.show_api_tokens?
   end
 
   def authenticate_user!

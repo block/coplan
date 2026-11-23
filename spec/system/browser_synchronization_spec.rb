@@ -14,7 +14,7 @@ RSpec.describe "Browser synchronization", type: :system do
 
   it "waits for a real fetch and its callback before the next browser read" do
     visit plan_page_path(plan)
-    allow_any_instance_of(CoPlan::PlansController).to receive(:editor_state).and_wrap_original do |action|
+    allow_any_instance_of(Coplan::PlansController).to receive(:editor_state).and_wrap_original do |action|
       sleep 0.25 # Deliberately slow the actual response, beyond a WebDriver round-trip.
       action.call
     end
@@ -49,7 +49,7 @@ RSpec.describe "Browser synchronization", type: :system do
     # The server initiates this update independently of a browser command.
     # Observe its arrival, then explicitly join the shared synchronization layer.
     Capybara::Lockstep.with_mode(:manual) do
-      CoPlan::Broadcaster.replace_to(plan, target: ActionView::RecordIdentifier.dom_id(thread),
+      Coplan::Broadcaster.replace_to(plan, target: ActionView::RecordIdentifier.dom_id(thread),
         partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: plan })
       Selenium::WebDriver::Wait.new(timeout: 5).until { page.evaluate_script("window.syncStreamReceived") }
     end

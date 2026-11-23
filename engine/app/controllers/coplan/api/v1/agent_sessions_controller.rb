@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       # An agent claims a session on a plan to (a) subscribe its token to

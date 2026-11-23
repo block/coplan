@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     class PositionResolver
       Resolution = Data.define(:op, :ranges)

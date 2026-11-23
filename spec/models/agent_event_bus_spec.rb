@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::AgentEventBus do
+RSpec.describe Coplan::AgentEventBus do
   subject(:bus) { described_class.new(capacity: 2) }
 
   describe "#with_slot" do

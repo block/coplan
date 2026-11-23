@@ -85,7 +85,7 @@ export default class extends Controller {
     const timeout = setTimeout(() => abort.abort(), 15000)
     try {
       const response = await fetch(this.contentUrlValue, { cache: "no-store", signal: abort.signal, headers: { Accept: "text/html" } })
-      const revision = response.headers.get("X-CoPlan-Revision")
+      const revision = response.headers.get("X-Coplan-Revision")
       if (!response.ok || !revision) throw new Error("Could not refresh the reading view. Check your connection or sign in again")
       const html = await response.text()
       if (!await this.refreshThreads()) throw new Error("Could not refresh comments. Try Done again")

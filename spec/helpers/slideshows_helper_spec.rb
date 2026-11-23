@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
+RSpec.describe Coplan::SlideshowsHelper, type: :helper do
   def deck(content, **options)
     Nokogiri::HTML::DocumentFragment.parse(helper.render_slideshow(content, **options))
   end
@@ -112,7 +112,7 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       expect(targets.map { |target| target["text"] }).to include(" alpha  ", " omega ")
       expect(diagrams.size).to eq(1)
       (targets + diagrams).each do |target|
-        expect(CoPlan::Plans::SourceTargets.resolve(target["token"], source)).to include("start" => target["start"])
+        expect(Coplan::Plans::SourceTargets.resolve(target["token"], source)).to include("start" => target["start"])
       end
       expect(doc.css("[data-sourcepos]")).to be_empty
     end

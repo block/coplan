@@ -1,7 +1,7 @@
 """Coplan voice sidecar — fully local speech loop on macOS.
 
 Pipeline: browser mic --WebRTC--> Silero VAD + smart-turn --> MLX Whisper STT
-          --> CoPlanAgentBackend --> Kokoro TTS --WebRTC--> browser speaker
+          --> CoplanAgentBackend --> Kokoro TTS --WebRTC--> browser speaker
 
 The "brain" is deliberately NOT an LLM service: spoken feedback becomes a
 Coplan comment (same event inbox that wakes the plan's agent — see
@@ -37,7 +37,7 @@ PLAN_ID = os.environ["COPLAN_PLAN_ID"]
 ACKS = ["Got it.", "On it.", "Sure thing.", "Okay, one sec."]
 
 
-class CoPlanAgentBackend(FrameProcessor):
+class CoplanAgentBackend(FrameProcessor):
     """The brain seam: final transcript in → fast ack + Coplan comment out.
 
     Anything smarter (RAG over the doc, direct Q&A without waking the
@@ -84,7 +84,7 @@ async def main():
     pipeline = Pipeline([
         transport.input(),
         stt,
-        CoPlanAgentBackend(),
+        CoplanAgentBackend(),
         tts,
         transport.output(),
     ])

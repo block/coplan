@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::AgentConnectionRequest, type: :model do
+RSpec.describe Coplan::AgentConnectionRequest, type: :model do
   let(:user) { create(:coplan_user) }
 
   def issue
@@ -26,16 +26,16 @@ RSpec.describe CoPlan::AgentConnectionRequest, type: :model do
 
   it "creates no access before approval and delivers one personal credential" do
     record, = issue
-    expect { expect(record.redeem!).to eq(error: "authorization_pending") }.not_to change(CoPlan::ApiToken, :count)
+    expect { expect(record.redeem!).to eq(error: "authorization_pending") }.not_to change(Coplan::ApiToken, :count)
     expect(record.decide!(user: user, approve: true)).to be true
     travel 6.seconds
     result = record.redeem!
-    token = CoPlan::ApiToken.authenticate(result.fetch(:token))
+    token = Coplan::ApiToken.authenticate(result.fetch(:token))
     expect(token.user).to eq(user)
     expect(token.name).to eq("Work laptop")
     expect(token).to be_can_mint
     expect(record.reload.status).to eq("consumed")
-    expect { expect(record.redeem!).to eq(error: "invalid_grant") }.not_to change(CoPlan::ApiToken, :count)
+    expect { expect(record.redeem!).to eq(error: "invalid_grant") }.not_to change(Coplan::ApiToken, :count)
   end
 
   it "throttles polling and never lets denial turn into approval" do
@@ -45,7 +45,7 @@ RSpec.describe CoPlan::AgentConnectionRequest, type: :model do
     expect(record.decide!(user: user, approve: false)).to be true
     expect(record.decide!(user: user, approve: true)).to be false
     expect(record.redeem!).to eq(error: "access_denied")
-    expect(CoPlan::ApiToken.count).to eq(0)
+    expect(Coplan::ApiToken.count).to eq(0)
   end
 
   it "rejects expired requests, including an approval not yet collected" do
@@ -54,7 +54,7 @@ RSpec.describe CoPlan::AgentConnectionRequest, type: :model do
     travel 11.minutes
     expect(record.redeem!).to eq(error: "expired_token")
     expect(record.decide!(user: user, approve: true)).to be false
-    expect(CoPlan::ApiToken.count).to eq(0)
+    expect(Coplan::ApiToken.count).to eq(0)
   end
 
   it "retains no old approval requests as new connections are requested" do
@@ -70,7 +70,7 @@ RSpec.describe "Concurrent connection redemption", type: :model do
 
   it "issues exactly one credential when two pollers redeem an approval together" do
     user = create(:coplan_user)
-    request, = CoPlan::AgentConnectionRequest.issue!(name: "Concurrent setup")
+    request, = Coplan::AgentConnectionRequest.issue!(name: "Concurrent setup")
     request.decide!(user: user, approve: true)
     gate = Queue.new
     results = Queue.new
@@ -78,7 +78,7 @@ RSpec.describe "Concurrent connection redemption", type: :model do
       Thread.new do
         ActiveRecord::Base.connection_pool.with_connection do
           gate.pop
-          results << CoPlan::AgentConnectionRequest.find(request.id).redeem!
+          results << Coplan::AgentConnectionRequest.find(request.id).redeem!
         end
       end
     end

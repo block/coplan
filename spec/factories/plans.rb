@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :plan, class: "CoPlan::Plan" do
+  factory :plan, class: "Coplan::Plan" do
     created_by_user { association(:coplan_user) }
     sequence(:title) { |n| "Plan #{n}" }
     visibility { "draft" }

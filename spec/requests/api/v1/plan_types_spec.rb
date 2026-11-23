@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Api::V1::PlanTypes", type: :request do
   # These examples configure their own catalog. Seeded reference data must
   # not determine their fixtures or the order in which they pass.
-  before { CoPlan::PlanType.delete_all }
+  before { Coplan::PlanType.delete_all }
 
   let(:alice) { create(:coplan_user, :admin) }
   let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }

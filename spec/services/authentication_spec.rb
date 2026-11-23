@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Authentication do
+RSpec.describe Coplan::Authentication do
   describe ".provision_user!" do
     it "creates a user from host-supplied attributes" do
       user = described_class.provision_user!(external_id: "new@example.com", name: "New Person", username: "newbie")

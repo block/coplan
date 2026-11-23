@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Notifications
     # Marks every unread row one person carries for one plan read, and
     # refreshes their badge.

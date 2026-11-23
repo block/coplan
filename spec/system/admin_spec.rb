@@ -24,10 +24,10 @@ RSpec.describe "Coplan administration", type: :system do
   it "filters agent sessions and opens the matching record" do
     user = create(:coplan_user, admin: true, email: "admin-filter@example.com")
     plan = create(:plan, created_by_user: user)
-    watching = CoPlan::AgentSession.create!(
+    watching = Coplan::AgentSession.create!(
       plan: plan, api_token: create(:api_token, user: user), agent_name: "Watching agent", state: "watching"
     )
-    complete = CoPlan::AgentSession.create!(
+    complete = Coplan::AgentSession.create!(
       plan: plan, api_token: create(:api_token, user: user), agent_name: "Complete agent", state: "complete"
     )
 

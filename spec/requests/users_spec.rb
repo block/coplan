@@ -43,7 +43,7 @@ RSpec.describe "Users", type: :request do
 
         before do
           # Hook returns one local user (resolvable) and one external-only user.
-          CoPlan.configuration.user_search = ->(_query) {
+          Coplan.configuration.user_search = ->(_query) {
             [
               { id: "ext-1", name: "External Only", email: "ext@example.com", username: "external_only" },
               { id: local_user.id, name: "Local Person", email: "local@example.com", username: "localp" }
@@ -51,13 +51,13 @@ RSpec.describe "Users", type: :request do
           }
         end
 
-        after { CoPlan.configuration.user_search = nil }
+        after { Coplan.configuration.user_search = nil }
 
         [ false, true ].each do |string_keys|
           it "returns local IDs for directory candidates with #{string_keys ? 'string' : 'symbol'} keys", :review_directory do
             candidate = { id: "directory-identity", name: "Directory Person", email: "directory@example.com", username: local_user.username, team: "Directory Team" }
             candidate = candidate.stringify_keys if string_keys
-            CoPlan.configuration.user_search = ->(_query) { [ candidate ] }
+            Coplan.configuration.user_search = ->(_query) { [ candidate ] }
             get search_users_path, params: { q: "Directory" }
             expect(response.parsed_body).to contain_exactly(include("id" => local_user.id, "name" => "Directory Person", "username" => local_user.username, "team" => "Directory Team"))
           end

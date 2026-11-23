@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class NotificationsController < ApplicationController
     # A long-lived account accumulates notifications forever; the inbox
     # only ever shows the most recent page of them.

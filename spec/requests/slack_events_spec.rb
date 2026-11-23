@@ -9,7 +9,7 @@ RSpec.describe "Slack events" do
   end
 
   around do |example|
-    config = CoPlan::Slack.configuration
+    config = Coplan::Slack.configuration
     old = config.to_h
     config.signing_secret = "secret"
     config.bot_token = "token"
@@ -20,7 +20,7 @@ RSpec.describe "Slack events" do
   end
 
   it "returns 404 when unconfigured" do
-    CoPlan::Slack.configuration.signing_secret = nil
+    Coplan::Slack.configuration.signing_secret = nil
     post "/integrations/slack/events", params: "{}", headers: {}
     expect(response).to have_http_status(:not_found)
   end
@@ -43,7 +43,7 @@ RSpec.describe "Slack events" do
   it "enqueues link events with delivery metadata and acknowledges unsupported events" do
     body = { event_id: "Ev1", event: { type: "link_shared", links: [] } }.to_json
     headers = signed_headers(body).merge("HTTP_X_SLACK_RETRY_NUM" => "1", "HTTP_X_SLACK_RETRY_REASON" => "http_timeout")
-    expect { post "/integrations/slack/events", params: body, headers: headers }.to have_enqueued_job(CoPlan::Slack::UnfurlJob).with(
+    expect { post "/integrations/slack/events", params: body, headers: headers }.to have_enqueued_job(Coplan::Slack::UnfurlJob).with(
       { "type" => "link_shared", "links" => [] },
       { "event_id" => "Ev1", "retry_num" => "1", "retry_reason" => "http_timeout" }
     )

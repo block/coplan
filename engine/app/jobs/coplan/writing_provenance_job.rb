@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class WritingProvenanceJob < ApplicationJob
     queue_as :default
     queue_with_priority 20

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Scheduled at wake time (AgentSession#wake!). If the session hasn't
   # emitted any activity since that wake, the pill would be a lie — flip
   # it to stale so the UI stops showing "Waking…" for an agent that never

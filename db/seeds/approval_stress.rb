@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Opt-in local data for trying the approval table, timeline and discussions
   # at scale. Existing decisions and local edits survive repeated runs.
   module ApprovalStressSeed

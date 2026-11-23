@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Notifications::NeedsAttention do
+RSpec.describe Coplan::Notifications::NeedsAttention do
   let(:user) { create(:coplan_user) }
   let(:other_user) { create(:coplan_user) }
 
@@ -41,7 +41,7 @@ RSpec.describe CoPlan::Notifications::NeedsAttention do
     plan = create(:plan, :considering, created_by_user: user)
     request = create(:review_request, plan: plan, reviewer: user)
     %w[review_requested review_response].each do |reason|
-      CoPlan::Notification.create!(plan: plan, user: user, review_request: request, reason: reason)
+      Coplan::Notification.create!(plan: plan, user: user, review_request: request, reason: reason)
     end
     expect(described_class.call(user: user).unread_counts).to be_empty
     expect(request.reload).to be_pending
@@ -49,7 +49,7 @@ RSpec.describe CoPlan::Notifications::NeedsAttention do
     notify(plan)
     result = described_class.call(user: user)
     expect(result.unread_count_for(plan)).to eq(1)
-    expect(CoPlan::Notification.find(result.notification_id_for(plan)).reason).to eq("new_comment")
+    expect(Coplan::Notification.find(result.notification_id_for(plan)).reason).to eq("new_comment")
   end
 
   it "points each row at an unread notification for that plan" do

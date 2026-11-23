@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A read receipt: proof that a particular credential has actually pulled
   # a plan's content at a particular revision.
   #

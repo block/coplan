@@ -1,9 +1,9 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::AgentSession, type: :model do
+RSpec.describe Coplan::AgentSession, type: :model do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
-  let(:api_token) { CoPlan::ApiToken.create_with_raw_token(user: user, name: "agent", agent_name: "Claude").first }
+  let(:api_token) { Coplan::ApiToken.create_with_raw_token(user: user, name: "agent", agent_name: "Claude").first }
 
   def session(state:, last_activity_at:, **extra)
     described_class.create!(
@@ -142,14 +142,14 @@ RSpec.describe CoPlan::AgentSession, type: :model do
     around do |example|
       # The test env installs a permissive policy; these examples exercise
       # how the model consults whatever policy is configured.
-      original = CoPlan.configuration.wake_url_policy
+      original = Coplan.configuration.wake_url_policy
       example.run
     ensure
-      CoPlan.configuration.wake_url_policy = original
+      Coplan.configuration.wake_url_policy = original
     end
 
     it "refuses a URL the egress policy rejects" do
-      CoPlan.configuration.wake_url_policy = ->(uri) { false }
+      Coplan.configuration.wake_url_policy = ->(uri) { false }
 
       record = described_class.new(
         plan: plan, api_token: api_token, agent_name: "Claude",
@@ -166,7 +166,7 @@ RSpec.describe CoPlan::AgentSession, type: :model do
       # Policy tightens after registration: existing sessions must still be
       # able to move through their state machine (the webhook job is the
       # enforcement point at delivery time).
-      CoPlan.configuration.wake_url_policy = ->(uri) { raise "resolved during transition" }
+      Coplan.configuration.wake_url_policy = ->(uri) { raise "resolved during transition" }
 
       expect { record.transition!("active") }.not_to raise_error
     end
@@ -177,7 +177,7 @@ RSpec.describe CoPlan::AgentSession, type: :model do
     # delete_all associations, destroying either parent raises.
     it "is deleted with its plan, along with the plan's inbox rows" do
       session(state: "watching", last_activity_at: Time.current)
-      CoPlan::AgentEvent.create!(api_token_id: api_token.id, plan_id: plan.id, event_type: "comment.created", payload: {})
+      Coplan::AgentEvent.create!(api_token_id: api_token.id, plan_id: plan.id, event_type: "comment.created", payload: {})
 
       # The current-version self-reference has to be detached before any
       # plan can be destroyed (pre-existing, unrelated to agent rows) —
@@ -185,16 +185,16 @@ RSpec.describe CoPlan::AgentSession, type: :model do
       plan.update_columns(current_plan_version_id: nil)
       expect { plan.destroy! }.not_to raise_error
       expect(described_class.where(plan_id: plan.id)).to be_empty
-      expect(CoPlan::AgentEvent.where(plan_id: plan.id)).to be_empty
+      expect(Coplan::AgentEvent.where(plan_id: plan.id)).to be_empty
     end
 
     it "is deleted with its token, along with the token's inbox rows" do
       session(state: "watching", last_activity_at: Time.current)
-      CoPlan::AgentEvent.create!(api_token_id: api_token.id, plan_id: plan.id, event_type: "comment.created", payload: {})
+      Coplan::AgentEvent.create!(api_token_id: api_token.id, plan_id: plan.id, event_type: "comment.created", payload: {})
 
       expect { api_token.destroy! }.not_to raise_error
       expect(described_class.where(api_token_id: api_token.id)).to be_empty
-      expect(CoPlan::AgentEvent.where(api_token_id: api_token.id)).to be_empty
+      expect(Coplan::AgentEvent.where(api_token_id: api_token.id)).to be_empty
     end
   end
 

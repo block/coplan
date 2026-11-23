@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Serves the agent-side scripts (attach, bridge, and the session helper
   # they share) so a new agent's first encounter needs nothing but curl —
   # no repo checkout, no gem, no install step. The setup section of
@@ -10,7 +10,7 @@ module CoPlan
   class AgentToolsController < ApplicationController
     skip_before_action :authenticate_coplan_user!
 
-    TOOLS_DIR = CoPlan::Engine.root.join("agent_tools")
+    TOOLS_DIR = Coplan::Engine.root.join("agent_tools")
 
     # Whitelist rather than glob: params must never pick a path.
     TOOLS = %w[coplan-connect coplan-attach coplan-bridge coplan_session.rb].freeze

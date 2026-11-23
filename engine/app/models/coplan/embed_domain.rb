@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A host approved by an administrator for embedded content. Approval is
   # exact: approving example.com does not also approve its subdomains.
   class EmbedDomain < ApplicationRecord

@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Folders workspace", type: :system do
   # These examples configure their own catalog. Seeded reference data must
   # not determine their fixtures or the order in which they pass.
-  before { CoPlan::PlanType.delete_all }
+  before { Coplan::PlanType.delete_all }
 
   let(:author) { create(:coplan_user, email: "author@example.com") }
   let(:other) { create(:coplan_user, email: "other@example.com") }
@@ -16,7 +16,7 @@ RSpec.describe "Folders workspace", type: :system do
   let!(:brainstorm_plan) { create(:plan, :brainstorm, created_by_user: author, title: "Secret Idea") }
   let!(:foldered_plan) do
     plan = create(:plan, :considering, created_by_user: author, title: "Q3 Launch Plan")
-    CoPlan::Plans::Place.call(plan: plan, folder: q3, actor: author)
+    Coplan::Plans::Place.call(plan: plan, folder: q3, actor: author)
     plan
   end
 
@@ -190,7 +190,7 @@ RSpec.describe "Folders workspace", type: :system do
 
     it "opens the author's navigable folder when viewing someone else's plan" do
       saved = create(:folder, name: "Saved by me", created_by_user: other)
-      CoPlan::Plans::Place.call(plan: foldered_plan, folder: saved, actor: other)
+      Coplan::Plans::Place.call(plan: foldered_plan, folder: saved, actor: other)
       sign_in(other)
       # The author's canonical path — a plan's location is where its author
       # filed it, not where this viewer shelved it.
@@ -248,7 +248,7 @@ RSpec.describe "Folders workspace", type: :system do
 
   describe "sidebar navigation" do
     it "fits type names and explanations inside desktop cards" do
-      CoPlan::PlanTypes::InstallDefaults.call
+      Coplan::PlanTypes::InstallDefaults.call
       visit folder_page_path(team)
       page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 940, height: 900, deviceScaleFactor: 1, mobile: false)
       click_button "Add plan or folder"
@@ -283,7 +283,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "turns the plan type picker into a readable phone list" do
-      CoPlan::PlanTypes::InstallDefaults.call
+      Coplan::PlanTypes::InstallDefaults.call
       visit folder_page_path(team)
       page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 390, height: 700, deviceScaleFactor: 1, mobile: true)
       click_button "Add plan or folder"
@@ -339,7 +339,7 @@ RSpec.describe "Folders workspace", type: :system do
       expect(title.text).to eq("Untitled")
       expect(page).to have_css(".inline-editor .ProseMirror", text: "Problem")
       expect(page).to have_css('.document-editor__inline-mode button[data-mode="rich"][aria-pressed="true"]')
-      expect(CoPlan::Plan.where(plan_type: type)).to be_empty
+      expect(Coplan::Plan.where(plan_type: type)).to be_empty
 
       select_document_title
       page.driver.browser.action.send_keys("My design").perform
@@ -348,7 +348,7 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).to have_css("[data-coplan--inline-editor-target='draftState']", text: "Saved · v1", wait: 20)
       expect(page.evaluate_script("window.draftEditorForm === document.querySelector('.inline-editor form.document-editor')")).to eq(true)
       expect(page.evaluate_script("document.querySelector('.inline-editor .ProseMirror').contains(document.activeElement)")).to eq(true)
-      draft = CoPlan::Plan.find_by!(title: "My design")
+      draft = Coplan::Plan.find_by!(title: "My design")
       expect(draft).to be_published
       expect(draft.plan_type).to eq(type)
       expect(draft.placement.folder).to eq(team)
@@ -368,7 +368,7 @@ RSpec.describe "Folders workspace", type: :system do
 
       expect(page).to have_css(".inline-editor .ProseMirror > h1:first-child", wait: 20)
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']")
-      expect(CoPlan::Plan.find_by(title: "Untitled plan")).to be_nil
+      expect(Coplan::Plan.find_by(title: "Untitled plan")).to be_nil
     end
 
     it "returns to the folder without creating an untouched draft" do
@@ -382,7 +382,7 @@ RSpec.describe "Folders workspace", type: :system do
       click_link "Done"
 
       expect(page).to have_current_path(folder_page_path(team))
-      expect(CoPlan::Plan.where(plan_type: type)).to be_empty
+      expect(Coplan::Plan.where(plan_type: type)).to be_empty
     end
 
     it "keeps Done usable if the draft editor has not loaded" do
@@ -396,7 +396,7 @@ RSpec.describe "Folders workspace", type: :system do
 
       click_link "Done"
       expect(page).to have_current_path(folder_page_path(team))
-      expect(CoPlan::Plan.where(plan_type: type)).to be_empty
+      expect(Coplan::Plan.where(plan_type: type)).to be_empty
     end
 
     it "opens a presentation template in the new draft editor" do
@@ -422,7 +422,7 @@ RSpec.describe "Folders workspace", type: :system do
     %w[light dark].each do |theme|
       it "creates and navigates five compact folder levels in #{theme} mode, rejecting a sixth" do
         author.update!(theme_preference: theme)
-        parent = CoPlan::Folder.find_or_create_by_path!("Features/Feature/Android", library: author.library)
+        parent = Coplan::Folder.find_or_create_by_path!("Features/Feature/Android", library: author.library)
         visit folder_page_path(parent)
         expect(page).to have_css("html[data-theme='#{theme}']")
         sidebar_width = find(".workspace__sidebar").native.rect.width
@@ -573,7 +573,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "files their own plan via Move to folder… in the plan menu" do
-      deepest = CoPlan::Folder.find_or_create_by_path!("Features/Feature/Android/Rollout/Retro", library: author.library)
+      deepest = Coplan::Folder.find_or_create_by_path!("Features/Feature/Android/Rollout/Retro", library: author.library)
       visit plan_page_path(developing_plan)
 
       # Owners organize, they don't "save" — no Save button on your own plan.
@@ -593,7 +593,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "unfiles their own plan with the picker's explicit Remove from folder" do
-      CoPlan::Plans::Place.call(plan: developing_plan, folder: q3, actor: author)
+      Coplan::Plans::Place.call(plan: developing_plan, folder: q3, actor: author)
       visit plan_page_path(developing_plan)
 
       find("#plan-toolbar button[aria-label='More actions']").click
@@ -622,7 +622,7 @@ RSpec.describe "Folders workspace", type: :system do
 
       find("#plan-toolbar button[aria-label='More actions']").click
       within("#plan-menu") { expect(page).not_to have_button("Move to folder…") }
-      expect(CoPlan::PlanPlacement.where(plan_id: other_plan.id)).to be_empty
+      expect(Coplan::PlanPlacement.where(plan_id: other_plan.id)).to be_empty
     end
   end
 
@@ -635,7 +635,7 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).to have_css(".flash--notice", text: "Folder “Infra” deleted.")
       expect(page).to have_css(".workspace-crumbs__crumb--current", text: "My Plans")
       expect(page).not_to have_css(".folder-row", text: "Infra")
-      expect(CoPlan::Folder.exists?(infra.id)).to be(false)
+      expect(Coplan::Folder.exists?(infra.id)).to be(false)
     end
 
     it "offers no delete button on a folder that has contents" do
@@ -743,7 +743,7 @@ RSpec.describe "Folders workspace", type: :system do
   describe "mobile sidebar" do
     it "collapses the sidebar behind a toggle at phone widths" do
       page.driver.browser.manage.window.resize_to(390, 844)
-      deepest = CoPlan::Folder.find_or_create_by_path!("Features/Feature/Android/Rollout/Retro", library: author.library)
+      deepest = Coplan::Folder.find_or_create_by_path!("Features/Feature/Android/Rollout/Retro", library: author.library)
       visit folder_page_path(deepest)
 
       expect(page).to have_css(".workspace__sidebar-toggle", visible: :visible)

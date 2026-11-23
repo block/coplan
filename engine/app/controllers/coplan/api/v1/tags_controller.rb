@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       class TagsController < BaseController

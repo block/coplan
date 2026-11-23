@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::References::ExtractFromContent do
+RSpec.describe Coplan::References::ExtractFromContent do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
 

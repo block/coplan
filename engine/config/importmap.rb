@@ -16,7 +16,7 @@ pin "mermaid", to: "https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.es
 # Loaded by the math controller only when a page contains math. Keep the
 # version in step with KATEX_STYLESHEET in controllers/coplan/math_controller.js.
 pin "katex", to: "https://cdn.jsdelivr.net/npm/katex@0.19.1/+esm", preload: false
-pin_all_from CoPlan::Engine.root.join("app/javascript/controllers/coplan"), under: "controllers/coplan", preload: true
+pin_all_from Coplan::Engine.root.join("app/javascript/controllers/coplan"), under: "controllers/coplan", preload: true
 pin "prosemirror-model", to: "https://esm.sh/prosemirror-model@1.25.4?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "prosemirror-state", to: "https://esm.sh/prosemirror-state@1.4.3?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "prosemirror-view", to: "https://esm.sh/prosemirror-view@1.41.3?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false

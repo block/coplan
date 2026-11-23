@@ -19,27 +19,27 @@ namespace :coplan do
       interval   = Float(ENV["INTERVAL"].presence || 5)
 
       # A prior SummarizePlanJob may have claimed the current content
-      # sha (summary_content_sha256) but then hit CoPlan::Ai::Error or
+      # sha (summary_content_sha256) but then hit Coplan::Ai::Error or
       # got a blank response — leaving the plan summary-less with the
       # sha already claimed. Re-enqueuing alone would no-op forever at
       # the job's claim_sha guard, so those plans could never be
       # backfilled. Clear the stale claims (only for summary-less
       # plans; already-summarized plans keep theirs) so the enqueued
       # jobs can re-claim and retry.
-      reset = CoPlan::Plan.where(summary: nil)
+      reset = Coplan::Plan.where(summary: nil)
                           .where.not(summary_content_sha256: nil)
                           .update_all(summary_content_sha256: nil)
 
       enqueued = 0
       skipped  = 0
 
-      CoPlan::Plan.where(summary: nil).find_each(batch_size: batch_size) do |plan|
+      Coplan::Plan.where(summary: nil).find_each(batch_size: batch_size) do |plan|
         if plan.current_plan_version_id.nil?
           skipped += 1
           next
         end
 
-        CoPlan::SummarizePlanJob.perform_later(plan_id: plan.id)
+        Coplan::SummarizePlanJob.perform_later(plan_id: plan.id)
         enqueued += 1
 
         sleep(interval) if interval.positive? && (enqueued % batch_size).zero?

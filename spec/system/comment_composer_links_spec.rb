@@ -11,7 +11,7 @@ RSpec.describe "Links in the comment composer", type: :system do
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
   before do
-    allow(CoPlan::Ai).to receive(:available?).and_return(false)
+    allow(Coplan::Ai).to receive(:available?).and_return(false)
     visit sign_in_path
     fill_in "Email address", with: author.email
     click_button "Sign In"
@@ -56,7 +56,7 @@ RSpec.describe "Links in the comment composer", type: :system do
     textarea.send_keys([ mod, :shift, "z" ])
     textarea.send_keys(:enter)
     expect(page).to have_link("Design Overview", href: "https://example.com")
-    expect(CoPlan::Comment.last.body_markdown).to eq("See [Design Overview](https://example.com)")
+    expect(Coplan::Comment.last.body_markdown).to eq("See [Design Overview](https://example.com)")
   end
 
   [ :keyboard, :paste ].each do |method|
@@ -77,8 +77,8 @@ RSpec.describe "Links in the comment composer", type: :system do
         # CommonMark percent-encodes backslashes and brackets in destinations.
         expected_href = href.gsub("\\", "%5C").gsub("[", "%5B").gsub("]", "%5D")
         expect(page).to have_link(label, href: expected_href, exact: true)
-        posted = CoPlan::Comment.order(:created_at).last
-        html = Nokogiri::HTML.fragment(CoPlan::Markdown.to_html(posted.body_markdown))
+        posted = Coplan::Comment.order(:created_at).last
+        html = Nokogiri::HTML.fragment(Coplan::Markdown.to_html(posted.body_markdown))
         expect(html.css("a").size).to eq(1)
         expect(html.at_css("a").text).to eq(label)
         expect(html.at_css("a")["href"]).to eq(expected_href)
@@ -100,7 +100,7 @@ RSpec.describe "Links in the comment composer", type: :system do
     JS
   end
 
-  it "searches CoPlan and inserts a result without navigating or posting" do
+  it "searches Coplan and inserts a result without navigating or posting" do
     select_text(4, 19)
     textarea.send_keys([ mod, "k" ])
     fill_in "Search or paste a link", with: "links@example.com"

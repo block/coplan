@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # App themes. A theme is a named set of CSS variable values, applied with
   # <html data-app-theme="key"> (docs/THEMES.md). Classic is the built-in look
   # and sets no variables. Light and dark are a separate choice, so every
@@ -19,13 +19,13 @@ module CoPlan
 
     # The host's configured default theme. Falls back to Classic when the
     # host names a theme that doesn't exist.
-    def self.default = find(CoPlan.configuration.default_theme) || find(CLASSIC)
+    def self.default = find(Coplan.configuration.default_theme) || find(CLASSIC)
 
     # Runs at boot, so a misspelled default doesn't fall back to Classic
     # unnoticed. Development and test raise; other environments log a
     # warning and keep serving Classic.
     def self.check_default!(env: Rails.env, logger: Rails.logger)
-      name = CoPlan.configuration.default_theme
+      name = Coplan.configuration.default_theme
       return if find(name)
 
       message = "Coplan config.default_theme is #{name.inspect}, which is not a theme. " \

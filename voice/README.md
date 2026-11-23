@@ -9,7 +9,7 @@ presence pill and diff flashes doing the "I heard you" work.
 ## Tier 1 — zero-install (already on)
 
 The mic button on the plan page captures one of two ways, decided by
-whether an AI provider is configured (`CoPlan::Ai.available?`, passed to
+whether an AI provider is configured (`Coplan::Ai.available?`, passed to
 the Stimulus controller as `transcription-value`):
 
 - **Record and transcribe** (default when a provider is configured).
@@ -79,7 +79,7 @@ pin pipecat past the ~0.0.62 SmallWebRTC audio regression.
   Deepgram or Kokoro → ElevenLabs is a one-line constructor change
   (`OpenAITTSService` pointed at a different `base_url` already covers
   any OpenAI-compatible vendor).
-- **The brain**: `CoPlanAgentBackend` in `bot.py` is the only
+- **The brain**: `CoplanAgentBackend` in `bot.py` is the only
   Coplan-aware piece — transcript in, fast-ack + comment out. Smarter
   behavior (doc Q&A without waking the agent, richer spoken summaries
   when the agent finishes) belongs there.

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Slack
     Configuration = Struct.new(:signing_secret, :bot_token, :base_url, :notifications_enabled, keyword_init: true) do
       def configured?

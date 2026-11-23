@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     # A later assignment gets a fresh ID, so old response URLs stay invalid.
     class Remove

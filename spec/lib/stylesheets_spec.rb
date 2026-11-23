@@ -5,7 +5,7 @@ RSpec.describe "Coplan stylesheets" do
   around do |example|
     Dir.mktmpdir("coplan-stylesheets") do |directory|
       @directory = Pathname.new(directory)
-      FileUtils.cp_r(CoPlan::Engine.root.join("app/assets/stylesheets"), @directory.join("source"))
+      FileUtils.cp_r(Coplan::Engine.root.join("app/assets/stylesheets"), @directory.join("source"))
       example.run
     end
   end

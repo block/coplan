@@ -12,11 +12,11 @@ class MarkClosedThreadNotificationsRead < ActiveRecord::Migration[8.1]
   # Idempotent: already-read rows don't match the unread scope. Rows stay
   # in the inbox history — only their unread flag changes.
   def up
-    closed_thread_ids = CoPlan::CommentThread
-      .where(status: CoPlan::CommentThread::CLOSED_STATUSES)
+    closed_thread_ids = Coplan::CommentThread
+      .where(status: Coplan::CommentThread::CLOSED_STATUSES)
       .select(:id)
 
-    CoPlan::Notification.unread
+    Coplan::Notification.unread
       .where(comment_thread_id: closed_thread_ids)
       .update_all(read_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
   end

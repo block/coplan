@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     class CreateHumanDraft
       class InvalidKey < StandardError; end

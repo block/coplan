@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class ReferencesController < ApplicationController
     before_action :set_plan
 

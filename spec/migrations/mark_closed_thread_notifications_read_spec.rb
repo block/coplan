@@ -1,5 +1,5 @@
 require "rails_helper"
-require CoPlan::Engine.root.join("db/migrate/20260819000000_mark_closed_thread_notifications_read.rb")
+require Coplan::Engine.root.join("db/migrate/20260819000000_mark_closed_thread_notifications_read.rb")
 
 RSpec.describe MarkClosedThreadNotificationsRead do
   subject(:migration) { described_class.new }

@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::MarkdownHelper, type: :helper do
+RSpec.describe Coplan::MarkdownHelper, type: :helper do
   describe "#render_markdown" do
     it "converts markdown to HTML" do
       html = helper.render_markdown("# Hello\n\n**bold** text")
@@ -275,7 +275,7 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
         source = "#{prefix} > [!SUMMARY] TL;DR\n#{' ' * prefix.length} > café 🌱"
         doc = callout_doc(source)
         expect(doc.at_css("li .callout--summary")&.[]("data-callout-title")).to eq("TL;DR")
-        text, offsets = CoPlan::Plans::MarkdownTextExtractor.new(source).call
+        text, offsets = Coplan::Plans::MarkdownTextExtractor.new(source).call
         expect(text).not_to include("SUMMARY", "WARNING", "TL;DR")
         text.chars.each_with_index { |char, i| expect(source[offsets[i]]).to eq(char) if offsets[i] && offsets[i] >= 0 }
       end
@@ -287,7 +287,7 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
 
       expect(callout["class"]).to eq("callout callout--summary")
       expect(callout["data-callout-title"]).to eq("TL;DR")
-      text, offsets = CoPlan::Plans::MarkdownTextExtractor.new(source).call
+      text, offsets = Coplan::Plans::MarkdownTextExtractor.new(source).call
       expect(text).to eq("Ship it.")
       expect(offsets.first).to eq(source.index("Ship it."))
     end
@@ -396,7 +396,7 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
     end
 
     it "leaves the marker and label out of plain-text extraction anchors" do
-      stripped, = CoPlan::Plans::MarkdownTextExtractor.call("Intro.\n\n> [!NOTE]\n> Read this first.\n")
+      stripped, = Coplan::Plans::MarkdownTextExtractor.call("Intro.\n\n> [!NOTE]\n> Read this first.\n")
 
       expect(stripped).to eq("Intro.\nRead this first.")
     end

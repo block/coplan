@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::WritingProvenanceJob do
+RSpec.describe Coplan::WritingProvenanceJob do
   it "coalesces requests durably and releases a claim if the queue is unavailable" do
     plan = create_historical_plan(title: "Queue outage", content: "Old", user: create(:coplan_user), actor_type: "human")
     allow(described_class).to receive(:perform_later).and_raise(ActiveJob::EnqueueError, "offline")
@@ -8,7 +8,7 @@ RSpec.describe CoPlan::WritingProvenanceJob do
     expect(plan.reload.writing_provenance_backfill["token"]).to be_nil
     allow(described_class).to receive(:perform_later).and_call_original
     expect(described_class.request(plan)).to be(true)
-    expect(described_class.request(CoPlan::Plan.find(plan.id))).to be(false)
+    expect(described_class.request(Coplan::Plan.find(plan.id))).to be(false)
   end
   it "reconstructs legacy agents, preserves new human evidence, and is idempotent" do
     user = create(:coplan_user)

@@ -2,13 +2,13 @@ require "rails_helper"
 
 RSpec.describe "Writing provenance", type: :request do
   let(:user) { create(:coplan_user) }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Provenance", content: "AI body", user: user, actor_type: "local_agent", agent_name: "Claude") }
+  let(:plan) { Coplan::Plans::Create.call(title: "Provenance", content: "AI body", user: user, actor_type: "local_agent", agent_name: "Claude") }
 
   before { sign_in_as(user) }
 
   it "serves named contributors lazily without a separate agent section" do
     plan
-    expect(CoPlan::Plans::WritingProvenance).not_to receive(:call)
+    expect(Coplan::Plans::WritingProvenance).not_to receive(:call)
     get plan_page_path(plan)
     expect(response.body).to include("Entirely AI written. Show writing provenance")
     expect(response.body).not_to include("AI agents and models")
@@ -19,7 +19,7 @@ RSpec.describe "Writing provenance", type: :request do
   end
 
   it "exposes cached API summaries and optional compact Unicode ranges" do
-    token, raw = CoPlan::ApiToken.create_with_raw_token(user: user, name: "Read provenance", agent_name: "Codex")
+    token, raw = Coplan::ApiToken.create_with_raw_token(user: user, name: "Read provenance", agent_name: "Codex")
     headers = { "Authorization" => "Bearer #{raw}" }
     get api_v1_plan_path(plan), headers: headers
     expect(response.parsed_body.fetch("writing_provenance").dig("shares", "ai")).to eq(1.0)
@@ -50,8 +50,8 @@ RSpec.describe "Writing provenance", type: :request do
   it "queues legacy reconstruction only when details are requested" do
     plan.current_plan_version.update_columns(writing_provenance: nil)
     plan.update_columns(writing_provenance_summary: nil)
-    expect { get plan_page_path(plan) }.not_to have_enqueued_job(CoPlan::WritingProvenanceJob)
-    expect { get writing_provenance_plan_path(plan) }.to have_enqueued_job(CoPlan::WritingProvenanceJob).with(plan_id: plan.id, token: kind_of(String))
+    expect { get plan_page_path(plan) }.not_to have_enqueued_job(Coplan::WritingProvenanceJob)
+    expect { get writing_provenance_plan_path(plan) }.to have_enqueued_job(Coplan::WritingProvenanceJob).with(plan_id: plan.id, token: kind_of(String))
     expect(response).to have_http_status(:accepted)
   end
 
@@ -59,14 +59,14 @@ RSpec.describe "Writing provenance", type: :request do
     post plans_path, params: { plan: { title: "Typed and pasted" }, content: "Typed Pasted",
       input_sources: { runs: [ [ 6, "human" ], [ 6, "unknown" ] ] } }, as: :json
     expect(response).to have_http_status(:ok)
-    created = CoPlan::Plan.find(response.parsed_body.fetch("id"))
+    created = Coplan::Plan.find(response.parsed_body.fetch("id"))
     expect(created.current_plan_version.actor_type).to eq("human")
     expect(created.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 0, "unknown" => 21)
   end
 
   it "keeps percentages and API ranges available when inspection exceeds its size budget" do
     plan
-    stub_const("CoPlan::Plans::WritingProvenance::MAX_INSPECTION_CHARACTERS", 4)
+    stub_const("Coplan::Plans::WritingProvenance::MAX_INSPECTION_CHARACTERS", 4)
     get writing_provenance_plan_path(plan)
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Claude")

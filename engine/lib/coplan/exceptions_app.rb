@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Optional host integration. Preserve Rails' normal handling for every
   # status/format other than an HTML 404, including JSON API failures.
   class ExceptionsApp

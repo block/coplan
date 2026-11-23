@@ -1,7 +1,7 @@
 require "rails_helper"
 require "coplan/development_seed"
 
-RSpec.describe CoPlan::DevelopmentSeed do
+RSpec.describe Coplan::DevelopmentSeed do
   describe ".call" do
     it "provides the canonical title demo and preserves subsequent edits on reseeding" do
       described_class.call
@@ -55,7 +55,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)
       legacy = seeded_plan("writing-legacy")
       expect(legacy.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
-      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1, "policy_version" => CoPlan::Plans::WritingProvenance::HISTORY_POLICY)
+      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1, "policy_version" => Coplan::Plans::WritingProvenance::HISTORY_POLICY)
       early = seeded_plan("writing-legacy-unknown")
       expect(early.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
       expect(early.current_plan_version.created_at).to eq(Time.utc(2026, 7, 9))
@@ -78,7 +78,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       legacy_summary = legacy.writing_provenance_summary.deep_dup
       expect(legacy.reload.writing_provenance_summary).to eq(legacy_summary)
       expect(early.reload.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
-      CoPlan::Plans::ReplaceContent.call(plan: mixed, new_content: "My local revision", base_revision: mixed.current_revision,
+      Coplan::Plans::ReplaceContent.call(plan: mixed, new_content: "My local revision", base_revision: mixed.current_revision,
         actor_type: "human", actor_id: mixed.created_by_user_id)
       described_class.call
       expect(mixed.reload.current_content).to eq("# #{mixed.title}\n\nMy local revision")
@@ -114,7 +114,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
         "idempotency key scoped to the cart", "Keys expire after twenty-four hours",
         "older than thirty minutes", "a reason for every order change")
       plan.comment_threads.find_by!(anchor_text: "older than thirty minutes").resolve!(plan.created_by_user)
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "#{plan.current_content}\n## 11. Appendix\n\nLocal notes.\n",
+      Coplan::Plans::ReplaceContent.call(plan: plan, new_content: "#{plan.current_content}\n## 11. Appendix\n\nLocal notes.\n",
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
       revision = plan.reload.current_revision
       described_class.call
@@ -125,7 +125,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
     end
 
     def seeded_plan(key)
-      CoPlan::Plan.all.detect { |plan| plan.metadata.to_h["development_seed_key"] == key }
+      Coplan::Plan.all.detect { |plan| plan.metadata.to_h["development_seed_key"] == key }
     end
 
     it "keeps moved writing attributed to its original author and preserves it on re-seed" do
@@ -140,7 +140,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       described_class.call
       expect(moved.reload.current_revision).to eq(3)
       expect(moved.writing_provenance_summary).to eq(summary)
-      CoPlan::Plans::ReplaceContent.call(plan: moved, new_content: "My own revised arrangement", base_revision: 3,
+      Coplan::Plans::ReplaceContent.call(plan: moved, new_content: "My own revised arrangement", base_revision: 3,
         actor_type: "human", actor_id: moved.created_by_user_id)
       described_class.call
       expect(moved.reload.current_content).to eq("# #{moved.title}\n\nMy own revised arrangement")
@@ -151,15 +151,15 @@ RSpec.describe CoPlan::DevelopmentSeed do
       allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("production"))
 
       expect { described_class.call }.to raise_error(/only available in development and test/)
-      expect(CoPlan::User.count).to eq(0)
-      expect(CoPlan::Plan.count).to eq(0)
+      expect(Coplan::User.count).to eq(0)
+      expect(Coplan::Plan.count).to eq(0)
     end
 
     it "creates fixed demo logins and a linked index of every named scenario" do
       described_class.call(base_url: "http://localhost:3100")
 
-      expect(CoPlan::User.find_by!(email: "hampton@example.com").external_id).to eq("seed:hampton")
-      expect(CoPlan::User.find_by!(email: "alex@example.com")).to be_admin
+      expect(Coplan::User.find_by!(email: "hampton@example.com").external_id).to eq("seed:hampton")
+      expect(Coplan::User.find_by!(email: "alex@example.com")).to be_admin
       catalog = seeded_plan("demo-library")
       expect(catalog.current_content).to include("missing-page", "(/_/not-found)")
       described_class::DOCUMENTS.each do |definition|
@@ -167,7 +167,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
         expect(catalog.current_content).to include("(/#{plan.url_path})")
         expect(plan.current_content).not_to match(/lorem ipsum/i)
         decoded_path = URI::DEFAULT_PARSER.unescape(plan.url_path)
-        expect(CoPlan::Urls::Resolve.call(handle: decoded_path.split("/").first,
+        expect(Coplan::Urls::Resolve.call(handle: decoded_path.split("/").first,
           slug_path: decoded_path.split("/").drop(1).join("/")).plan).to eq(plan)
       end
       expect(seeded_plan("collab-showcase").references.find_by(reference_type: "plan").url).to start_with("http://localhost:3100/")
@@ -181,21 +181,21 @@ RSpec.describe CoPlan::DevelopmentSeed do
       old_path = "hampton/personal-notes/untitled-thoughts-on-activation"
       expect(draft).to be_draft
       expect(draft.title).to eq(described_class::PRIVATE_RETITLED_DOCUMENT_TO)
-      expect(CoPlan::UrlAlias.rewrite(old_path)).to eq(draft.url_path)
+      expect(Coplan::UrlAlias.rewrite(old_path)).to eq(draft.url_path)
       expect(draft.current_content).to include("[original link](./untitled-thoughts-on-activation)")
       expect(seeded_plan("demo-library").current_content).to include("(/#{draft.url_path})")
 
       retitle_plan(draft, "My activation notes")
-      CoPlan::Plans::ReplaceContent.call(plan: draft, new_content: "My local revision",
+      Coplan::Plans::ReplaceContent.call(plan: draft, new_content: "My local revision",
         base_revision: draft.current_revision, actor_type: "human", actor_id: draft.created_by_user_id)
-      aliases = CoPlan::UrlAlias.count
+      aliases = Coplan::UrlAlias.count
       described_class.call
 
       expect(draft.reload.title).to eq("My activation notes")
       expect(draft.current_content).to eq("# #{draft.title}\n\nMy local revision")
       expect(draft).to be_draft
-      expect(CoPlan::UrlAlias.count).to eq(aliases)
-      expect(CoPlan::UrlAlias.rewrite(old_path)).to eq(draft.url_path)
+      expect(Coplan::UrlAlias.count).to eq(aliases)
+      expect(Coplan::UrlAlias.rewrite(old_path)).to eq(draft.url_path)
     end
 
     it "preserves a pre-existing private demo with its original title and edited content" do
@@ -203,7 +203,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       draft = create(:plan, :draft, created_by_user: author,
         title: described_class::PRIVATE_RETITLED_DOCUMENT_FROM,
         metadata: { "development_seed_key" => "draft-notes" })
-      CoPlan::Plans::ReplaceContent.call(plan: draft, new_content: "My existing local content",
+      Coplan::Plans::ReplaceContent.call(plan: draft, new_content: "My existing local content",
         base_revision: draft.current_revision, actor_type: "human", actor_id: author.id)
 
       2.times { described_class.call }
@@ -211,12 +211,12 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(draft.reload.title).to eq(described_class::PRIVATE_RETITLED_DOCUMENT_FROM)
       expect(draft.current_content).to eq("# #{draft.title}\n\nMy existing local content")
       expect(draft).to be_draft
-      expect(CoPlan::UrlAlias.where(path: draft.url_path)).not_to exist
+      expect(Coplan::UrlAlias.where(path: draft.url_path)).not_to exist
     end
 
     it "seeds agent access with paginated history and preserves user revocations" do
       described_class.call
-      user = CoPlan::User.find_by!(email: "hampton@example.com")
+      user = Coplan::User.find_by!(email: "hampton@example.com")
       tokens = user.api_tokens.where("name LIKE ?", "Demo: %")
       expect(tokens.count).to eq(32)
       expect(tokens.personal.count).to eq(1)
@@ -238,22 +238,22 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
     it "seeds browser connection previews without redeemable secrets and preserves decisions" do
       described_class.call
-      request = CoPlan::AgentConnectionRequest.for_user_code("C0DEC-0FFEE")
+      request = Coplan::AgentConnectionRequest.for_user_code("C0DEC-0FFEE")
       expect(request).to be_pending
-      expect(CoPlan::AgentConnectionRequest.for_user_code("DEAD0-BEEF0")).to be_expired
-      expect(CoPlan::AgentConnectionRequest.for_user_code("DEC11-0ED00").status).to eq("denied")
+      expect(Coplan::AgentConnectionRequest.for_user_code("DEAD0-BEEF0")).to be_expired
+      expect(Coplan::AgentConnectionRequest.for_user_code("DEC11-0ED00").status).to eq("denied")
       expect(seeded_plan("demo-library").current_content).to include("agent-connection", "user_code=C0DEC-0FFEE")
-      user = CoPlan::User.find_by!(email: "hampton@example.com")
+      user = Coplan::User.find_by!(email: "hampton@example.com")
       request.decide!(user: user, approve: false)
       expiry = request.expires_at
       described_class.call
-      expect(CoPlan::AgentConnectionRequest.count).to eq(3)
+      expect(Coplan::AgentConnectionRequest.count).to eq(3)
       expect(request.reload.status).to eq("denied")
       expect(request.expires_at).to eq(expiry)
     end
 
     it "ships every demo content file and the installer inside the engine gem" do
-      specification = Gem::Specification.load(CoPlan::Engine.root.join("coplan.gemspec").to_s)
+      specification = Gem::Specification.load(Coplan::Engine.root.join("coplan.gemspec").to_s)
       expect(specification.files).to include("lib/coplan/development_seed.rb")
       expect(specification.files).to include("app/assets/images/coplan/demo-logo.png")
       described_class::DOCUMENTS.each do |definition|
@@ -264,11 +264,11 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
     it "covers content surfaces, structural discussions, references, and every shipped plan type" do
       described_class.call
-      plans = CoPlan::Plan.where.not(id: seeded_plan("demo-library").id)
-      expect(plans.map { |plan| plan.plan_type.name }.uniq.sort).to eq(CoPlan::PlanType::CREATION_ORDER.sort)
+      plans = Coplan::Plan.where.not(id: seeded_plan("demo-library").id)
+      expect(plans.map { |plan| plan.plan_type.name }.uniq.sort).to eq(Coplan::PlanType::CREATION_ORDER.sort)
       catalog = seeded_plan("demo-library").current_content
       expect(catalog.index("## Diagrams")).to be < catalog.index("## Review scenarios")
-      CoPlan::PlanType::CREATION_ORDER.each { |name| expect(catalog).to include("**#{name}**") }
+      Coplan::PlanType::CREATION_ORDER.each { |name| expect(catalog).to include("**#{name}**") }
 
       flow = seeded_plan("diagram-comments")
       expect(flow.comment_threads.pluck(:anchor_kind).sort).to eq(%w[mermaid_edge mermaid_node])
@@ -277,17 +277,17 @@ RSpec.describe CoPlan::DevelopmentSeed do
       end
       expect(seeded_plan("table-gallery").comment_threads.where(anchor_kind: "table_cell").count).to eq(1)
       [ flow, seeded_plan("table-gallery") ].each do |plan|
-        ranges = CoPlan::Plans::SourceTargets.new(plan.current_content).ranges
+        ranges = Coplan::Plans::SourceTargets.new(plan.current_content).ranges
         plan.comment_threads.each do |thread|
           expect(ranges).to include([ thread.anchor_kind, thread.anchor_start, thread.anchor_end ])
         end
       end
-      single = CoPlan::ContentRegions::Split.call(seeded_plan("single-slide").current_content)
+      single = Coplan::ContentRegions::Split.call(seeded_plan("single-slide").current_content)
       expect(single.regions.count { |region| region.kind == :presentation }).to eq(1)
-      mixed = CoPlan::ContentRegions::Split.call(seeded_plan("mixed-slides").current_content)
+      mixed = Coplan::ContentRegions::Split.call(seeded_plan("mixed-slides").current_content)
       expect(mixed.regions.map(&:kind)).to eq(%i[document presentation document presentation document])
       gallery = seeded_plan("reference-gallery")
-      expect(gallery.references.pluck(:reference_type).uniq.sort).to eq(CoPlan::Reference::REFERENCE_TYPES.sort)
+      expect(gallery.references.pluck(:reference_type).uniq.sort).to eq(Coplan::Reference::REFERENCE_TYPES.sort)
       expect(gallery.references.find_by!(reference_type: "plan").target_plan).to eq(flow)
       expect(gallery.references.explicit.count).to eq(1)
       expect(gallery.current_content).not_to include("{{demo_document_url}}")
@@ -304,10 +304,10 @@ RSpec.describe CoPlan::DevelopmentSeed do
       links_content = seeded_plan("comment-links").current_content
       expect(links_content).to include("# Link selected text in comments", "Cmd+K", "Cancel link", "https://example.com/search?q=)", "floating link picker", "codex://threads/example")
 
-      thread_count = CoPlan::CommentThread.count
+      thread_count = Coplan::CommentThread.count
       reference_count = gallery.references.count
       described_class.call
-      expect(CoPlan::CommentThread.count).to eq(thread_count)
+      expect(Coplan::CommentThread.count).to eq(thread_count)
       expect(gallery.references.count).to eq(reference_count)
       expect(formatting.reload.current_revision).to eq(1)
       expect(formatting.current_content).to eq(formatting_content)
@@ -316,14 +316,14 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
     it "seeds discussions with reactions and preserves reaction changes on re-seed" do
       described_class.call
-      hampton = CoPlan::User.find_by!(email: "hampton@example.com")
+      hampton = Coplan::User.find_by!(email: "hampton@example.com")
       plan = seeded_plan("comment-reactions")
       expect(seeded_plan("demo-library").current_content).to include("## Discussions", plan.url_path, "`comment-reactions`")
 
-      comments = CoPlan::Comment.where(comment_thread: plan.comment_threads)
-      reactions = CoPlan::CommentReaction.where(comment: comments)
+      comments = Coplan::Comment.where(comment_thread: plan.comment_threads)
+      reactions = Coplan::CommentReaction.where(comment: comments)
       expect(plan.comment_threads.count).to eq(3)
-      expect(reactions.distinct.pluck(:kind).sort).to eq(CoPlan::CommentReaction::KINDS.keys.sort)
+      expect(reactions.distinct.pluck(:kind).sort).to eq(Coplan::CommentReaction::KINDS.keys.sort)
       expect(reactions.where(user: hampton)).to be_present
       expect(comments.where.not(id: reactions.where(user: hampton).select(:comment_id))).to be_present
 
@@ -340,8 +340,8 @@ RSpec.describe CoPlan::DevelopmentSeed do
       existing = create(:coplan_user, email: "hampton@example.com", name: "Existing person")
       expect { described_class.call }.to raise_error(ArgumentError, /dedicated development database/)
       expect(existing.reload.name).to eq("Existing person")
-      expect(CoPlan::User.count).to eq(1)
-      expect(CoPlan::Plan.count).to eq(0)
+      expect(Coplan::User.count).to eq(1)
+      expect(Coplan::Plan.count).to eq(0)
     end
 
     it "seeds the file upload tryout and preserves uploaded files and embeds on reseeding" do
@@ -352,11 +352,11 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.attachments.count).to eq(0)
       expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
       file = Rack::Test::UploadedFile.new(Rails.root.join("spec/fixtures/files/sample.png"), "image/png")
-      uploaded = CoPlan::Plans::AddAttachment.call(plan: plan, file: file, user: plan.created_by_user)
+      uploaded = Coplan::Plans::AddAttachment.call(plan: plan, file: file, user: plan.created_by_user)
       expect(uploaded).to be_success
       url = Rails.application.routes.url_helpers.rails_blob_path(uploaded.attachment.blob, only_path: true)
       content = "#{plan.current_content}\n\n![sample.png](#{url})\n"
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+      Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
       revision = plan.current_revision
       described_class.call
@@ -379,7 +379,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.reload.current_revision).to eq(revision)
 
       resized = plan.current_content.sub('width="320"', 'width="240"')
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: resized,
+      Coplan::Plans::ReplaceContent.call(plan: plan, new_content: resized,
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
       described_class.call
       expect(plan.reload.current_content).to eq(resized)
@@ -403,7 +403,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.reload.current_revision).to eq(revision)
 
       edited = plan.current_content.sub("> [!TIP]", "> [!NOTE]")
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
+      Coplan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
       described_class.call
       expect(plan.reload.current_content).to eq(edited)
@@ -423,9 +423,9 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(math.map(&:text)).to include("\\frac{1}{")
       expect(html.at_css("p:contains('Each retry costs')").text).to include("$0.002", "$5", "$10", "$25")
       expect(html.css("code:not([data-math-style])").map(&:text).join).to include('"$RETRY_LIMIT"', "$((6 * 32))")
-      decks = CoPlan::ContentRegions::Split.call(plan.current_content).regions.select { |region| region.kind == :presentation }
+      decks = Coplan::ContentRegions::Split.call(plan.current_content).regions.select { |region| region.kind == :presentation }
       expect(decks.size).to eq(1)
-      classification = CoPlan::Slideshows::Classify.call(decks.first.source)
+      classification = Coplan::Slideshows::Classify.call(decks.first.source)
       expect(classification.pattern).to eq(:content)
       expect(classification.step).to eq(2)
 
@@ -433,7 +433,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       described_class.call
       expect(plan.reload.current_revision).to eq(revision)
       edited = plan.current_content.sub("$p^n$.", "$p^{n}$.")
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
+      Coplan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
       described_class.call
       expect(plan.reload.current_content).to eq(edited)
@@ -443,13 +443,13 @@ RSpec.describe CoPlan::DevelopmentSeed do
       described_class.call
       plan = seeded_plan("pattern-showcase")
       legacy = plan.current_content.gsub(described_class.demo_logo_url, "/coplan-logo.png")
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: legacy,
+      Coplan::Plans::ReplaceContent.call(plan: plan, new_content: legacy,
         base_revision: plan.current_revision, actor_type: "system", actor_id: plan.created_by_user_id)
       described_class.call
       expect(plan.reload.current_content).to include(described_class.demo_logo_url)
 
       edited = "#{legacy}\n\nMy own speaker notes."
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
+      Coplan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
       described_class.call
       expect(plan.reload.current_content).to eq(edited)
@@ -474,20 +474,20 @@ RSpec.describe CoPlan::DevelopmentSeed do
       described_class.call
       described_class.call
 
-      expect(CoPlan::User.find_by!(email: "hampton@example.com").id).to eq(legacy.id)
+      expect(Coplan::User.find_by!(email: "hampton@example.com").id).to eq(legacy.id)
       expect(legacy.reload.external_id).to eq("seed:hampton")
       expect(library.reload.handle).to eq("hampton")
-      expect(CoPlan::UrlAlias.find_by!(path: "priya").target_path).to eq("hampton")
+      expect(Coplan::UrlAlias.find_by!(path: "priya").target_path).to eq("hampton")
       expect(draft.reload.created_by_user_id).to eq(legacy.id)
       expect(draft.title).to eq("My local draft")
       expect(draft.current_content).to eq(content)
-      expect(CoPlan::User.count).to eq(described_class::USERS.size)
+      expect(Coplan::User.count).to eq(described_class::USERS.size)
     end
 
     it "preserves the reassignment demo history and local decisions on reseeding" do
       described_class.call
       plan = seeded_plan("review-reassignment")
-      alex = CoPlan::User.find_by!(email: "alex@example.com")
+      alex = Coplan::User.find_by!(email: "alex@example.com")
       old = plan.review_requests.find_by!(reviewer: alex, status: "removed")
       fresh = plan.review_requests.current.find_by!(reviewer: alex)
       expect(old.latest_approval.note).to eq("The invitation audit trail is clear.")
@@ -497,7 +497,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.plan_events.where(event_type: "review_removed", after_value: old.id)).to exist
       expect(seeded_plan("demo-library").current_content).to include("review-reassignment")
       ids = plan.review_requests.pluck(:id)
-      CoPlan::Reviews::Respond.call(request: fresh, actor: alex, revision: plan.current_revision, decision: "approved")
+      Coplan::Reviews::Respond.call(request: fresh, actor: alex, revision: plan.current_revision, decision: "approved")
       described_class.call
       expect(plan.review_requests.pluck(:id)).to match_array(ids)
       expect(fresh.reload.status).to eq("approved")
@@ -545,7 +545,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(approved_requests.pluck(:status)).to eq(%w[approved approved])
       expect(approved_requests.map(&:latest_approval)).to all(be_present)
       requested = pending_requests.first
-      response = CoPlan::Reviews::Respond.call(request: requested, actor: requested.reviewer,
+      response = Coplan::Reviews::Respond.call(request: requested, actor: requested.reviewer,
         revision: requested.plan.current_revision, decision: "approved")
 
       pending.first.approve!
@@ -571,7 +571,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       catalog = seeded_plan("demo-library")
       expect(catalog.current_content).to include("Gateway architecture, revised")
 
-      CoPlan::Plans::ReplaceContent.call(plan: catalog, new_content: "# My demo tour",
+      Coplan::Plans::ReplaceContent.call(plan: catalog, new_content: "# My demo tour",
         base_revision: catalog.current_revision, actor_type: "human", actor_id: catalog.created_by_user_id)
       described_class.call
       expect(catalog.reload.current_content).to eq("# My demo tour")
@@ -585,14 +585,14 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
       expect(old_type.reload).to be_retired_from_creation
       expect(existing.reload.plan_type).to eq(old_type)
-      expect(CoPlan::PlanType.creation_order(CoPlan::PlanType.all).size).to eq(12)
+      expect(Coplan::PlanType.creation_order(Coplan::PlanType.all).size).to eq(12)
     end
 
     it "preserves host-owned types whose names match legacy demos" do
       custom = create(:plan_type, name: "RFC")
       described_class.call
       expect(custom.reload).not_to be_retired_from_creation
-      expect(CoPlan::PlanType.creation_order(CoPlan::PlanType.all)).to include(custom)
+      expect(Coplan::PlanType.creation_order(Coplan::PlanType.all)).to include(custom)
     end
 
     it "recognizes unmarked legacy types through their seeded documents" do
@@ -626,7 +626,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
       threads = plan.comment_threads
       expect(threads.where(anchor_kind: %w[mermaid_node table_cell]).pluck(:anchor_kind).sort).to eq(%w[mermaid_node table_cell])
-      ranges = CoPlan::Plans::SourceTargets.new(content).ranges
+      ranges = Coplan::Plans::SourceTargets.new(content).ranges
       threads.where.not(anchor_kind: nil).each do |thread|
         expect(ranges).to include([ thread.anchor_kind, thread.anchor_start, thread.anchor_end ])
       end
@@ -638,9 +638,9 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(answered.comments.last.author_type).to eq("local_agent")
 
       expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})", "`reading-specimen`")
-      count = CoPlan::Comment.count
+      count = Coplan::Comment.count
       described_class.call
-      expect(CoPlan::Comment.count).to eq(count)
+      expect(Coplan::Comment.count).to eq(count)
       expect(plan.reload.current_revision).to eq(1)
     end
 
@@ -663,12 +663,12 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(query_plan).to include("filters item categories in memory")
       expect(anchors.count { |anchor| alternatives.include?(anchor) }).to eq(2)
 
-      count = CoPlan::CommentThread.count
+      count = Coplan::CommentThread.count
       thread = threads.find_by!(anchor_text: "one discount rule query")
       thread.comments.first.update!(body_markdown: "My revised question")
       thread.resolve!(plan.created_by_user)
       described_class.call
-      expect(CoPlan::CommentThread.count).to eq(count)
+      expect(Coplan::CommentThread.count).to eq(count)
       expect(thread.reload.status).to eq("resolved")
       expect(plan.reload.current_revision).to eq(1)
     end
@@ -682,14 +682,14 @@ RSpec.describe CoPlan::DevelopmentSeed do
           thread.resolve!(plan.created_by_user) if thread.status == "open"
         end
       end
-      count = CoPlan::CommentThread.count
+      count = Coplan::CommentThread.count
       # Simulate a pre-upgrade dataset with edited comments but no UUID map.
       %w[collab-showcase diagram-comments table-gallery reading-specimen].each do |key|
         plan = seeded_plan(key)
         plan.update!(metadata: plan.metadata.except("development_seed_threads"))
       end
       described_class.call
-      expect(CoPlan::CommentThread.count).to eq(count)
+      expect(Coplan::CommentThread.count).to eq(count)
       %w[collab-showcase diagram-comments table-gallery reading-specimen].each do |key|
         expect(seeded_plan(key).comment_threads.pluck(:status)).to all(eq("resolved"))
       end
@@ -709,12 +709,12 @@ RSpec.describe CoPlan::DevelopmentSeed do
         comment.update!(body_markdown: "My edited #{kind} discussion")
         thread.resolve!(plan.created_by_user) unless thread.status == "resolved"
         ids = plan.comment_threads.pluck(:id).sort
-        notification_count = CoPlan::Notification.count
+        notification_count = Coplan::Notification.count
         described_class.call
         expect(plan.comment_threads.pluck(:id).sort).to eq(ids)
         expect(thread.reload.status).to eq("resolved")
         expect(comment.reload.body_markdown).to eq("My edited #{kind} discussion")
-        expect(CoPlan::Notification.count).to eq(notification_count)
+        expect(Coplan::Notification.count).to eq(notification_count)
       end
     end
 
@@ -722,60 +722,60 @@ RSpec.describe CoPlan::DevelopmentSeed do
       described_class.call
 
       counts = [
-        CoPlan::User.count,
-        CoPlan::Plan.count,
-        CoPlan::Folder.count,
-        CoPlan::Tag.count,
-        CoPlan::PlanType.count,
-        CoPlan::PlanPlacement.count,
-        CoPlan::PlanVersion.count,
-        CoPlan::CommentThread.count,
-        CoPlan::Comment.count,
-        CoPlan::Reference.count,
-        CoPlan::LibraryEvent.count,
-        CoPlan::ApiToken.count,
-        CoPlan::PlanCollaborator.count
+        Coplan::User.count,
+        Coplan::Plan.count,
+        Coplan::Folder.count,
+        Coplan::Tag.count,
+        Coplan::PlanType.count,
+        Coplan::PlanPlacement.count,
+        Coplan::PlanVersion.count,
+        Coplan::CommentThread.count,
+        Coplan::Comment.count,
+        Coplan::Reference.count,
+        Coplan::LibraryEvent.count,
+        Coplan::ApiToken.count,
+        Coplan::PlanCollaborator.count
       ]
-      generated_users = CoPlan::User.order(:external_id).pluck(:name, :email, :title, :team)
+      generated_users = Coplan::User.order(:external_id).pluck(:name, :email, :title, :team)
 
       described_class.call
 
       expect([
-        CoPlan::User.count,
-        CoPlan::Plan.count,
-        CoPlan::Folder.count,
-        CoPlan::Tag.count,
-        CoPlan::PlanType.count,
-        CoPlan::PlanPlacement.count,
-        CoPlan::PlanVersion.count,
-        CoPlan::CommentThread.count,
-        CoPlan::Comment.count,
-        CoPlan::Reference.count,
-        CoPlan::LibraryEvent.count,
-        CoPlan::ApiToken.count,
-        CoPlan::PlanCollaborator.count
+        Coplan::User.count,
+        Coplan::Plan.count,
+        Coplan::Folder.count,
+        Coplan::Tag.count,
+        Coplan::PlanType.count,
+        Coplan::PlanPlacement.count,
+        Coplan::PlanVersion.count,
+        Coplan::CommentThread.count,
+        Coplan::Comment.count,
+        Coplan::Reference.count,
+        Coplan::LibraryEvent.count,
+        Coplan::ApiToken.count,
+        Coplan::PlanCollaborator.count
       ]).to eq(counts)
-      expect(CoPlan::User.order(:external_id).pluck(:name, :email, :title, :team)).to eq(generated_users)
+      expect(Coplan::User.order(:external_id).pluck(:name, :email, :title, :team)).to eq(generated_users)
 
-      seeded_plans = CoPlan::Plan.select { |plan| plan.metadata.to_h.key?("development_seed_key") }
+      seeded_plans = Coplan::Plan.select { |plan| plan.metadata.to_h.key?("development_seed_key") }
       expect(seeded_plans.size).to be >= 12
       expect(seeded_plans.map(&:visibility)).to include("draft", "published")
       expect(seeded_plans).to include(be_archived)
       expect(seeded_plans.map { |plan| plan.plan_type.name }.uniq.size).to be >= 7
-      expect(CoPlan::PlanType.pluck(:name).sort).to eq(CoPlan::PlanType::CREATION_ORDER.sort)
+      expect(Coplan::PlanType.pluck(:name).sort).to eq(Coplan::PlanType::CREATION_ORDER.sort)
       expect(seeded_plans.flat_map(&:tag_names).uniq.size).to be >= 12
       expect(seeded_plans.map(&:title)).to include(a_string_matching(/信頼性/), a_string_matching(/تقليل/))
 
       long_document = seeded_plans.find { |plan| plan.metadata["development_seed_key"] == "long-mobile-toc" }
       expect(long_document.current_content.scan(/^## /).size).to be >= 30
       expect(seeded_plans.count { |plan| plan.current_content.include?("```mermaid") }).to be >= 3
-      expect(CoPlan::Folder.where.not(parent_id: nil)).to exist
+      expect(Coplan::Folder.where.not(parent_id: nil)).to exist
     end
 
     it "seeds a collaboration showcase covering attribution, comments, references, and library events" do
       described_class.call
 
-      showcase = CoPlan::Plan.find { |plan| plan.metadata.to_h["development_seed_key"] == "collab-showcase" }
+      showcase = Coplan::Plan.find { |plan| plan.metadata.to_h["development_seed_key"] == "collab-showcase" }
 
       # An agent-attributed version with token provenance in the history.
       agent_version = showcase.plan_versions.find_by(actor_type: "local_agent")
@@ -791,13 +791,13 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(anchored.pluck(:anchor_start)).to all(be_present)
 
       # Overlapping anchors: an open thread nested inside a resolved one.
-      resolved = anchored.find_by(status: "resolved", created_by_user: CoPlan::User.find_by!(username: "aiko"))
-      nested = anchored.find_by(created_by_user: CoPlan::User.find_by!(username: "noura"))
+      resolved = anchored.find_by(status: "resolved", created_by_user: Coplan::User.find_by!(username: "aiko"))
+      nested = anchored.find_by(created_by_user: Coplan::User.find_by!(username: "noura"))
       expect(nested.anchor_start).to be > resolved.anchor_start
       expect(nested.anchor_end).to be <= resolved.anchor_end
 
       # An agent comment rendering as "Claude (via …)".
-      agent_comment = CoPlan::Comment.find_by(author_type: "local_agent")
+      agent_comment = Coplan::Comment.find_by(author_type: "local_agent")
       expect(agent_comment.agent_name).to eq("Claude")
       expect(agent_comment.api_token).to be_present
 
@@ -809,14 +809,14 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(showcase.references.explicit.pluck(:reference_type)).to eq([ "repository" ])
 
       # A grouped, agent-attributed organize run in the audit log.
-      run_events = CoPlan::LibraryEvent.where(run_id: described_class::AGENT_ORGANIZE_RUN_ID)
+      run_events = Coplan::LibraryEvent.where(run_id: described_class::AGENT_ORGANIZE_RUN_ID)
       expect(run_events.count).to eq(3)
       expect(run_events.pluck(:actor_type).uniq).to eq([ "local_agent" ])
       expect(run_events.pluck(:agent_name).uniq).to eq([ "Claude" ])
       expect(run_events.pluck(:api_token_id)).to all(be_present)
 
       # Folder semantics agents can read.
-      expect(CoPlan::Folder.where.not(description: nil).count).to be >= 4
+      expect(Coplan::Folder.where.not(description: nil).count).to be >= 4
     end
 
     it "keeps review tasks and their responses when the reusable demo is reseeded" do
@@ -825,7 +825,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       requests = plan.review_requests.includes(:reviewer).index_by { |request| request.reviewer.username }
       expect(requests.transform_values(&:requirement)).to eq("alex" => "required", "sam" => "optional")
       request = requests.fetch("alex")
-      response = CoPlan::Reviews::Respond.call(request: request, actor: request.reviewer,
+      response = Coplan::Reviews::Respond.call(request: request, actor: request.reviewer,
         revision: plan.current_revision, decision: "approved")
 
       described_class.call
@@ -837,13 +837,13 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
     it "preserves edits to existing seed document content and titles" do
       described_class.call
-      plan = CoPlan::Plan.find { |candidate| candidate.metadata.to_h["development_seed_key"] == "api-gateway" }
+      plan = Coplan::Plan.find { |candidate| candidate.metadata.to_h["development_seed_key"] == "api-gateway" }
       retitle_plan(plan, "Locally edited title")
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "# Locally edited title\n\nLocally edited content",
+      Coplan::Plans::ReplaceContent.call(plan: plan, new_content: "# Locally edited title\n\nLocally edited content",
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
       formatting = seeded_plan("formatting-gallery")
       edited_notes = formatting.current_content.sub("Template guidance:", "My edited template guidance:")
-      CoPlan::Plans::ReplaceContent.call(plan: formatting, new_content: edited_notes,
+      Coplan::Plans::ReplaceContent.call(plan: formatting, new_content: edited_notes,
         base_revision: formatting.current_revision, actor_type: "human", actor_id: formatting.created_by_user_id)
 
       described_class.call

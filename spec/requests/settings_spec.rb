@@ -7,10 +7,10 @@ RSpec.describe "Settings", type: :request do
 
   describe "app theme" do
     around do |example|
-      original = CoPlan.configuration.default_theme
+      original = Coplan.configuration.default_theme
       example.run
     ensure
-      CoPlan.configuration.default_theme = original
+      Coplan.configuration.default_theme = original
     end
 
     it "renders the host's default theme on <html>" do
@@ -19,7 +19,7 @@ RSpec.describe "Settings", type: :request do
     end
 
     it "falls back to Classic when the host names an unknown theme" do
-      CoPlan.configuration.default_theme = "hotdog-stand"
+      Coplan.configuration.default_theme = "hotdog-stand"
       get settings_root_path
       expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("classic")
     end
@@ -32,7 +32,7 @@ RSpec.describe "Settings", type: :request do
     end
 
     it "follows a changed host default for viewers on Default" do
-      CoPlan.configuration.default_theme = "neutral"
+      Coplan.configuration.default_theme = "neutral"
       get settings_root_path
       expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("neutral")
       expect(response.parsed_body.at_css("input[name=app_theme][value=default][checked]")).to be_present
@@ -40,7 +40,7 @@ RSpec.describe "Settings", type: :request do
     end
 
     it "marks the theme that's showing in the bar's Appearance menu" do
-      CoPlan.configuration.default_theme = "neutral"
+      Coplan.configuration.default_theme = "neutral"
       get settings_root_path
       menu = response.parsed_body.at_css("#appearance-menu")
       expect(menu.css("input[name=appearance_theme][checked]").map { _1["value"] }).to eq([ "neutral" ])
@@ -49,7 +49,7 @@ RSpec.describe "Settings", type: :request do
     end
 
     it "falls back to the host's default for a stored theme that no longer exists" do
-      CoPlan.configuration.default_theme = "neutral"
+      Coplan.configuration.default_theme = "neutral"
       alice.update_column(:app_theme, "retired")
       get settings_root_path
       expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("neutral")
@@ -112,7 +112,7 @@ RSpec.describe "Settings", type: :request do
     it "silently ignores keys that aren't on the list" do
       patch settings_voice_hotkey_path, params: { voice_hotkey: "F13" }
       expect(response).to have_http_status(:ok)
-      expect(alice.reload.voice_hotkey).to eq(CoPlan::User::DEFAULT_VOICE_HOTKEY)
+      expect(alice.reload.voice_hotkey).to eq(Coplan::User::DEFAULT_VOICE_HOTKEY)
     end
 
     # A preference nobody has set means "arrived after the setting did",

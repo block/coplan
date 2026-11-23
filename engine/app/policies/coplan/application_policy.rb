@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class ApplicationPolicy
     attr_reader :user, :record
 

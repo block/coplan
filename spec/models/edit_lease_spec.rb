@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::EditLease, type: :model do
+RSpec.describe Coplan::EditLease, type: :model do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
   let(:api_token) { create(:api_token, user: user) }
@@ -9,20 +9,20 @@ RSpec.describe CoPlan::EditLease, type: :model do
   [ nil, "", "   " ].each do |blank|
     it "rejects acquisition and ownership with blank token #{blank.inspect}" do
       expect {
-        CoPlan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: api_token.id, lease_token: blank)
-      }.to raise_error(CoPlan::EditLease::InvalidToken)
+        Coplan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: api_token.id, lease_token: blank)
+      }.to raise_error(Coplan::EditLease::InvalidToken)
       expect(plan.reload.edit_lease).to be_nil
       # Even a legacy lease containing an empty-token digest must be closed.
-      lease = CoPlan::EditLease.create!(plan: plan, holder_type: "local_agent", holder_id: api_token.id,
+      lease = Coplan::EditLease.create!(plan: plan, holder_type: "local_agent", holder_id: api_token.id,
         lease_token_digest: Digest::SHA256.hexdigest(blank.to_s), expires_at: 5.minutes.from_now, last_heartbeat_at: Time.current)
       expect(lease.held_by?(lease_token: blank)).to be(false)
-      expect { lease.renew!(lease_token: blank) }.to raise_error(CoPlan::EditLease::Conflict)
-      expect { lease.release!(lease_token: blank) }.to raise_error(CoPlan::EditLease::Conflict)
+      expect { lease.renew!(lease_token: blank) }.to raise_error(Coplan::EditLease::Conflict)
+      expect { lease.release!(lease_token: blank) }.to raise_error(Coplan::EditLease::Conflict)
     end
   end
 
   it "acquire creates new lease" do
-    lease = CoPlan::EditLease.acquire!(
+    lease = Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: api_token.id,
@@ -34,19 +34,19 @@ RSpec.describe CoPlan::EditLease, type: :model do
   end
 
   it "acquire replaces expired lease" do
-    CoPlan::EditLease.acquire!(
+    Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: api_token.id,
       lease_token: lease_token
     )
 
-    lease = CoPlan::EditLease.find_by(plan_id: plan.id)
+    lease = Coplan::EditLease.find_by(plan_id: plan.id)
     lease.update!(expires_at: 1.minute.ago)
 
     other_token = create(:api_token, user: user)
     new_token = SecureRandom.hex(32)
-    new_lease = CoPlan::EditLease.acquire!(
+    new_lease = Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: other_token.id,
@@ -57,7 +57,7 @@ RSpec.describe CoPlan::EditLease, type: :model do
   end
 
   it "acquire raises conflict when held by another" do
-    CoPlan::EditLease.acquire!(
+    Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: api_token.id,
@@ -66,17 +66,17 @@ RSpec.describe CoPlan::EditLease, type: :model do
 
     other_token = create(:api_token, user: user)
     expect {
-      CoPlan::EditLease.acquire!(
+      Coplan::EditLease.acquire!(
         plan: plan,
         holder_type: "local_agent",
         holder_id: other_token.id,
         lease_token: SecureRandom.hex(32)
       )
-    }.to raise_error(CoPlan::EditLease::Conflict)
+    }.to raise_error(Coplan::EditLease::Conflict)
   end
 
   it "acquire with same token renews lease" do
-    lease = CoPlan::EditLease.acquire!(
+    lease = Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: api_token.id,
@@ -85,7 +85,7 @@ RSpec.describe CoPlan::EditLease, type: :model do
     original_expires = lease.expires_at
 
     travel 1.minute do
-      renewed = CoPlan::EditLease.acquire!(
+      renewed = Coplan::EditLease.acquire!(
         plan: plan,
         holder_type: "local_agent",
         holder_id: api_token.id,
@@ -96,7 +96,7 @@ RSpec.describe CoPlan::EditLease, type: :model do
   end
 
   it "renew updates expiry" do
-    lease = CoPlan::EditLease.acquire!(
+    lease = Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: api_token.id,
@@ -110,7 +110,7 @@ RSpec.describe CoPlan::EditLease, type: :model do
   end
 
   it "renew raises conflict with wrong token" do
-    lease = CoPlan::EditLease.acquire!(
+    lease = Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: api_token.id,
@@ -119,11 +119,11 @@ RSpec.describe CoPlan::EditLease, type: :model do
 
     expect {
       lease.renew!(lease_token: "wrong-token")
-    }.to raise_error(CoPlan::EditLease::Conflict)
+    }.to raise_error(Coplan::EditLease::Conflict)
   end
 
   it "release destroys lease" do
-    lease = CoPlan::EditLease.acquire!(
+    lease = Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: api_token.id,
@@ -131,11 +131,11 @@ RSpec.describe CoPlan::EditLease, type: :model do
     )
 
     lease.release!(lease_token: lease_token)
-    expect(CoPlan::EditLease.find_by(plan_id: plan.id)).to be_nil
+    expect(Coplan::EditLease.find_by(plan_id: plan.id)).to be_nil
   end
 
   it "release raises conflict with wrong token" do
-    lease = CoPlan::EditLease.acquire!(
+    lease = Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: api_token.id,
@@ -144,11 +144,11 @@ RSpec.describe CoPlan::EditLease, type: :model do
 
     expect {
       lease.release!(lease_token: "wrong-token")
-    }.to raise_error(CoPlan::EditLease::Conflict)
+    }.to raise_error(Coplan::EditLease::Conflict)
   end
 
   it "held_by? checks token and expiry" do
-    lease = CoPlan::EditLease.acquire!(
+    lease = Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: api_token.id,

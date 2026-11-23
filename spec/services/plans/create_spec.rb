@@ -1,9 +1,9 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::Create do
+RSpec.describe Coplan::Plans::Create do
   it "creates plan with initial version" do
     user = create(:coplan_user)
-    plan = CoPlan::Plans::Create.call(
+    plan = Coplan::Plans::Create.call(
       title: "New Plan",
       content: "# New Plan\n\nSome content.",
       user: user
@@ -28,7 +28,7 @@ RSpec.describe CoPlan::Plans::Create do
     user = create(:coplan_user)
     token = create(:api_token, user: user)
 
-    plan = CoPlan::Plans::Create.call(
+    plan = Coplan::Plans::Create.call(
       title: "Agent Plan",
       content: "# Agent Plan",
       user: user,
@@ -49,7 +49,7 @@ RSpec.describe CoPlan::Plans::Create do
   it "creates plan with plan_type" do
     user = create(:coplan_user)
     plan_type = create(:plan_type)
-    plan = CoPlan::Plans::Create.call(
+    plan = Coplan::Plans::Create.call(
       title: "Typed Plan",
       content: "# Typed",
       user: user,
@@ -62,7 +62,7 @@ RSpec.describe CoPlan::Plans::Create do
 
   it "creates plan without plan_type, falling back to the General catch-all" do
     user = create(:coplan_user)
-    plan = CoPlan::Plans::Create.call(
+    plan = Coplan::Plans::Create.call(
       title: "Untyped Plan",
       content: "# Untyped",
       user: user
@@ -77,7 +77,7 @@ RSpec.describe CoPlan::Plans::Create do
     plan_type = create(:plan_type)
 
     events = capture_analytics_events do
-      CoPlan::Plans::Create.call(
+      Coplan::Plans::Create.call(
         title: "Tracked",
         content: "# Tracked\n\nbody",
         user: user,

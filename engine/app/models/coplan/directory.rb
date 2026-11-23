@@ -1,7 +1,7 @@
-module CoPlan
+module Coplan
   # The host directory adapter's engine-side half. Profiles render whatever
   # `profile_for` returns; hosts plug their people directory in via
-  # `CoPlan.configuration.directory_profile` and the engine never learns
+  # `Coplan.configuration.directory_profile` and the engine never learns
   # which directory that is. Without a hook (or when the hook fails), the
   # profile falls back to the local coplan_users columns — a minimal
   # profile beats a broken page.
@@ -17,13 +17,13 @@ module CoPlan
         profile_url: nil
       )
 
-      hook = CoPlan.configuration.directory_profile
+      hook = Coplan.configuration.directory_profile
       return local unless hook
 
       begin
         remote = hook.call(user)
       rescue StandardError => e
-        CoPlan.configuration.error_reporter&.call(e, { source: "directory_profile", user_id: user.id })
+        Coplan.configuration.error_reporter&.call(e, { source: "directory_profile", user_id: user.id })
         return local
       end
       return local unless remote.is_a?(Hash)

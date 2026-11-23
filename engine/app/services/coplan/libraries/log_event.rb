@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Libraries
     # Single entry point for recording an organization mutation on a library
     # — the library-side sibling of Plans::LogEvent. Every path that files,

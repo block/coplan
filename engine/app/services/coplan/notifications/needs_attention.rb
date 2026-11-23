@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Notifications
     # The workspace "Needs attention" strip: plans carrying unread inbox
     # rows for one person, most-unread first. Independent of the active

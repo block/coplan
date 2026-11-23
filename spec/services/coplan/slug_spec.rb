@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Slug do
+RSpec.describe Coplan::Slug do
   [ :call, :handle ].each do |method|
     describe ".#{method}" do
       it "accepts binary-tagged ASCII from host authentication" do

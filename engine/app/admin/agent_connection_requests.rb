@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::AgentConnectionRequest, as: "AgentConnectionRequest" do
+ActiveAdmin.register Coplan::AgentConnectionRequest, as: "AgentConnectionRequest" do
   actions :index, :show
   filter :name
   filter :status

@@ -5,8 +5,8 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
   let(:reviewer) { create(:coplan_user, email: "reviewer@example.com") }
 
   let(:plan) do
-    plan = CoPlan::Plan.create!(title: "Queue incident review", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(plan: plan, revision: 1, actor_type: "human", actor_id: author.id,
+    plan = Coplan::Plan.create!(title: "Queue incident review", created_by_user: author)
+    version = Coplan::PlanVersion.create!(plan: plan, revision: 1, actor_type: "human", actor_id: author.id,
       content_markdown: <<~MARKDOWN)
         Summary: the retry budget ran out during the deploy.
 
@@ -66,8 +66,8 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
   after { page.current_window.resize_to(1400, 900) }
 
   def table_discussion
-    _, start, finish = CoPlan::Plans::SourceTargets.new(plan.current_content).ranges.find { |kind, *| kind == "table_cell" }
-    token = CoPlan::Plans::SourceTargets.verifier.generate(
+    _, start, finish = Coplan::Plans::SourceTargets.new(plan.current_content).ranges.find { |kind, *| kind == "table_cell" }
+    token = Coplan::Plans::SourceTargets.verifier.generate(
       { "digest" => Digest::SHA256.hexdigest(plan.current_content), "kind" => "table_cell",
         "start" => start, "end" => finish, "label" => "Status" }, purpose: "comment")
     thread = plan.comment_threads.create!(plan_version: plan.current_plan_version, source_token: token,

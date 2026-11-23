@@ -15,7 +15,7 @@ RSpec.describe "Plans", type: :request do
 
       expect {
         get new_plan_path(plan_type_id: type.id, folder_id: folder.id)
-      }.not_to change(CoPlan::Plan, :count)
+      }.not_to change(Coplan::Plan, :count)
       expect(response.body).to include("## Problem")
       expect(response.body).to include("Not saved")
       expect(response.body).to include("name=\"plan_type_id\"")
@@ -24,9 +24,9 @@ RSpec.describe "Plans", type: :request do
       expect {
         post plans_path, as: :json, params: { plan_type_id: type.id, folder_id: folder.id,
           plan: { title: "Checkout redesign", tag_names: "payments" }, content: "## Problem\n\nSlow checkout" }
-      }.to change(CoPlan::Plan, :count).by(1)
+      }.to change(Coplan::Plan, :count).by(1)
 
-      created_plan = CoPlan::Plan.order(:created_at).last
+      created_plan = Coplan::Plan.order(:created_at).last
       expect(created_plan).to have_attributes(title: "Checkout redesign", visibility: "published", plan_type: type)
       expect(created_plan.current_content).to eq("# Checkout redesign\n\n## Problem\n\nSlow checkout")
       expect(created_plan.tag_names).to contain_exactly("design", "payments")
@@ -41,7 +41,7 @@ RSpec.describe "Plans", type: :request do
       expect {
         post plans_path, as: :json, params: { plan_type_id: type.id, folder_id: folder.id,
           plan: { title: "Wrong folder" }, content: "Some content" }
-      }.not_to change(CoPlan::Plan, :count)
+      }.not_to change(Coplan::Plan, :count)
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body["error"]).to include("folder no longer exists")
     end
@@ -132,7 +132,7 @@ RSpec.describe "Plans", type: :request do
   describe "archiving a plan" do
     it "redirects a Turbo submission to its containing folder" do
       folder = create(:folder, created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
 
       patch archive_plan_path(plan), headers: { "Accept" => "text/vnd.turbo-stream.html" }
 
@@ -267,7 +267,7 @@ RSpec.describe "Plans", type: :request do
       patch plan_path(plan), params: {
         plan: { title: "Updated Title" }
       }
-    }.not_to change(CoPlan::PlanVersion, :count)
+    }.not_to change(Coplan::PlanVersion, :count)
     plan.reload
     expect(plan.title).to eq(original_title)
     expect(response).to redirect_to(plan_page_path(plan))
@@ -276,7 +276,7 @@ RSpec.describe "Plans", type: :request do
   it "does not broadcast a separate title element for metadata updates" do
     plan # trigger creation
     targets = []
-    allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+    allow(Coplan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
 
     patch plan_path(plan), params: { plan: { tag_names: "infra" } }
     expect(targets).to include("plan-header")
@@ -323,7 +323,7 @@ RSpec.describe "Plans", type: :request do
     it "lists folders and loose docs at the root level; filed docs live inside their folder" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       filed = create(:plan, :published, created_by_user: alice, title: "Filed Plan")
-      CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
+      Coplan::Plans::Place.call(plan: filed, folder: root, actor: alice)
       create(:plan, :published, created_by_user: alice, title: "Loose Plan")
 
       get library_page_path(alice)
@@ -339,7 +339,7 @@ RSpec.describe "Plans", type: :request do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
       nested = create(:plan, :published, created_by_user: alice, title: "Nested Plan")
-      CoPlan::Plans::Place.call(plan: nested, folder: sub, actor: alice)
+      Coplan::Plans::Place.call(plan: nested, folder: sub, actor: alice)
 
       get folder_page_path(root)
       expect(response.body).to include("Q3")
@@ -372,8 +372,8 @@ RSpec.describe "Plans", type: :request do
     it "keeps folders visible on the first page despite many loose docs" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       filed = create(:plan, :published, created_by_user: alice, title: "Small Folder Plan")
-      CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
-      create_list(:plan, CoPlan::PlansController::PER_PAGE + 5, :published, created_by_user: alice)
+      Coplan::Plans::Place.call(plan: filed, folder: root, actor: alice)
+      create_list(:plan, Coplan::PlansController::PER_PAGE + 5, :published, created_by_user: alice)
 
       get library_page_path(alice)
 
@@ -382,7 +382,7 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "paginates the level's doc list via a lazy frame" do
-      create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :published, created_by_user: alice)
+      create_list(:plan, Coplan::PlansController::PER_PAGE + 2, :published, created_by_user: alice)
       get library_page_path(alice)
       expect(response.body).to include('id="plans-level-page-2"')
       expect(response.body).to include("group=level")
@@ -390,8 +390,8 @@ RSpec.describe "Plans", type: :request do
 
     it "paginates inside a folder with the folder scope carried on the frame" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
-      create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :published, created_by_user: alice).each do |p|
-        CoPlan::Plans::Place.call(plan: p, folder: root, actor: alice)
+      create_list(:plan, Coplan::PlansController::PER_PAGE + 2, :published, created_by_user: alice).each do |p|
+        Coplan::Plans::Place.call(plan: p, folder: root, actor: alice)
       end
 
       get folder_page_path(root)
@@ -406,7 +406,7 @@ RSpec.describe "Plans", type: :request do
     it "serves level page fetches without leaking filed plans into the root" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       filed = create(:plan, :published, created_by_user: alice, title: "Filed Plan")
-      CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
+      Coplan::Plans::Place.call(plan: filed, folder: root, actor: alice)
       create(:plan, :published, created_by_user: alice, title: "Loose Plan")
 
       get library_page_path(alice, group: "level", page: 1), headers: { "Turbo-Frame" => "plans-level-page-1" }
@@ -488,13 +488,13 @@ RSpec.describe "Plans", type: :request do
       get library_page_path(bob)
 
       count = response.body.scan("recent-updates__badge--new-to-you").size
-      expect(count).to eq(CoPlan::PlansController::RECENT_LIMIT)
+      expect(count).to eq(Coplan::PlansController::RECENT_LIMIT)
     end
 
     it "only considers the newest RECENT_CANDIDATES plans" do
       stale = create(:plan, :published, created_by_user: bob, title: "Ancient Unseen")
       stale.update!(updated_at: 1.year.ago)
-      CoPlan::PlansController::RECENT_CANDIDATES.times do |i|
+      Coplan::PlansController::RECENT_CANDIDATES.times do |i|
         create(:plan, :published, created_by_user: bob, title: "Noise #{i}")
       end
 
@@ -532,7 +532,7 @@ RSpec.describe "Plans", type: :request do
       rfc = create(:plan_type, name: "RFC", icon: "scroll")
       create(:plan, :published, created_by_user: alice, plan_type: rfc)
       get library_page_path(alice)
-      tint = Zlib.crc32("RFC") % CoPlan::PlansHelper::PLAN_TYPE_COLOR_COUNT
+      tint = Zlib.crc32("RFC") % Coplan::PlansHelper::PLAN_TYPE_COLOR_COUNT
       expect(response.body).to include("plan-type-icon--#{tint}")
     end
 
@@ -548,7 +548,7 @@ RSpec.describe "Plans", type: :request do
       create(:plan, :published, created_by_user: alice, plan_type: nil)
       get library_page_path(alice)
       expect(response.body).to include('aria-label="General document"')
-      tint = Zlib.crc32("General") % CoPlan::PlansHelper::PLAN_TYPE_COLOR_COUNT
+      tint = Zlib.crc32("General") % Coplan::PlansHelper::PLAN_TYPE_COLOR_COUNT
       expect(response.body).to include("plan-type-icon--#{tint}")
     end
   end
@@ -565,7 +565,7 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "keeps a leading H1 showing while an open discussion is anchored in it" do
-      plan = CoPlan::Plans::Create.call(title: "Payments", content: "# Payments redesign\n\nIntro.", user: alice,
+      plan = Coplan::Plans::Create.call(title: "Payments", content: "# Payments redesign\n\nIntro.", user: alice,
         visibility: "published", actor_type: "human")
       thread = create(:comment_thread, plan: plan, created_by_user: alice, anchor_text: "Payments redesign")
       expect(thread.anchor_start).to eq(2)
@@ -615,20 +615,20 @@ RSpec.describe "Plans", type: :request do
 
     it "hides banner when onboarding_banner config is nil" do
       sign_in_as(bob)
-      original = CoPlan.configuration.onboarding_banner
-      CoPlan.configuration.onboarding_banner = nil
+      original = Coplan.configuration.onboarding_banner
+      Coplan.configuration.onboarding_banner = nil
       get library_page_path(alice)
       expect(response.body).not_to include("onboarding-banner")
-      CoPlan.configuration.onboarding_banner = original
+      Coplan.configuration.onboarding_banner = original
     end
 
     it "displays custom banner text from configuration" do
       sign_in_as(bob)
-      original = CoPlan.configuration.onboarding_banner
-      CoPlan.configuration.onboarding_banner = "Custom onboarding message"
+      original = Coplan.configuration.onboarding_banner
+      Coplan.configuration.onboarding_banner = "Custom onboarding message"
       get library_page_path(alice)
       expect(response.body).to include("Custom onboarding message")
-      CoPlan.configuration.onboarding_banner = original
+      Coplan.configuration.onboarding_banner = original
     end
   end
 
@@ -640,8 +640,8 @@ RSpec.describe "Plans", type: :request do
     let!(:loose_plan) { create(:plan, :considering, created_by_user: alice, title: "Unfiled Plan") }
 
     before do
-      CoPlan::Plans::Place.call(plan: root_plan, folder: root, actor: alice)
-      CoPlan::Plans::Place.call(plan: sub_plan, folder: sub, actor: alice)
+      Coplan::Plans::Place.call(plan: root_plan, folder: root, actor: alice)
+      Coplan::Plans::Place.call(plan: sub_plan, folder: sub, actor: alice)
     end
 
     it "shows the folder's own docs and subfolders at that level" do
@@ -681,7 +681,7 @@ RSpec.describe "Plans", type: :request do
       root_plan.tag_names = [ "infra" ]
       sub_plan.tag_names = [ "frontend" ]
       also_infra = create(:plan, :considering, created_by_user: alice, title: "Second Infra Plan")
-      CoPlan::Plans::Place.call(plan: also_infra, folder: root, actor: alice)
+      Coplan::Plans::Place.call(plan: also_infra, folder: root, actor: alice)
       also_infra.tag_names = [ "infra" ]
 
       get folder_page_path(root, tag: "infra")
@@ -713,7 +713,7 @@ RSpec.describe "Plans", type: :request do
     it "pages a folder's level view past the first 20 without losing the folder scope" do
       21.times do |i|
         p = create(:plan, :considering, created_by_user: alice, title: "Paged Plan #{format('%02d', i)}")
-        CoPlan::Plans::Place.call(plan: p, folder: root, actor: alice)
+        Coplan::Plans::Place.call(plan: p, folder: root, actor: alice)
         p.update_columns(updated_at: (i + 1).hours.ago)
       end
       root_plan.update_columns(updated_at: 2.days.ago) # oldest, lands on page 2
@@ -744,7 +744,7 @@ RSpec.describe "Plans", type: :request do
   describe "sidebar" do
     it "renders the folder tree with visible-plan counts" do
       folder = create(:folder, name: "Infra", created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
       get library_page_path(alice)
       expect(response.body).to include("folder-tree")
       expect(response.body).to include("Infra")
@@ -754,7 +754,7 @@ RSpec.describe "Plans", type: :request do
     # else's page never mixes their shelves into yours.
     it "shows the browsed library's folders, not the viewer's" do
       folder = create(:folder, name: "Secret Stash", created_by_user: bob)
-      CoPlan::Plans::Place.call(plan: create(:plan, :draft, created_by_user: bob), folder: folder, actor: bob)
+      Coplan::Plans::Place.call(plan: create(:plan, :draft, created_by_user: bob), folder: folder, actor: bob)
 
       sign_in_as(alice)
       get library_page_path(alice)
@@ -772,7 +772,7 @@ RSpec.describe "Plans", type: :request do
 
     it "counts the plans filed in a folder" do
       folder = create(:folder, name: "My Corner", created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
 
       get library_page_path(alice)
       expect(response.body).to match(%r{My Corner</span>\s*<span class="sidebar__count">1</span>})
@@ -781,7 +781,7 @@ RSpec.describe "Plans", type: :request do
     it "includes subfolder plans in parent folder counts" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: sub, actor: alice)
+      Coplan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: sub, actor: alice)
       get library_page_path(alice)
       expect(response.body).to match(%r{Team EBT</span>\s*<span class="sidebar__count">1</span>})
     end
@@ -848,7 +848,7 @@ RSpec.describe "Plans", type: :request do
       active = create(:plan, :considering, created_by_user: alice)
       buried = create_list(:plan, 2, :archived, created_by_user: alice)
       ([ active ] + buried).each do |p|
-        CoPlan::Plans::Place.call(plan: p, folder: folder, actor: alice)
+        Coplan::Plans::Place.call(plan: p, folder: folder, actor: alice)
       end
 
       # WORKSPACE_LINK_PARAMS carries :filter, so a sidebar folder link
@@ -961,7 +961,7 @@ RSpec.describe "Plans", type: :request do
       thread = create(:comment_thread, plan: plan, created_by_user: bob)
       create(:notification, user: alice, plan: plan, comment_thread: thread)
 
-      expect(CoPlan::Notifications::NeedsAttention).not_to receive(:call)
+      expect(Coplan::Notifications::NeedsAttention).not_to receive(:call)
 
       get library_page_path(alice, group: "level", page: 1), headers: { "Turbo-Frame" => "plans-level-page-1" }
 
@@ -1045,7 +1045,7 @@ RSpec.describe "Plans", type: :request do
     it "does not advance the last-seen mark on a prefetch either" do
       get plan_page_path(plan), headers: { "X-Sec-Purpose" => "prefetch" }
 
-      expect(CoPlan::PlanViewer.where(plan: plan, user: alice)).not_to exist
+      expect(Coplan::PlanViewer.where(plan: plan, user: alice)).not_to exist
     end
   end
 
@@ -1059,12 +1059,12 @@ RSpec.describe "Plans", type: :request do
     it "shelves the author's plan and logs an event" do
       expect {
         patch move_to_folder_plan_path(plan), params: { folder_id: folder.id }
-      }.to change(CoPlan::PlanEvent, :count).by(1)
+      }.to change(Coplan::PlanEvent, :count).by(1)
       expect(response).to redirect_to(library_page_path(alice))
       expect(flash[:notice]).to include("Infra")
       expect(alice_placement.folder).to eq(folder)
 
-      event = CoPlan::PlanEvent.order(:created_at).last
+      event = Coplan::PlanEvent.order(:created_at).last
       expect(event.event_type).to eq("moved_to_folder")
       expect(event.after_value).to eq("Infra")
     end
@@ -1081,7 +1081,7 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "unfiles with a blank folder_id" do
-      CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
       patch move_to_folder_plan_path(plan), params: { folder_id: "" }
       expect(alice_placement).to be_nil
     end
@@ -1094,7 +1094,7 @@ RSpec.describe "Plans", type: :request do
 
       patch move_to_folder_plan_path(plan), params: { folder_id: bobs_folder.id }
 
-      expect(CoPlan::PlanPlacement.where(plan_id: plan.id)).to be_empty
+      expect(Coplan::PlanPlacement.where(plan_id: plan.id)).to be_empty
     end
 
     it "refuses to file someone else's unlisted draft, even with the URL in hand" do
@@ -1127,10 +1127,10 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "does not log an event for a no-op move" do
-      CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
       expect {
         patch move_to_folder_plan_path(plan), params: { folder_id: folder.id }
-      }.not_to change(CoPlan::PlanEvent, :count)
+      }.not_to change(Coplan::PlanEvent, :count)
     end
 
     it "renders rows draggable, with no per-row save control" do
@@ -1151,7 +1151,7 @@ RSpec.describe "Plans", type: :request do
   describe "POST /folders (web)" do
     it "creates a folder and filters to it" do
       post folders_path, params: { folder: { name: "Team EBT" } }
-      folder = CoPlan::Folder.find_by(name: "Team EBT")
+      folder = Coplan::Folder.find_by(name: "Team EBT")
       expect(folder).to be_present
       expect(folder.created_by_user).to eq(alice)
       expect(response).to redirect_to(folder_page_path(folder))
@@ -1160,7 +1160,7 @@ RSpec.describe "Plans", type: :request do
     it "creates a nested folder" do
       parent = create(:folder, name: "Team EBT", created_by_user: alice)
       post folders_path, params: { folder: { name: "Q3", parent_id: parent.id } }
-      expect(CoPlan::Folder.find_by(name: "Q3").parent).to eq(parent)
+      expect(Coplan::Folder.find_by(name: "Q3").parent).to eq(parent)
     end
 
     it "surfaces validation errors via flash" do
@@ -1171,7 +1171,7 @@ RSpec.describe "Plans", type: :request do
 
     it "rejects an unknown parent instead of creating a root folder" do
       post folders_path, params: { folder: { name: "Q3", parent_id: "gone" } }
-      expect(CoPlan::Folder.find_by(name: "Q3")).to be_nil
+      expect(Coplan::Folder.find_by(name: "Q3")).to be_nil
       expect(flash[:alert]).to include("parent folder no longer exists")
     end
   end
@@ -1207,7 +1207,7 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "rejects moves that would exceed the depth cap" do
-      leaf = CoPlan::Folder.find_or_create_by_path!("Team EBT/L2/L3/L4/L5", library: alice.library)
+      leaf = Coplan::Folder.find_or_create_by_path!("Team EBT/L2/L3/L4/L5", library: alice.library)
       reparent(q3, leaf.id)
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body["error"]).to include("depth")
@@ -1234,7 +1234,7 @@ RSpec.describe "Plans", type: :request do
 
     it "deletes an empty folder and lands on its parent" do
       delete folder_path(q3)
-      expect(CoPlan::Folder.exists?(q3.id)).to be(false)
+      expect(Coplan::Folder.exists?(q3.id)).to be(false)
       expect(response).to redirect_to(folder_page_path(team))
       expect(flash[:notice]).to eq("Folder “Q3” deleted.")
       expect(alice.library.library_events.last).to have_attributes(event_type: "folder_deleted", before_value: "Team EBT/Q3")
@@ -1243,27 +1243,27 @@ RSpec.describe "Plans", type: :request do
     it "lands on the library root after deleting a top-level folder" do
       q3.destroy!
       delete folder_path(team)
-      expect(CoPlan::Folder.exists?(team.id)).to be(false)
+      expect(Coplan::Folder.exists?(team.id)).to be(false)
       expect(response).to redirect_to(library_page_path(alice))
     end
 
     it "refuses a folder that still has subfolders" do
       delete folder_path(team)
-      expect(CoPlan::Folder.exists?(team.id)).to be(true)
+      expect(Coplan::Folder.exists?(team.id)).to be(true)
       expect(flash[:alert]).to include("contains subfolders")
     end
 
     it "refuses a folder that still has plans" do
       alice.library.placements.create!(plan: plan, folder: q3)
       delete folder_path(q3)
-      expect(CoPlan::Folder.exists?(q3.id)).to be(true)
+      expect(Coplan::Folder.exists?(q3.id)).to be(true)
       expect(flash[:alert]).to include("contains plans")
     end
 
     it "cannot delete folders in someone else's library" do
       sign_in_as(bob)
       delete folder_path(q3)
-      expect(CoPlan::Folder.exists?(q3.id)).to be(true)
+      expect(Coplan::Folder.exists?(q3.id)).to be(true)
       expect(flash[:alert]).to eq("That folder no longer exists.")
     end
   end

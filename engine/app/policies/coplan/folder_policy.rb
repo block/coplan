@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Folders live inside a library, so every write defers to the library's
   # own policy (Library#writable_by?) — only the owner reshapes a personal
   # library's tree, with an admin override for cleanup. Reading is open:

@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::AgentSession, as: "AgentSession" do
+ActiveAdmin.register Coplan::AgentSession, as: "AgentSession" do
   # Read-mostly: sessions are claimed and updated over the API. Destroy
   # stays available so an operator can clear a stuck row.
   actions :index, :show, :destroy

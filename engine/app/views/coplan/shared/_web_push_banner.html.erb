@@ -3,7 +3,7 @@
 <%# Stimulus controller decides whether to actually show it (browser support, %>
 <%# existing subscription, dismissal count) — the partial just provides the %>
 <%# DOM in a hidden state. %>
-<% return unless signed_in? && CoPlan.configuration.web_push_configured? %>
+<% return unless signed_in? && Coplan.configuration.web_push_configured? %>
 
 <div class="web-push-banner"
      data-controller="coplan--web-push-banner"

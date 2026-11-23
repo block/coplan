@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::PlanTag, type: :model do
+RSpec.describe Coplan::PlanTag, type: :model do
   it "is valid with valid attributes" do
     plan_tag = create(:plan_tag)
     expect(plan_tag).to be_valid
@@ -17,11 +17,11 @@ RSpec.describe CoPlan::PlanTag, type: :model do
 
   it "belongs to plan" do
     plan_tag = create(:plan_tag)
-    expect(plan_tag.plan).to be_a(CoPlan::Plan)
+    expect(plan_tag.plan).to be_a(Coplan::Plan)
   end
 
   it "belongs to tag" do
     plan_tag = create(:plan_tag)
-    expect(plan_tag.tag).to be_a(CoPlan::Tag)
+    expect(plan_tag.tag).to be_a(Coplan::Tag)
   end
 end

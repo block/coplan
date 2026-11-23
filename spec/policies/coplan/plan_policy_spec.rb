@@ -4,7 +4,7 @@ require "rails_helper"
 # list, feed, count, and shelf answers through it. These specs pin the
 # drafts-are-unlisted-not-locked contract so a regression here fails loudly
 # instead of leaking someone's draft into a feed.
-RSpec.describe CoPlan::PlanPolicy do
+RSpec.describe Coplan::PlanPolicy do
   let(:author) { create(:coplan_user) }
   let(:other_user) { create(:coplan_user) }
 

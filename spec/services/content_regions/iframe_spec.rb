@@ -1,10 +1,10 @@
 require "rails_helper"
-RSpec.describe CoPlan::ContentRegions::Iframe do
+RSpec.describe Coplan::ContentRegions::Iframe do
   def block(src, rest = '')
     described_class.call(%(::: {.iframe src="#{src}"#{rest} /}))
   end
   it "defaults sizes, checks HTTPS URLs and matches approved hosts exactly" do
-    CoPlan::EmbedDomain.create!(hostname: "embed.example.com")
+    Coplan::EmbedDomain.create!(hostname: "embed.example.com")
     expect(block('https://embed.example.com/view').allowed?).to be(true)
     expect(block('https://sub.embed.example.com/view').allowed?).to be(false)
     expect(block('https://embed.example.com.evil.test/view').allowed?).to be(false)

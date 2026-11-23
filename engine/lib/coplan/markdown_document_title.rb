@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Pure Markdown utility for normalizing the opening title and extracting its
   # plain text. Never use an H1 inside a quote, code fence, or presentation region.
   class MarkdownDocumentTitle

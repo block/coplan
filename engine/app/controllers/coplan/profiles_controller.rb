@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A person's page and their library are the same page now: /<handle>,
   # served by BrowseController. This is the old /people/:id address, kept so
   # links written before the switch still land — and 301, so the address bar

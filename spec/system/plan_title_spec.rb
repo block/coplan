@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Canonical document title", type: :system do
   let(:author) { create(:coplan_user, email: "title-author@example.com") }
-  let!(:plan) { CoPlan::Plans::Create.call(user: author, content: "# Shared workspaces\n\nFirst paragraph.\n\n## Details\n\n#{'More detail. ' * 500}", actor_type: "local_agent") }
+  let!(:plan) { Coplan::Plans::Create.call(user: author, content: "# Shared workspaces\n\nFirst paragraph.\n\n## Details\n\n#{'More detail. ' * 500}", actor_type: "local_agent") }
 
   before do
     visit sign_in_path
@@ -70,14 +70,14 @@ RSpec.describe "Canonical document title", type: :system do
     select_title
     find('.inline-editor .ProseMirror').send_keys("Final rename")
     wait_saved("Final rename")
-    expect(page).to have_title("Final rename — CoPlan")
+    expect(page).to have_title("Final rename — Coplan")
     expect(plan.url_path).to eq(path)
-    expect(CoPlan::UrlAlias.find_by(path: path)).to be_nil
+    expect(Coplan::UrlAlias.find_by(path: path)).to be_nil
     within("#plan-toolbar") { click_link "Done" }
     expect(page).to have_no_css(".inline-editor .ProseMirror", wait: 15)
     expect(page).to have_css("#plan-title", text: "Final rename")
     expect(plan.reload.url_path).not_to eq(path)
-    expect(CoPlan::UrlAlias.rewrite(path)).to eq(plan.url_path)
+    expect(Coplan::UrlAlias.rewrite(path)).to eq(plan.url_path)
   end
 
   it "keeps an empty title block through autosave and fills it on Done" do

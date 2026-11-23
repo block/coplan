@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # The Home activity feed: what happened to publicly listed plans lately,
   # rolled up per plan per day. Agent editing loops push a plan through
   # dozens of revisions in hours — per-edit entries would drown the feed,

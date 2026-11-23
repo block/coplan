@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       # Bootstrap deliberately has no bearer credential yet. Browser approval
@@ -16,8 +16,8 @@ module CoPlan
           record, device_code, user_code = AgentConnectionRequest.issue!(name: params[:name])
           render json: {
             device_code: device_code, user_code: user_code,
-            verification_uri: CoPlan::Engine.routes.url_helpers.agent_connect_url(**url_options),
-            verification_uri_complete: CoPlan::Engine.routes.url_helpers.agent_connect_url(**url_options, user_code: user_code),
+            verification_uri: Coplan::Engine.routes.url_helpers.agent_connect_url(**url_options),
+            verification_uri_complete: Coplan::Engine.routes.url_helpers.agent_connect_url(**url_options, user_code: user_code),
             expires_in: AgentConnectionRequest::LIFETIME.to_i,
             interval: AgentConnectionRequest::POLL_INTERVAL.to_i
           }, status: :created
@@ -35,7 +35,7 @@ module CoPlan
         private
 
         def require_connection_flow
-          head :not_found unless CoPlan.configuration.agent_connection_enabled?
+          head :not_found unless Coplan.configuration.agent_connection_enabled?
         end
 
         def prevent_caching

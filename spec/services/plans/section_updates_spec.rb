@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::SectionUpdates do
+RSpec.describe Coplan::Plans::SectionUpdates do
   let(:author) { create(:coplan_user) }
   let(:other_author) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: author) }

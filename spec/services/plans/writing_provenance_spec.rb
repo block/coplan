@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::WritingProvenance do
+RSpec.describe Coplan::Plans::WritingProvenance do
   describe ".adjust_input_sources_for_content_change" do
     it "preserves UTF-16 input attribution past an inserted heading" do
       original = "😀 typed"
@@ -45,7 +45,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
   end
 
   it "snapshots harness and model identity without exposing a credential" do
-    token, = CoPlan::ApiToken.create_with_raw_token(user: user, name: "Codex", agent_name: "Codex",
+    token, = Coplan::ApiToken.create_with_raw_token(user: user, name: "Codex", agent_name: "Codex",
       metadata: { "harness" => "codex", "model" => "reported-model", "harness_version" => "1.2" })
     plan = make_plan("Model text", kind: "local_agent", token: token)
     summary = plan.writing_provenance_summary
@@ -83,7 +83,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
   it "rejects excessively fragmented inspection without parsing the document" do
     plan = make_plan("Agent", kind: "local_agent")
     stub_const("#{described_class}::MAX_INSPECTION_RUNS", 0)
-    expect(CoPlan::Plans::MarkdownTextExtractor).not_to receive(:call)
+    expect(Coplan::Plans::MarkdownTextExtractor).not_to receive(:call)
     expect { described_class.rendered_sources(plan.current_plan_version) }.to raise_error(described_class::InspectionLimit)
   end
 
@@ -284,7 +284,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
   end
 
   it "bounds deleted-line evidence and excludes it from current contribution counts" do
-    stub_const("CoPlan::Plans::WritingProvenanceMoves::MAX_CHARACTERS", 20)
+    stub_const("Coplan::Plans::WritingProvenanceMoves::MAX_CHARACTERS", 20)
     original = "Small passage.\n" + "A much larger deleted passage.\n"
     plan = make_plan(original, input_sources: sources(original))
     edit(plan, "Replacement.\n")
@@ -306,7 +306,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     plan = make_plan(original, kind: "local_agent")
     edit(plan, "# Untitled\n\nRemote middle right")
     draft = "#{original} local"
-    CoPlan::Plans::SaveHumanDraft.call(plan: plan, content: draft, base_revision: 1, actor: user,
+    Coplan::Plans::SaveHumanDraft.call(plan: plan, content: draft, base_revision: 1, actor: user,
       input_sources: { "runs" => [ [ original.length, "unknown" ], [ 6, "human" ] ] })
     expect(plan.current_content).to eq("# Untitled\n\nRemote middle right local")
     expect(plan.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 26, "unknown" => 0)
@@ -332,7 +332,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
 
   it "does not credit a no-op or request input without creating a content version" do
     plan = make_plan("same", kind: "local_agent")
-    expect { edit(plan, "same", kind: "human", input_sources: sources("same")) }.not_to change(CoPlan::PlanVersion, :count)
+    expect { edit(plan, "same", kind: "human", input_sources: sources("same")) }.not_to change(Coplan::PlanVersion, :count)
     expect(plan.writing_provenance_summary.fetch("counts").fetch("ai")).to eq(4)
   end
 
@@ -353,7 +353,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
       data = described_class.rendered_sources(plan.current_plan_version)
       expect(data.fetch(:text)).to eq("Café😀123456789101112again1.")
       expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ kind == "human" ? "human" : "ai" ])
-      stripped, positions, spans = CoPlan::Plans::MarkdownTextExtractor.call(content, exclude_nonprose: true, source_spans: true)
+      stripped, positions, spans = Coplan::Plans::MarkdownTextExtractor.call(content, exclude_nonprose: true, source_spans: true)
       digit = stripped.index("10")
       expect(positions[digit, 2]).to eq([ -1, -1 ])
       expect(spans[digit, 2].map { |from, to| content[from...to] }).to eq([ "[^r10]", "[^r10]" ])

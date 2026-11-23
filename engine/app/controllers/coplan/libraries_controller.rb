@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # The id-based entry points into library browsing, kept so old links keep
   # working, plus the index of every library you can see.
   #
@@ -50,7 +50,7 @@ module CoPlan
       unfiled = visible.where.not(id: PlanPlacement.select(:plan_id)).group(:created_by_user_id).count
 
       libraries.each_with_object(counts) do |library, totals|
-        next unless library.owner_type == "CoPlan::User"
+        next unless library.owner_type == "Coplan::User"
 
         loose = unfiled[library.owner_id].to_i
         totals[library.id] = totals[library.id].to_i + loose if loose.positive?

@@ -72,7 +72,7 @@ Without a key, dictation uses the browser’s speech service, which may be unava
 in embedded browsers. Check configuration without printing the key:
 
 ```bash
-bin/rails runner 'puts CoPlan::Ai.available?'
+bin/rails runner 'puts Coplan::Ai.available?'
 ```
 
 ## Tests

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A query a user typed into the sitewide search modal. Persisted so the
   # modal can show a "Recent searches" list when the input is empty.
   #
@@ -10,7 +10,7 @@ module CoPlan
 
     self.record_timestamps = false
 
-    belongs_to :user, class_name: "CoPlan::User"
+    belongs_to :user, class_name: "Coplan::User"
 
     validates :query, presence: true, length: { maximum: 255 }
 

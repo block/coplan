@@ -116,7 +116,7 @@
       <%= render layout: "coplan/shared/add_modal", locals: { id: "new-folder-modal", title: "New folder" } do %>
         <%# model: a fresh record — a bare scope: :folder would silently bind
             the @folder being viewed and prefill its name. %>
-        <%= form_with model: CoPlan::Folder.new, url: folders_path, scope: :folder, method: :post, class: "add-modal__form" do |f| %>
+        <%= form_with model: Coplan::Folder.new, url: folders_path, scope: :folder, method: :post, class: "add-modal__form" do |f| %>
           <div class="form-group">
             <%= f.label :name, "Name", for: "new_folder_name" %>
             <%= f.text_field :name, id: "new_folder_name", required: true, maxlength: 100, autofocus: true,

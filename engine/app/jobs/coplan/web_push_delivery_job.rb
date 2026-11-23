@@ -1,6 +1,6 @@
 require "web-push"
 
-module CoPlan
+module Coplan
   # Delivers one Notification's Web Push payload to one subscription.
   #
   # Per-subscription rather than per-notification so that a single bad

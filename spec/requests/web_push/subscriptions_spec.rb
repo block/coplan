@@ -5,7 +5,7 @@ RSpec.describe "Web Push Subscriptions", type: :request do
 
   before do
     sign_in_as(user)
-    allow(CoPlan.configuration).to receive(:web_push_configured?).and_return(true)
+    allow(Coplan.configuration).to receive(:web_push_configured?).and_return(true)
   end
 
   it "renders the mounted subscription route for the browser" do
@@ -38,7 +38,7 @@ RSpec.describe "Web Push Subscriptions", type: :request do
 
     it "reports an existing subscription outside the delivery cap as inactive" do
       old = create(:coplan_web_push_subscription, user: user, last_seen_at: 1.day.ago)
-      create_list(:coplan_web_push_subscription, CoPlan::WebPushSubscription::MAX_PER_USER,
+      create_list(:coplan_web_push_subscription, Coplan::WebPushSubscription::MAX_PER_USER,
         user: user, last_seen_at: Time.current)
       get web_push_subscription_path, params: { endpoint_digest: old.endpoint_digest }, as: :json
 
@@ -53,7 +53,7 @@ RSpec.describe "Web Push Subscriptions", type: :request do
     end
 
     it "returns 503 when Web Push is not configured" do
-      allow(CoPlan.configuration).to receive(:web_push_configured?).and_return(false)
+      allow(Coplan.configuration).to receive(:web_push_configured?).and_return(false)
       get web_push_subscription_path, params: { endpoint_digest: "unknown" }, as: :json
 
       expect(response).to have_http_status(:service_unavailable)
@@ -99,12 +99,12 @@ RSpec.describe "Web Push Subscriptions", type: :request do
         post web_push_subscription_path,
              params: payload.to_json,
              headers: { "Content-Type" => "application/json" }
-      }.not_to change { CoPlan::WebPushSubscription.count }
+      }.not_to change { Coplan::WebPushSubscription.count }
       expect(response).to have_http_status(:created)
     end
 
     it "returns 503 when Web Push is not configured" do
-      allow(CoPlan.configuration).to receive(:web_push_configured?).and_return(false)
+      allow(Coplan.configuration).to receive(:web_push_configured?).and_return(false)
       post web_push_subscription_path,
            params: payload.to_json,
            headers: { "Content-Type" => "application/json" }
@@ -147,7 +147,7 @@ RSpec.describe "Web Push Subscriptions", type: :request do
              params: { subscription: { endpoint: "https://example.com/other" } }.to_json,
              headers: { "Content-Type" => "application/json" }
       expect(response).to have_http_status(:not_found)
-      expect(CoPlan::WebPushSubscription.where(id: other_sub.id)).to exist
+      expect(Coplan::WebPushSubscription.where(id: other_sub.id)).to exist
     end
   end
 end

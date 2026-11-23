@@ -33,7 +33,7 @@ RSpec.describe "API comment anchors", type: :system do
     api.post api_v1_plan_comments_path(plan), params: { anchor_text: anchor, anchor_occurrence: occurrence, body_markdown: body },
       headers: { "Authorization" => "Bearer #{raw}" }, as: :json
     expect(api.response.status).to eq(201), api.response.body
-    CoPlan::CommentThread.find(JSON.parse(api.response.body).fetch("thread_id"))
+    Coplan::CommentThread.find(JSON.parse(api.response.body).fetch("thread_id"))
   end
 
   before do

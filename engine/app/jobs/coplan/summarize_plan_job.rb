@@ -1,13 +1,13 @@
-module CoPlan
+module Coplan
   # Wait for a quiet period before summarizing the current plan version.
   # The atomic content claim deduplicates jobs that reach the same revision.
   # AI failures keep their claim so jobs for that content won't retry the call.
   class SummarizePlanJob < ApplicationJob
-    PROMPT_PATH = CoPlan::Engine.root.join("prompts", "summarize.md").freeze
+    PROMPT_PATH = Coplan::Engine.root.join("prompts", "summarize.md").freeze
 
     queue_as :default
 
-    discard_on CoPlan::Ai::Error
+    discard_on Coplan::Ai::Error
 
     def perform(plan_id:, version_id: nil)
       plan = Plan.find_by(id: plan_id)
@@ -18,7 +18,7 @@ module CoPlan
       return if version&.content_sha256.blank?
 
       # Backfill jobs and jobs queued before deployment can arrive early.
-      ready_at = version.created_at + CoPlan.configuration.summary_debounce_delay
+      ready_at = version.created_at + Coplan.configuration.summary_debounce_delay
       if ready_at.future?
         self.class.set(wait_until: ready_at).perform_later(plan_id: plan.id, version_id: version.id)
         return
@@ -45,7 +45,7 @@ module CoPlan
     def generate_summary(content)
       return nil if content.blank?
 
-      CoPlan::Ai.call(
+      Coplan::Ai.call(
         system_prompt: File.read(PROMPT_PATH),
         user_content: content,
         intensity: :low
