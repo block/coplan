@@ -235,3 +235,14 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 @media (prefers-reduced-motion: reduce) {
   .document-editor__upload-placeholder::before { animation: none; }
 }
+
+.document-editor__component > .document-editor__block-header { justify-content: flex-end; gap: 2px; padding: 4px 8px; }
+.document-editor__component .document-editor__block-header button { border-radius: 4px; color: var(--color-text-muted); }
+.document-editor__component .document-editor__block-header [aria-pressed="true"] { background: var(--color-surface); color: var(--color-text); }
+.document-editor__component-settings { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; padding: 8px 12px; color: var(--color-text-muted); font: 13px/1.5 var(--font-sans, sans-serif); }
+.document-editor__component-settings select { font: inherit; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 4px; padding: 2px 5px; }
+.document-editor__component-settings details, .document-editor__component-settings details[open] { margin: 0; padding: 0; border: 0; }
+.document-editor__component-settings details > summary, .document-editor__component-settings details[open] > summary { cursor: pointer; margin: 0; padding: 2px; border: 0; font-weight: normal; }
+.document-editor__component .document-editor__block-source { field-sizing: content; min-height: 8em; max-height: 55vh; padding: 12px; }
+.document-editor__component-settings details label { display: block; }
+.document-editor__component-settings input[type="checkbox"] { width: auto; margin: 0 .4em 0 0; }

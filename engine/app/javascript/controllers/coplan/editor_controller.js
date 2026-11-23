@@ -6,7 +6,7 @@ import { commandFor } from "coplan/shortcuts"
 // until the server has acknowledged that exact content.
 export default class extends Controller {
   static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice", "uploadMessage", "uploadDismiss"]
-  static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, attachmentsUrl: String, inline: Boolean, embedDomains: Array }
+  static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, attachmentsUrl: String, inline: Boolean, embedDomains: Array, componentCatalog: Object }
 
   revisionValueChanged(revision) {
     if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-revision", { bubbles: true, detail: { revision } }))
@@ -36,7 +36,7 @@ export default class extends Controller {
       this.mode = "rich"
       this.richEditor = rich.createRichDocument(this.surfaceTarget, this.textareaTarget.value,
         (content, kind) => this.editorChanged("rich", content, kind), state => this.updateToolbar(state), source => this.preview(source),
-        this.inlineValue ? this.comments() : [], { documentTitle: true,
+        this.inlineValue ? this.comments() : [], { documentTitle: true, componentCatalog: this.componentCatalogValue,
           uploadFiles: files => this.uploadFiles(files), uploadError: message => this.uploadNotice(message, true) })
       if (this.inlineValue) {
         const threads = document.getElementById("plan-threads")
@@ -796,6 +796,15 @@ export default class extends Controller {
       input.value = value; input.setSelectionRange(start, end)
     }
   }
+  switchComponentView(event) {
+    event.currentTarget.closest(".document-editor__component").coplanComponentView(event.currentTarget.dataset.componentView)
+  }
+  componentFieldChanged(event) {
+    const field = event.currentTarget
+    const block = field.closest(".document-editor__component")
+    const origin = event.type === "change" || /^(insertText|insertCompositionText|insertLineBreak|delete)/.test(event.inputType || "") ? "human" : "unknown"
+    this.richEditor.setBlockSource(block.coplanPosition(), block.coplanComponentSource(field), origin)
+  }
   togglePresentationPreview(event) {
     event.currentTarget.closest(".document-editor__block").coplanTogglePreview()
   }
@@ -847,7 +856,7 @@ export default class extends Controller {
     this.insertContentBlock("::: {.presentation}\n\n# Slide title\n\nSlide content.\n\n:::\n", '[aria-label="Presentation Markdown"]')
   }
   insertComponent() {
-    this.insertContentBlock('::: {.component type="diagram" title="Diagram"}\n\ndiagram.node("api", "API");\n\n:::\n', '[aria-label="Component Markdown"]')
+    this.insertContentBlock('::: {.component}\n\nroot.textContent = "Hello!";\n\n:::\n', '[data-component-view="edit"]')
   }
   insertEmbed() {
     const source = this.richModule.iframeSource({ src: "https://", title: "Embedded content", width: "100%", height: "480" })

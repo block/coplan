@@ -1,8 +1,8 @@
 ## Payment path
 
-Checkout submits the first attempt. A failed attempt enters the retry queue.
+Checkout submits the first attempt. A failed attempt enters the retry queue. In the document editor, choose Edit on the diagram, change a node label, then choose Preview.
 
-::: {.component type="diagram" title="Payment path"}
+::: {.component type="diagram"}
 
 diagram.node("checkout", "Checkout");
 diagram.node("retry", "Retry queue");
@@ -14,7 +14,7 @@ diagram.edge("checkout", "retry", "on failure");
 
 Choose how many attempts fail before a payment succeeds. Each retry doubles the previous wait. To discuss a particular delay, choose Comment below the simulator and drag across the result.
 
-::: {.component title="Retry simulator"}
+::: {.component}
 
 const label = document.createElement("label");
 const slider = document.createElement("input");

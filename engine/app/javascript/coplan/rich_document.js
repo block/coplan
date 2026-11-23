@@ -1,3 +1,4 @@
+import { componentNodeView } from "coplan/component_editor"
 import { diffArrays } from "diff"
 import { codeHighlight } from "coplan/code_highlight"
 import { richUploads } from "coplan/rich_uploads"
@@ -907,7 +908,7 @@ function documentTitlePlugin() {
   })
 }
 
-export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false, uploadFiles = null, uploadError = () => {} } = {}) {
+export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false, componentCatalog = {}, uploadFiles = null, uploadError = () => {} } = {}) {
   const uploads = uploadFiles ? richUploads(schema, uploadFiles, uploadError, documentTitle) : null
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
@@ -972,7 +973,9 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   const view = new EditorView(element, {
     state, nodeViews: {
       list_item: taskItemNodeView,
-      preserved: (node, view, getPos) => sourceNodeView(node, view, getPos, preview, sourceRangeAt),
+      preserved: (node, view, getPos) => node.attrs.kind === "component" ?
+        componentNodeView(node, getPos, preview, body => previewSettled(body, view, getPos, sourceRangeAt), componentCatalog) :
+        sourceNodeView(node, view, getPos, preview, sourceRangeAt),
       image: (node, view, getPos) => imageNodeView(node, view, getPos),
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview, sourceRangeAt)
     }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
@@ -1727,16 +1730,6 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
   }
 
   dom.contentEditable = "false"
-  if (node.attrs.kind === "component") {
-    title.textContent = "Component"
-    const input = document.createElement("textarea")
-    input.className = "document-editor__block-source"
-    input.setAttribute("aria-label", "Component Markdown")
-    input.value = node.attrs.source
-    input.dataset.action = "input->coplan--editor#blockSourceChanged keydown->coplan--editor#blockKeydown"
-    dom.append(input)
-    edit.remove()
-  }
   if (node.attrs.kind === "table") {
     edit.textContent = "Edit table"
     edit.dataset.action = "coplan--editor#toggleBlockSource"
@@ -1752,7 +1745,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     if (dom.hidden) return
     const isTable = node.attrs.kind !== "list" && /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
     const isReferences = /^\s*\[\^[^\]]+\]:/m.test(source)
-    title.textContent = node.attrs.kind === "component" ? "Component" : node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : "Markdown block"
+    title.textContent = node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : "Markdown block"
     body.replaceChildren()
     const fallback = document.createElement("pre"); fallback.textContent = source; body.append(fallback)
     // Rendering definitions alone drops them as unused footnotes. Keep their

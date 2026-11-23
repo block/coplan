@@ -22,7 +22,7 @@ RSpec.describe "Interactive components", type: :system do
   it "draws the typed diagram, runs interactive JS, and opens a component discussion" do
     plan = Coplan::Plans::Create.call(title: "Components", content: source, user: author, actor_type: "human")
     visit plan_page_path(plan)
-    within_frame(find('iframe[title="Payment path"]')) do
+    within_frame(find('iframe[title="Diagram"]')) do
       expect(page).to have_css("svg text", text: "Retry queue")
       expect(page.evaluate_script("document.querySelector('[nonce]')")).to be_nil
       expect(page.evaluate_script("document.querySelector('meta[http-equiv=Content-Security-Policy]').content")).to eq("script-src blob:")
@@ -35,12 +35,12 @@ RSpec.describe "Interactive components", type: :system do
       JS
       expect(directive).to eq("connect-src")
     end
-    within_frame(find('iframe[title="Retry simulator"]')) do
+    within_frame(find('iframe[title="Component"]')) do
       expect(page).to have_text("1 + 2 + 4 = 7 seconds")
       find('input[type="range"]').send_keys(:arrow_right)
       expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds")
     end
-    simulator = find("figure:has(iframe[title='Retry simulator'])")
+    simulator = find("figure:has(iframe[title='Component'])")
     expect(simulator).to have_no_css("figcaption, summary", visible: :all)
     simulator.hover
     simulator.find('button[aria-label="Expand component"]').click
@@ -82,14 +82,14 @@ RSpec.describe "Interactive components", type: :system do
     expect(comment.component_selection).to include("revision" => plan.current_revision, "w" => 80, "h" => 16)
     expect(comment.component_snapshot.download).to start_with(Coplan::Comments::ComponentAnnotation::PNG_HEADER)
     visit plan_page_path(plan)
-    simulator = find("figure:has(iframe[title='Retry simulator'])")
+    simulator = find("figure:has(iframe[title='Component'])")
     find("#plan-title").hover
     expect(simulator).to have_css(".document-component__actions", visible: :all) { |actions| tab_retracted?(actions) }
     slot = simulator.find(".document-component__tab")
     slot.hover
     expect(simulator).to have_css(".document-component__actions") { |actions| tab_revealed?(actions) }
     expect(slot).to have_css("button[data-component-discussions]", exact_text: "1")
-    diagram = find("figure:has(iframe[title='Payment path'])")
+    diagram = find("figure:has(iframe[title='Diagram'])")
     diagram.hover
     diagram.find("button[data-source-target]").click
     diagram.find(".document-component__selection").send_keys(:enter)
@@ -194,14 +194,50 @@ RSpec.describe "Interactive components", type: :system do
     expect(page).to have_css(".inline-editor .ProseMirror p mark", text: "Later passage")
   end
 
-  it "keeps the script in one editable block and preserves its exact source in Raw mode" do
-    plan = Coplan::Plans::Create.call(title: "Components", content: source, user: author, actor_type: "human")
+  it "opens on the rendered component and runs edited JavaScript when Preview is chosen" do
+    catalog = Coplan::ComponentCatalog.new
+    catalog.library("amount@1", source: "export const cents = 250", example: "cents")
+    catalog.type("receipt", source: "export function setup() { return {} }", bindings: [], example: "")
+    allow(Coplan.configuration).to receive(:component_catalog).and_return(catalog)
+    header = '::: {.component #path title="Legacy label" type="diagram"}'
+    markdown = "# Components\n\n#{header}\n\ndiagram.node('a', 'Original');\n\n:::\n"
+    plan = Coplan::Plans::Create.call(title: "Components", content: markdown, user: author, actor_type: "human")
     visit plan_edit_page_path(plan)
-    expect(page).to have_css('textarea[aria-label="Component Markdown"]', count: 2, wait: 20)
-    input = all('textarea[aria-label="Component Markdown"]').first
-    changed = input.value.sub('"Retry queue"', '"Delayed retry"')
-    input.set(changed)
+    block = find(".document-editor__component", wait: 20)
+    within_frame(block.find("iframe")) { expect(page).to have_css("svg text", text: "Original") }
+    script_field = 'textarea[aria-label="Component JavaScript"]'
+    expect(block).to have_no_css(script_field)
+    block.click_button("Edit", exact: true)
+    expect(block.find(script_field).value).to eq("diagram.node('a', 'Original');")
+    expect(block).to have_no_css("iframe", visible: true)
     click_button "Raw", exact: true
-    expect(find('[aria-label="Markdown source"]')).to have_text('diagram.node("retry", "Delayed retry");')
+    raw = find('[aria-label="Markdown source"]')
+    expect(page.evaluate_script("arguments[0].textContent", raw)).to include(markdown.strip)
+    click_button "Editor", exact: true
+
+    block.select("receipt", from: "Type")
+    block.select("Plain JavaScript", from: "Type")
+    block.find("summary", text: "Libraries").click
+    block.check("amount@1")
+    code = 'root.textContent = "Cents " + (await import("amount")).cents;'
+    block.find(script_field).set(code)
+    expect(block.find("figure", visible: :all)["data-coplan--component-program-value"]).to include("Original")
+    block.click_button("Preview", exact: true)
+    within_frame(block.find("iframe")) { expect(page).to have_text("Cents 250") }
+    click_button "Raw", exact: true
+    expect(page.evaluate_script("arguments[0].textContent", raw)).to include(%(::: {.component #path title="Legacy label" uses="amount@1"}\n\n#{code}\n\n:::))
+  end
+
+  it "inserts a plain JavaScript component without a title or type" do
+    plan = Coplan::Plans::Create.call(title: "Scratchpad", content: "# Scratchpad\n\nTry it here.", user: author, actor_type: "human")
+    visit plan_edit_page_path(plan)
+    find(".document-editor__body .ProseMirror p", text: "Try it here.").click
+    click_button "Insert content", enable_aria_label: true
+    click_button "Component", exact: true
+    block = find(".document-editor__component")
+    within_frame(block.find("iframe")) { expect(page).to have_text("Hello!") }
+    click_button "Raw", exact: true
+    raw = find('[aria-label="Markdown source"]')
+    expect(page.evaluate_script("arguments[0].textContent", raw)).to include(%(::: {.component}\n\nroot.textContent = "Hello!";\n\n:::))
   end
 end

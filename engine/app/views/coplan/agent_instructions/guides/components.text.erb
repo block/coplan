@@ -3,7 +3,7 @@
 Write a top-level component between standalone region markers. Leave a blank line before and after each marker. The body is JavaScript. Use DOM APIs on the supplied `root` to build controls, HTML, SVG, canvas, and animation. Each reader starts with fresh state. A region ID such as `#retry-path` is optional and supplies a deep link. The optional title names the frame for assistive technology. Comment and Expand slide out below the bottom-right edge when the pointer approaches the component or its tab. Keyboard focus reveals the controls. On touch screens, tap the small grip beneath the corner. Expand preserves the current state. In Comment mode, click a point or drag a box. The reader previews a PNG of the live view with the selection marked. Enter selects the whole view. Reopening Comment resumes an unfinished annotation and its image. Discard annotation starts over. If capture is unavailable, for example after scrolling a nested panel, the selection and its dimensions still accompany the comment. No capture code is required from the author.
 
 ````markdown
-::: {.component type="diagram" title="Checkout retries"}
+::: {.component type="diagram"}
 
 diagram.node("checkout", "Checkout");
 diagram.node("retry", "Retry queue");
@@ -12,10 +12,12 @@ diagram.edge("checkout", "retry", "on failure");
 :::
 ````
 
+The rich editor opens each component in Preview. Choose Edit to change its JavaScript, select a type, or pick additional libraries. Choose Preview to run the edited script. Raw shows the complete Markdown region. Plain JavaScript needs only the body.
+
 A type sets up its bindings and mounts the result after the script returns. To use a library separately, declare its exact catalog key in `uses`. Separate multiple keys with spaces. Load each library by its bare name with `await import("name")` inside the body.
 
 ````markdown
-::: {.component title="Payment attempts"}
+::: {.component}
 
 const button = document.createElement("button");
 let count = 0;
