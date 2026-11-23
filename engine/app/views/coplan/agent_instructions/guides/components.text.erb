@@ -14,7 +14,7 @@ root.append(button);
 :::
 ````
 
-Each reader starts with fresh state. A component can respond to input and animate inside its frame. It cannot read the surrounding document or its session, fetch remote resources, submit a form, or navigate the parent. Include the data your program needs in its source. Avoid secrets. The appearance follows the reader's theme. Use `--coplan-text`, `--coplan-text-muted`, `--coplan-surface`, `--coplan-surface-muted`, `--coplan-border`, and `--coplan-primary` for custom colors.
+Each reader starts with fresh state. A component can respond to input and animate inside its frame. The frame isolates the script from the surrounding document and its session. Its policy blocks fetch requests, remote scripts and images, form submissions, and parent navigation. Complete network isolation depends on the reader’s browser and the site’s frame policy. Include the data your program needs in its source and use only data intended for its readers. The appearance follows the reader's theme. Use `--coplan-text`, `--coplan-text-muted`, `--coplan-surface`, `--coplan-surface-muted`, `--coplan-border`, and `--coplan-primary` for custom colors.
 
 ## Available component types
 
