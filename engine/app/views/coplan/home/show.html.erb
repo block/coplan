@@ -48,8 +48,6 @@
                   <% if item.summary_parts.any? %>
                     <span class="home__item-activity">
                       <% if item.published %>
-                        <%# Only the word "new" gets the accent — the rest of
-                            the rollup stays quiet. %>
                         <span class="home__item-activity--new">new</span><%= " · #{item.summary_parts.drop(1).join(" · ")}" if item.summary_parts.size > 1 %>
                       <% else %>
                         <%= item.summary_parts.join(" · ") %>

@@ -19,12 +19,12 @@ RSpec.describe "Callouts", type: :system do
     MD
   end
   let(:plan) do
-    CoPlan::Plans::Create.call(title: "Callout plan", content: source, user: author,
+    Coplan::Plans::Create.call(title: "Callout plan", content: source, user: author,
       visibility: "draft", actor_type: "human")
   end
 
   before do
-    allow(CoPlan::Ai).to receive(:available?).and_return(false)
+    allow(Coplan::Ai).to receive(:available?).and_return(false)
     visit sign_in_path
     fill_in "Email address", with: author.email
     click_button "Sign In"
@@ -67,7 +67,7 @@ RSpec.describe "Callouts", type: :system do
 
   it "edits a summary as rich content and preserves its marker when saved" do
     source = "# Analysis\n\n> [!SUMMARY] TL;DR\n> What happened."
-    document = CoPlan::Plans::Create.call(title: "Analysis", content: source, user: author,
+    document = Coplan::Plans::Create.call(title: "Analysis", content: source, user: author,
       visibility: "draft", actor_type: "human")
     visit plan_edit_page_path(document)
     expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
@@ -86,7 +86,7 @@ RSpec.describe "Callouts", type: :system do
 
   it "preserves a table-only callout when a cell is edited and saved" do
     source = "# Findings\n\n> [!SUMMARY]\n>\n> | Finding | State |\n> | --- | --- |\n> | Retry | Ready |"
-    document = CoPlan::Plans::Create.call(title: "Findings", content: source, user: author,
+    document = Coplan::Plans::Create.call(title: "Findings", content: source, user: author,
       visibility: "draft", actor_type: "human")
     visit plan_edit_page_path(document)
     expect(page).to have_css(".ProseMirror .document-editor__callout--summary table", text: "Ready")
@@ -103,7 +103,7 @@ RSpec.describe "Callouts", type: :system do
 
   it "preserves math inside a callout through a rich edit and save" do
     content = "# Retry budget\n\n> [!TIP] Estimate\n> Use $p^n$ for retries."
-    document = CoPlan::Plans::Create.call(title: "Retry budget", content: content, user: author,
+    document = Coplan::Plans::Create.call(title: "Retry budget", content: content, user: author,
       visibility: "draft", actor_type: "human")
     visit plan_page_path(document)
     expect(page).to have_css(".callout--tip .katex")
@@ -127,7 +127,7 @@ RSpec.describe "Callouts", type: :system do
     content = %w[coplan graphite].map do |theme|
       "::: {.presentation theme=\"#{theme}\"}\n\n# Callout slide\n\n> [!TIP]\n> Readable in either app mode.\n\n:::\n"
     end.join("\n")
-    deck = CoPlan::Plans::Create.call(title: "Callout decks", content: content, user: author,
+    deck = Coplan::Plans::Create.call(title: "Callout decks", content: content, user: author,
       visibility: "draft", actor_type: "human")
     visit plan_page_path(deck)
     expect(page).to have_css(".deck .callout", count: 2)
@@ -179,7 +179,7 @@ RSpec.describe "Callouts", type: :system do
 
   it "preserves a setext callout while saving an edit to nearby prose" do
     source = "# Setext callout\n\n> [!NOTE]\n> Heading body\n> ---\n\nAfter."
-    document = CoPlan::Plans::Create.call(title: "Setext callout", content: source, user: author,
+    document = Coplan::Plans::Create.call(title: "Setext callout", content: source, user: author,
       visibility: "draft", actor_type: "human")
     visit plan_edit_page_path(document)
     expect(page).to have_css(".document-editor__block-preview .callout h2", text: "Heading body")

@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::CommentThread, type: :model do
+RSpec.describe Coplan::CommentThread, type: :model do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
   let(:thread_record) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: user) }
@@ -18,7 +18,7 @@ RSpec.describe CoPlan::CommentThread, type: :model do
       c = create(:comment, comment_thread: all_deleted)
       c.soft_delete!
 
-      result = CoPlan::CommentThread.with_kept_comments
+      result = Coplan::CommentThread.with_kept_comments
       expect(result).to include(with_live)
       expect(result).not_to include(all_deleted)
     end
@@ -79,7 +79,7 @@ RSpec.describe CoPlan::CommentThread, type: :model do
   describe "clearing notifications when a thread closes" do
     let(:recipient) { create(:coplan_user) }
 
-    before { allow(CoPlan::Broadcaster).to receive(:update_to) }
+    before { allow(Coplan::Broadcaster).to receive(:update_to) }
 
     it "marks the thread's unread rows read on resolve" do
       notification = create(:notification, user: recipient, plan: plan, comment_thread: thread_record)
@@ -177,7 +177,7 @@ RSpec.describe CoPlan::CommentThread, type: :model do
     it "marks out-of-date when thread lacks positional data" do
       thread_record.update_columns(anchor_text: "world domination")
 
-      new_version = CoPlan::PlanVersion.create!(
+      new_version = Coplan::PlanVersion.create!(
         plan: plan,
         revision: plan.current_revision + 1,
         content_markdown: "# Plan\n\nOur plan for world domination continues.",
@@ -191,7 +191,7 @@ RSpec.describe CoPlan::CommentThread, type: :model do
     end
 
     it "skips non-anchored threads" do
-      new_version = CoPlan::PlanVersion.create!(
+      new_version = Coplan::PlanVersion.create!(
         plan: plan,
         revision: plan.current_revision + 1,
         content_markdown: "Completely different content.",

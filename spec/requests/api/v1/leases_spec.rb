@@ -92,6 +92,6 @@ RSpec.describe "Api::V1::Leases", type: :request do
       headers: headers,
       as: :json
     expect(response).to have_http_status(:no_content)
-    expect(CoPlan::EditLease.find_by(plan_id: plan.id)).to be_nil
+    expect(Coplan::EditLease.find_by(plan_id: plan.id)).to be_nil
   end
 end

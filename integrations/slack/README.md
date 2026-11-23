@@ -9,14 +9,14 @@ gem "coplan-slack"
 When developing from a Coplan source checkout, use `gem "coplan-slack", path: "integrations/slack"` instead. Mount the adapter before the core engine:
 
 ```ruby
-mount CoPlan::Slack::Engine => "/integrations/slack", as: :coplan_slack
-mount CoPlan::Engine => "/", as: :coplan
+mount Coplan::Slack::Engine => "/integrations/slack", as: :coplan_slack
+mount Coplan::Engine => "/", as: :coplan
 ```
 
 Configure the deployment's Slack app and canonical Coplan URL:
 
 ```ruby
-CoPlan::Slack.configure do |config|
+Coplan::Slack.configure do |config|
   config.signing_secret = ENV["SLACK_SIGNING_SECRET"]
   config.bot_token = ENV["SLACK_BOT_TOKEN"]
   config.base_url = ENV["COPLAN_BASE_URL"] # e.g. https://coplan.example.com/
@@ -27,7 +27,7 @@ To send comment and reply DMs in a host that does not use link unfurls,
 configure these three values:
 
 ```ruby
-CoPlan::Slack.configure do |config|
+Coplan::Slack.configure do |config|
   config.bot_token = ENV["SLACK_BOT_TOKEN"]
   config.base_url = ENV["COPLAN_BASE_URL"]
   config.notifications_enabled = true

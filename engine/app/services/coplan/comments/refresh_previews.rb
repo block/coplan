@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Comments
     class RefreshPreviews
       def self.call(thread:)

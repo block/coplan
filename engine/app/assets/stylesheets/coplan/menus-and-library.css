@@ -461,7 +461,6 @@
   margin-left: var(--space-xs);
 }
 
-/* A plan's first appearance gets a whisper of accent — not a badge. */
 .home__item-activity--new {
   color: var(--color-primary);
 }

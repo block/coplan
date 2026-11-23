@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::MergeText do
+RSpec.describe Coplan::Plans::MergeText do
   it "combines disjoint changes in one paragraph, including Unicode" do
     expect(described_class.call(base: "Café ☀️, alpha and beta.", local: "Café ☀️, ALPHA and beta.", remote: "Café ☀️, alpha and BETA.")).to eq("Café ☀️, ALPHA and BETA.")
   end

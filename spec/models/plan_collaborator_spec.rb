@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::PlanCollaborator, type: :model do
+RSpec.describe Coplan::PlanCollaborator, type: :model do
   it "is valid with valid attributes" do
     collaborator = create(:plan_collaborator)
     expect(collaborator).to be_valid
@@ -18,7 +18,7 @@ RSpec.describe CoPlan::PlanCollaborator, type: :model do
 
   it "allows all valid roles" do
     plan = create(:plan)
-    CoPlan::PlanCollaborator::ROLES.each do |role|
+    Coplan::PlanCollaborator::ROLES.each do |role|
       user = create(:coplan_user)
       attrs = { plan: plan, user: user, role: role }
       attrs[:highlighted_reason] = "Top expert" if role == "highlighted"

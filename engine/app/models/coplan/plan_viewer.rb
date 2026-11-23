@@ -1,9 +1,9 @@
-module CoPlan
+module Coplan
   class PlanViewer < ApplicationRecord
     STALE_THRESHOLD = 45.seconds
 
     belongs_to :plan
-    belongs_to :user, class_name: "CoPlan::User"
+    belongs_to :user, class_name: "Coplan::User"
 
     scope :active, -> { where(last_seen_at: STALE_THRESHOLD.ago..) }
 

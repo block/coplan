@@ -3,7 +3,7 @@
       <%= render "coplan/reviews/table", plan: plan, active_requests: active_requests %>
     <% else %>
     <% if active_requests.empty? %><div class="review-empty"><span class="review-empty__icon" aria-hidden="true">◎</span><p>No reviewers yet</p></div><% end %>
-        <% active_requests.sort_by { |request| [CoPlan::ReviewRequest::REQUIREMENTS.index(request.requirement), request.reviewer.name.downcase, request.id] }.each do |request| %>
+        <% active_requests.sort_by { |request| [Coplan::ReviewRequest::REQUIREMENTS.index(request.requirement), request.reviewer.name.downcase, request.id] }.each do |request| %>
           <% requirement = request.requirement %>
           <% approval = request.latest_approval %>
           <div class="review-person" data-reviewer-id="<%= request.reviewer_id %>">

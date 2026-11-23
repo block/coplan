@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::AiProviders::OpenAi do
+RSpec.describe Coplan::AiProviders::OpenAi do
   let(:model) { "gpt-4o" }
   let(:system_prompt) { "You are a reviewer." }
   let(:user_content) { "# My Plan\n\nSome content." }
@@ -51,7 +51,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       end
 
       it "uses the model the host configured" do
-        allow(CoPlan.configuration).to receive(:ai_model).and_return("gpt-4o-mini")
+        allow(Coplan.configuration).to receive(:ai_model).and_return("gpt-4o-mini")
         mock_client = stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content)
@@ -63,7 +63,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       # Callers that need a particular model for a particular prompt still
       # get to say so.
       it "lets an explicit model argument win" do
-        allow(CoPlan.configuration).to receive(:ai_model).and_return("gpt-4o-mini")
+        allow(Coplan.configuration).to receive(:ai_model).and_return("gpt-4o-mini")
         mock_client = stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content, model: "o3")
@@ -73,7 +73,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       end
 
       it "falls back to a working default when the host clears the model" do
-        allow(CoPlan.configuration).to receive(:ai_model).and_return(nil)
+        allow(Coplan.configuration).to receive(:ai_model).and_return(nil)
         mock_client = stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content)
@@ -85,7 +85,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       # The point of the whole exercise: self-hosting against something
       # that isn't OpenAI.
       it "points the client at the host's base URL" do
-        allow(CoPlan.configuration).to receive(:ai_base_url).and_return("http://localhost:11434/v1")
+        allow(Coplan.configuration).to receive(:ai_base_url).and_return("http://localhost:11434/v1")
         stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content)
@@ -95,7 +95,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       end
 
       it "falls back to OpenAI when the host clears the base URL" do
-        allow(CoPlan.configuration).to receive(:ai_base_url).and_return(nil)
+        allow(Coplan.configuration).to receive(:ai_base_url).and_return(nil)
         stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content)
@@ -134,7 +134,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
 
       expect {
         described_class.call(system_prompt: system_prompt, user_content: user_content, model: model)
-      }.to raise_error(CoPlan::AiProviders::OpenAi::Error, "No response content from OpenAI")
+      }.to raise_error(Coplan::AiProviders::OpenAi::Error, "No response content from OpenAI")
     end
 
     [ Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::ServerError ].each do |error_class|
@@ -153,13 +153,13 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
     end
 
     it "raises an error when API key is not configured" do
-      allow(CoPlan.configuration).to receive(:ai_api_key).and_return(nil)
+      allow(Coplan.configuration).to receive(:ai_api_key).and_return(nil)
       allow(ENV).to receive(:[]).with("OPENAI_API_KEY").and_return(nil)
       allow(Rails.application.credentials).to receive(:dig).with(:openai, :api_key).and_return(nil)
 
       expect {
         described_class.call(system_prompt: system_prompt, user_content: user_content, model: model)
-      }.to raise_error(CoPlan::AiProviders::OpenAi::Error, "OpenAI API key not configured")
+      }.to raise_error(Coplan::AiProviders::OpenAi::Error, "OpenAI API key not configured")
     end
   end
 

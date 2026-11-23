@@ -107,7 +107,6 @@ export default class extends Controller {
   }
 
   navigateTo(mark) {
-    // Remove active highlight from all marks
     document.querySelectorAll(".anchor-highlight--active").forEach(el => {
       el.classList.remove("anchor-highlight--active")
     })
@@ -135,11 +134,9 @@ export default class extends Controller {
       return
     }
 
-    // Add active class and scroll into view
     mark.classList.add("anchor-highlight--active")
     mark.scrollIntoView({ behavior: "instant", block: "center" })
 
-    // Open the thread popover if there's one
     const threadId = mark.dataset.threadId
     if (threadId) {
       const popover = document.getElementById(`${threadId}_popover`)

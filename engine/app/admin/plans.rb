@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::Plan, as: "Plan" do
+ActiveAdmin.register Coplan::Plan, as: "Plan" do
   # No destroy and no batch delete: destroying a plan cascades to its
   # versions, threads, events and attachments, and nothing in Coplan can
   # restore them. Archive it instead.
@@ -7,7 +7,7 @@ ActiveAdmin.register CoPlan::Plan, as: "Plan" do
   permit_params :visibility, :archived_at
 
   filter :title
-  filter :visibility, as: :select, collection: CoPlan::Plan::VISIBILITIES
+  filter :visibility, as: :select, collection: Coplan::Plan::VISIBILITIES
   filter :archived_at
   filter :plan_type, as: :select
   filter :created_at
@@ -26,7 +26,7 @@ ActiveAdmin.register CoPlan::Plan, as: "Plan" do
 
   form do |f|
     f.inputs do
-      f.input :visibility, as: :select, collection: CoPlan::Plan::VISIBILITIES
+      f.input :visibility, as: :select, collection: Coplan::Plan::VISIBILITIES
       f.input :archived_at
     end
     f.actions

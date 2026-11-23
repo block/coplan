@@ -210,7 +210,7 @@ RSpec.describe "Editor lists", type: :system do
     it "does not recreate an empty #{tag} item after an item ending in a preserved table in #{theme}" do
       indentation = " " * (marker.length + 1)
       source = "#{marker} Item with table\n\n#{indentation}| Name | State |\n#{indentation}| --- | --- |\n#{indentation}| Alpha | Ready |\n\n#{marker} \n"
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      Coplan::Plans::ReplaceContent.call(plan: plan, new_content: source,
         base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
       visit plan_edit_page_path(plan)
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
@@ -241,7 +241,7 @@ RSpec.describe "Editor lists", type: :system do
   end
 
   it "keeps citation metadata intact when editing and leaving a list at the document's end" do
-    cited = CoPlan::Plans::Create.call(title: "List after citation", content: "Opening.[^note]\n\n[^note]: Keep this reference.\n",
+    cited = Coplan::Plans::Create.call(title: "List after citation", content: "Opening.[^note]\n\n[^note]: Keep this reference.\n",
       user: author, visibility: "draft", actor_type: "human")
     visit plan_edit_page_path(cited)
     expect(page).to have_css(".ProseMirror > p:last-child", wait: 20)
@@ -290,7 +290,7 @@ RSpec.describe "Editor lists", type: :system do
 
   it "keeps multiple lettered markers literal inside an HTML block" do
     source = "<div>\nA) First literal\nB) Second literal\n</div>\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
     expect(page).to have_css(".ProseMirror .document-editor__block-preview", text: "A) First literal", wait: 20)
@@ -300,7 +300,7 @@ RSpec.describe "Editor lists", type: :system do
 
   it "preserves lettered task lists when editing nearby text" do
     source = "A) [ ] Keep this task\n\nOutside\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
     expect(page).to have_unchecked_field("Task: Keep this task", type: "checkbox", enable_aria_label: true, wait: 20)
@@ -315,7 +315,7 @@ RSpec.describe "Editor lists", type: :system do
 
   it "keeps letter-like markers literal inside a nested pipe-less table after saving" do
     source = "AA) Parent\n\n    A) Name | State\n    --- | ---\n    B) Label | Ready\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
     expect(page).to have_css(".ProseMirror > ol > li", count: 1, wait: 20)

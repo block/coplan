@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module ReferencesHelper
     include MarkdownHelper
 

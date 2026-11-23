@@ -2,7 +2,7 @@ require "spec_helper"
 require "tmpdir"
 require_relative "../../engine/agent_tools/coplan_session"
 
-RSpec.describe CoPlanSession do
+RSpec.describe CoplanSession do
   around do |example|
     keys = %w[COPLAN_HARNESS COPLAN_HARNESS_VERSION COPLAN_MODEL COPLAN_HOME]
     previous = ENV.to_h.slice(*keys)

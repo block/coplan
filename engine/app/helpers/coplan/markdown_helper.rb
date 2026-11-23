@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module MarkdownHelper
     include EmbedsHelper
     ALLOWED_TAGS = %w[
@@ -23,7 +23,7 @@ module CoPlan
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
     # `[^1]: definition` block anywhere in the document. Alerts use a first
     # quote line such as `[!NOTE]` (see render_callouts; `[!SUMMARY]` is
-    # Coplan's own, see CoPlan::Markdown). Math uses `$inline$`,
+    # Coplan's own, see Coplan::Markdown). Math uses `$inline$`,
     # `$$display$$`, `` $`inline`$ `` and math fences, typeset by KaTeX.
     # comrak's dollar rules keep currency ("$5 and $10") as text.
     EXTENSION_OPTIONS = { footnotes: true, alerts: true, math_dollars: true, math_code: true }.freeze
@@ -73,7 +73,7 @@ module CoPlan
       # it is stripped after generating trusted interaction metadata.
       source = content.to_s.encode("UTF-8")
       render_options[:sourcepos] = true if interactive || source.include?(ContentRegions::Iframe::PREFIX) || source.include?("$") || source.include?("math")
-      html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
+      html = Coplan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       scrubber = LinkScrubber.new
@@ -180,7 +180,7 @@ module CoPlan
     def markdown_to_plain_text(content)
       source = content.to_s.encode("UTF-8")
       source = ContentRegions::Split.call(source).canonical_source if source.include?("::: {.presentation")
-      html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
+      html = Coplan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
       fragment = Nokogiri::HTML::DocumentFragment.parse(html)
       fragment.css("p.markdown-alert-title").remove
       fragment.text.squish
@@ -263,7 +263,7 @@ module CoPlan
     # of the math nodes and math fences the parser found.
     def math_positions(source)
       positions = { inline: Set.new, fence: Set.new }
-      CoPlan::Markdown.parse(source, options: { extension: EXTENSION_OPTIONS }).walk do |node|
+      Coplan::Markdown.parse(source, options: { extension: EXTENSION_OPTIONS }).walk do |node|
         kind = if node.type == :math then :inline
         elsif node.type == :code_block && node.fence_info == "math" then :fence
         end

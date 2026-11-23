@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Scan without loading content, and revisit pending leases to recover crashes.
   class WritingProvenanceBackfillJob < ApplicationJob
     queue_as :default

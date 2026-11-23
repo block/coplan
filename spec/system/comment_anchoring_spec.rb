@@ -21,8 +21,8 @@ RSpec.describe "Comment anchoring", type: :system do
   end
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Repeated Text Plan", created_by_user: user)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Repeated Text Plan", created_by_user: user)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: plan_content, actor_type: "human", actor_id: user.id
     )
@@ -57,10 +57,8 @@ RSpec.describe "Comment anchoring", type: :system do
         click_button "Comment"
       end
 
-      # Wait for the form to process
       expect(page).not_to have_css("#new-comment-form", visible: true)
 
-      # Verify the thread was created with anchor positions resolved to the first occurrence
       thread = plan.comment_threads.reload.last
       expect(thread).to be_present
       expect(thread.anchor_text).to eq("Complete")

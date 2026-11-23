@@ -1,8 +1,8 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Slack::Renderer do
+RSpec.describe Coplan::Slack::Renderer do
   it "renders a branded published-plan unfurl" do
-    preview = CoPlan::LinkPreview.new(kind: "plan", external_id: "id", canonical_url: "https://example.test/p", title: "A < B & C", description: "> hello", context: "Live & ready · by Ada", image_url: "https://example.test/i.png", author_name: "Ada", author_avatar_url: "https://example.test/ada.png", cache_key: "x")
+    preview = Coplan::LinkPreview.new(kind: "plan", external_id: "id", canonical_url: "https://example.test/p", title: "A < B & C", description: "> hello", context: "Live & ready · by Ada", image_url: "https://example.test/i.png", author_name: "Ada", author_avatar_url: "https://example.test/ada.png", cache_key: "x")
     result = described_class.call(preview, url: "https://example.test/p?thread=123&view=full")
     expect(result[:blocks][0][:text][:text]).to include("A &lt; B &amp; C", "&gt; hello")
     expect(result[:blocks][1][:elements][0]).to eq(type: "image", image_url: preview.author_avatar_url, alt_text: "Ada")
@@ -15,7 +15,7 @@ RSpec.describe CoPlan::Slack::Renderer do
   end
 
   it "does not duplicate an author-only context" do
-    preview = CoPlan::LinkPreview.new(kind: "plan", external_id: "id", canonical_url: "https://example.test/p", title: "Untyped Plan", description: nil, context: "by Ada", image_url: nil, author_name: "Ada", author_avatar_url: nil, cache_key: "x")
+    preview = Coplan::LinkPreview.new(kind: "plan", external_id: "id", canonical_url: "https://example.test/p", title: "Untyped Plan", description: nil, context: "by Ada", image_url: nil, author_name: "Ada", author_avatar_url: nil, cache_key: "x")
 
     result = described_class.call(preview)
 
@@ -23,7 +23,7 @@ RSpec.describe CoPlan::Slack::Renderer do
   end
 
   it "visually distinguishes archived plans" do
-    archived_preview = CoPlan::LinkPreview.new(kind: "plan", external_id: "id", canonical_url: "https://example.test/p", title: "Archived", description: nil, context: "Archived · EDD · by Ada", image_url: nil, author_name: "Ada", author_avatar_url: nil, cache_key: "x")
+    archived_preview = Coplan::LinkPreview.new(kind: "plan", external_id: "id", canonical_url: "https://example.test/p", title: "Archived", description: nil, context: "Archived · EDD · by Ada", image_url: nil, author_name: "Ada", author_avatar_url: nil, cache_key: "x")
 
     archived_result = described_class.call(archived_preview)
 

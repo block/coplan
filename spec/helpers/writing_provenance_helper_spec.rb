@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::WritingProvenanceHelper, type: :helper do
+RSpec.describe Coplan::WritingProvenanceHelper, type: :helper do
   def summary(human:, ai:, unknown:, contributors: [])
     { "total" => human + ai + unknown, "counts" => { "human" => human, "ai" => ai, "unknown" => unknown }, "contributors" => contributors }
   end

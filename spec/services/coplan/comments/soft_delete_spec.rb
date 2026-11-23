@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Comments::SoftDelete do
+RSpec.describe Coplan::Comments::SoftDelete do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
   let(:thread) { create(:comment_thread, plan: plan, created_by_user: user) }
@@ -13,34 +13,39 @@ RSpec.describe CoPlan::Comments::SoftDelete do
       }.to change { comment.reload.deleted_at }.from(nil)
     end
 
-    it "writes a comment_deleted PlanEvent with body preview metadata" do
+    it "writes a comment_deleted PlanEvent that keeps no copy of the text" do
       expect {
         described_class.call(comment: comment, actor: user)
-      }.to change { CoPlan::PlanEvent.where(event_type: "comment_deleted").count }.by(1)
+      }.to change { Coplan::PlanEvent.where(event_type: "comment_deleted").count }.by(1)
 
-      event = CoPlan::PlanEvent.where(event_type: "comment_deleted").last
+      event = Coplan::PlanEvent.where(event_type: "comment_deleted").last
       expect(event.plan).to eq(plan)
       expect(event.actor_user).to eq(user)
-      expect(event.metadata).to include(
-        "comment_id" => comment.id,
-        "thread_id" => thread.id,
-        "body_preview" => "Hello world"
-      )
+      expect(event.metadata).to eq("comment_id" => comment.id, "thread_id" => thread.id)
     end
 
     it "is idempotent — no extra PlanEvent on a second call" do
       described_class.call(comment: comment, actor: user)
       expect {
         described_class.call(comment: comment, actor: user)
-      }.not_to change { CoPlan::PlanEvent.count }
+      }.not_to change { Coplan::PlanEvent.count }
     end
 
-    it "truncates long bodies in the preview" do
-      long = "x" * 500
-      comment.update!(body_markdown: long)
+    it "leaves no copy of the deleted text in the comment, its history or its queued agent events" do
+      token = create(:api_token, user: user)
+      Coplan::AgentEvent.create!(api_token: token, plan: plan, comment_thread_id: thread.id, comment_id: comment.id,
+        event_type: "comment.created", payload: { "comment_body" => "Hello world", "plan_title" => plan.title })
+
       described_class.call(comment: comment, actor: user)
-      preview = CoPlan::PlanEvent.where(event_type: "comment_deleted").last.metadata["body_preview"]
-      expect(preview.length).to be <= described_class::BODY_PREVIEW_LENGTH
+
+      expect(comment.reload.body_markdown).to eq(Coplan::Comment::DELETED_BODY)
+      stored = [
+        Coplan::Comment.where(id: comment.id).pluck(:body_markdown),
+        Coplan::PlanEvent.where(plan: plan).pluck(:metadata),
+        Coplan::AgentEvent.where(comment_id: comment.id).pluck(:payload)
+      ].to_json
+      expect(stored).not_to include("Hello world")
+      expect(Coplan::AgentEvent.find_by(comment_id: comment.id).payload["plan_title"]).to eq(plan.title)
     end
   end
 end

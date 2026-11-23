@@ -1,9 +1,9 @@
-module CoPlan
+module Coplan
   module KeyboardShortcutsHelper
     # Both the browser dispatcher and the server-rendered reference consume
     # this catalog. Read per request so development edits do not need a restart.
     def keyboard_shortcut_catalog
-      @keyboard_shortcut_catalog ||= JSON.parse(CoPlan::Engine.root.join("config/keyboard_shortcuts.json").read)
+      @keyboard_shortcut_catalog ||= JSON.parse(Coplan::Engine.root.join("config/keyboard_shortcuts.json").read)
     end
 
     def keyboard_shortcut_groups

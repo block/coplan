@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::EmbedDomain, as: "EmbedDomain" do
+ActiveAdmin.register Coplan::EmbedDomain, as: "EmbedDomain" do
   menu label: "Iframe domains"
   permit_params :hostname
 

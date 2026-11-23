@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::ContentRegions::Split do
+RSpec.describe Coplan::ContentRegions::Split do
   it "finds multiple presentation regions and preserves absolute source lines" do
     source = "Intro\n\n::: {.presentation #first theme=\"graphite\"}\n\n# A\n\n:::\n\nBetween\n\n::: {.presentation}\n\n# B\n\n:::\n\nEnd"
     result = described_class.call(source)

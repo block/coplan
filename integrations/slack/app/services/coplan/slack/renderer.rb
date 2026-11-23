@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Slack
     class Renderer
       BRAND_COLOR = "#136FF5"

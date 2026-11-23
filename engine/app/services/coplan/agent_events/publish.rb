@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module AgentEvents
     # Fans an event out to the inbox of every agent session on the plan,
     # except the actor's own (an agent should not be woken by its own
@@ -26,6 +26,20 @@ module CoPlan
       end
 
       def call
+        return publish unless @comment
+
+        # The job that publishes may have loaded the comment before it was
+        # deleted. Lock and re-read it: a delete either finished first (skip,
+        # nothing to retract) or waits for these rows and then scrubs them.
+        Comment.transaction do
+          @comment = Comment.lock.find_by(id: @comment.id)
+          publish if @comment && !@comment.deleted?
+        end
+      end
+
+      private
+
+      def publish
         unless @recipient_token_id.nil?
           token = ApiToken.find_by(id: @recipient_token_id)
           return unless token&.active? && !token.parent_disabled?
@@ -40,8 +54,6 @@ module CoPlan
           end
         end
       end
-
-      private
 
       # `session` is the token's AgentSession on this plan, or nil when a
       # targeted recipient never attached here — the event still lands in

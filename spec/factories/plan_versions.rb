@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :plan_version, class: "CoPlan::PlanVersion" do
+  factory :plan_version, class: "Coplan::PlanVersion" do
     plan
     sequence(:revision) { |n| n }
     content_markdown { "# #{plan.title}\n\nSome content here." }

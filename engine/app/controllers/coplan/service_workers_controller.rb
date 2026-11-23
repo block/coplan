@@ -1,11 +1,11 @@
-module CoPlan
+module Coplan
   class ServiceWorkersController < ApplicationController
     # Service worker registration runs from the browser without our session
     # cookie, and the SW URL needs to be public anyway.
     skip_before_action :authenticate_coplan_user!
     skip_before_action :verify_authenticity_token, raise: false
 
-    SW_PATH     = CoPlan::Engine.root.join("app/javascript/coplan_service_worker.js")
+    SW_PATH     = Coplan::Engine.root.join("app/javascript/coplan_service_worker.js")
     SW_TEMPLATE = SW_PATH.read.freeze
     ICON_TOKEN  = "__COPLAN_NOTIFICATION_ICON__"
 

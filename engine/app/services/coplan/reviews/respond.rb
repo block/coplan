@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     class Respond
       class Conflict < StandardError

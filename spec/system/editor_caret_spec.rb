@@ -53,7 +53,7 @@ RSpec.describe "Editor code caret", type: :system do
     prior = caret
     page.driver.browser.action.send_keys(:enter).perform
     expect(caret["rect"]["top"]).to be > prior["rect"]["top"]
-    created = CoPlan::Plan.find_by!(title: "Caret regression")
+    created = Coplan::Plan.find_by!(title: "Caret regression")
     expect(page).to have_current_path(plan_page_path(created, edit: "continue"), wait: 15)
     expect(page).to have_css(".inline-editor form.document-editor", visible: true, wait: 15)
     within("#plan-toolbar") { click_link "Done" }

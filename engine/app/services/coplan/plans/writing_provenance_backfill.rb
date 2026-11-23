@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Persist progress and a worker lease on the document. Compute outside the
     # plan lock; check ownership again before committing each checkpoint.

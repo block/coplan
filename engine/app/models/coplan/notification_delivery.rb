@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class NotificationDelivery < ApplicationRecord
     CHANNELS = %w[slack].freeze
     STATUSES = %w[pending delivered skipped failed].freeze

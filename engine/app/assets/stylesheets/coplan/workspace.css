@@ -59,7 +59,6 @@
   min-width: 0;
 }
 
-/* A library identity should orient the reader, then get out of the way. */
 .library-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 24px; }
 .library-header__identity { display: flex; align-items: center; gap: 13px; min-width: 0; }
 .library-header__identity .avatar--lg { width: 42px; height: 42px; flex: none; }
@@ -174,8 +173,6 @@
   padding-left: var(--space-sm);
 }
 
-/* The rooted tree: "My Plans" is the drive root; folders hang off it with
-   the same compact indent as regular nesting. */
 .folder-tree__node--root > .folder-tree--nested {
   padding-left: var(--space-sm);
   margin-top: 1px;
@@ -484,7 +481,6 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  /* Roomy enough to scan — this read as one bunched block at 2px. */
   gap: var(--space-sm);
 }
 

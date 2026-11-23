@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Editor code controls", type: :system do
   let(:author) { create(:coplan_user, email: "code-controls@example.com") }
   let(:source) { "# Code controls\n\nBefore prose.\n\nAfter prose.\n" }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Code controls", content: source, user: author, visibility: "draft", actor_type: "human") }
+  let(:plan) { Coplan::Plans::Create.call(title: "Code controls", content: source, user: author, visibility: "draft", actor_type: "human") }
 
   before do
     visit sign_in_path

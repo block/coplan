@@ -13,8 +13,8 @@ RSpec.describe "Plan history page", type: :system do
   end
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "History Plan", created_by_user: user)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "History Plan", created_by_user: user)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: plan_content,
       actor_type: "human", actor_id: user.id,
@@ -77,7 +77,7 @@ RSpec.describe "Plan history page", type: :system do
       expect(page).to have_css("#history-count", text: "1")
       expect(page).to have_link("v1")
 
-      CoPlan::Plans::ReplaceContent.call(
+      Coplan::Plans::ReplaceContent.call(
         plan: plan.reload,
         new_content: plan_content + "\nMore.\n",
         base_revision: plan.current_revision,
@@ -106,7 +106,7 @@ RSpec.describe "Plan history page", type: :system do
     # wearing the human's name alone, indistinguishable from their own
     # typing.
     it "names the agent that edited on the user's behalf" do
-      CoPlan::Plans::ReplaceContent.call(
+      Coplan::Plans::ReplaceContent.call(
         plan: plan,
         new_content: plan_content + "\nAgent addition.\n",
         base_revision: plan.current_revision,

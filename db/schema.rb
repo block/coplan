@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_23_151500) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -25,7 +25,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
     t.index [ "resource_type", "resource_id" ], name: "index_active_admin_comments_on_resource"
   end
 
-  create_table "active_storage_attachments", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", comment: "Created by CoPlan engine", force: :cascade do |t|
+  create_table "active_storage_attachments", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", comment: "Created by Coplan engine", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -35,7 +35,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
     t.index [ "record_type", "record_id", "name", "blob_id" ], name: "index_active_storage_attachments_uniqueness", unique: true
   end
 
-  create_table "active_storage_blobs", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", comment: "Created by CoPlan engine", force: :cascade do |t|
+  create_table "active_storage_blobs", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", comment: "Created by Coplan engine", force: :cascade do |t|
     t.bigint "byte_size", null: false
     t.string "checksum"
     t.string "content_type"
@@ -47,7 +47,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
     t.index [ "key" ], name: "index_active_storage_blobs_on_key", unique: true
   end
 
-  create_table "active_storage_variant_records", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", comment: "Created by CoPlan engine", force: :cascade do |t|
+  create_table "active_storage_variant_records", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", comment: "Created by Coplan engine", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index [ "blob_id", "variation_digest" ], name: "index_active_storage_variant_records_uniqueness", unique: true
@@ -80,6 +80,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
     t.string "plan_id", limit: 36, null: false
     t.index [ "api_token_id", "acked_at" ], name: "index_coplan_agent_events_on_api_token_id_and_acked_at"
     t.index [ "api_token_id", "id" ], name: "index_coplan_agent_events_on_api_token_id_and_id"
+    t.index [ "comment_id" ], name: "index_coplan_agent_events_on_comment_id"
     t.index [ "plan_id" ], name: "index_coplan_agent_events_on_plan_id"
   end
 

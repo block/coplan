@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Tag, type: :model do
+RSpec.describe Coplan::Tag, type: :model do
   it "is valid with valid attributes" do
     tag = create(:tag)
     expect(tag).to be_valid
@@ -37,13 +37,13 @@ RSpec.describe CoPlan::Tag, type: :model do
       plan = create(:plan)
       plan.tag_names = [ "infrastructure", "api-design" ]
       expect(plan.tag_names).to match_array([ "infrastructure", "api-design" ])
-      expect(CoPlan::Tag.where(name: "infrastructure")).to exist
+      expect(Coplan::Tag.where(name: "infrastructure")).to exist
     end
 
     it "reuses existing Tag records" do
       create(:tag, name: "security")
       plan = create(:plan)
-      expect { plan.tag_names = [ "security" ] }.not_to change(CoPlan::Tag, :count)
+      expect { plan.tag_names = [ "security" ] }.not_to change(Coplan::Tag, :count)
       expect(plan.tag_names).to eq([ "security" ])
     end
 

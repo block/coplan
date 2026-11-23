@@ -9,14 +9,14 @@ RSpec.describe "Expired edit session recovery", type: :request do
     plan = create(:plan, created_by_user: user)
     headers = { "Authorization" => "Bearer recovery-owner" }
     [ sibling, stranger ].each do |watcher|
-      CoPlan::AgentSession.create!(plan: plan, api_token: watcher, agent_name: "Watcher", state: "watching")
+      Coplan::AgentSession.create!(plan: plan, api_token: watcher, agent_name: "Watcher", state: "watching")
     end
 
     get api_v1_plan_path(plan), headers: headers
     expect(response).to have_http_status(:ok)
     post api_v1_plan_sessions_path(plan), headers: headers, as: :json
     expect(response).to have_http_status(:created)
-    session = CoPlan::EditSession.find(JSON.parse(response.body).fetch("id"))
+    session = Coplan::EditSession.find(JSON.parse(response.body).fetch("id"))
     expect(session.actor_id).to eq(token.id)
     post api_v1_plan_operations_path(plan), headers: headers, as: :json, params: {
       session_id: session.id, base_revision: 1,
@@ -24,11 +24,11 @@ RSpec.describe "Expired edit session recovery", type: :request do
     }
     expect(response).to have_http_status(:created)
 
-    human = CoPlan::PlanVersion.create!(plan: plan, revision: 2,
+    human = Coplan::PlanVersion.create!(plan: plan, revision: 2,
       content_markdown: "# Test Plan\n\nHuman decision.\n", actor_type: "human", actor_id: user.id)
     plan.update!(current_plan_version: human, current_revision: 2)
-    CoPlan::CommitExpiredSessionJob.perform_now(session_id: session.id)
-    CoPlan::CommitExpiredSessionJob.perform_now(session_id: session.id)
+    Coplan::CommitExpiredSessionJob.perform_now(session_id: session.id)
+    Coplan::CommitExpiredSessionJob.perform_now(session_id: session.id)
     expect(session.reload.status).to eq("failed")
     expect(plan.reload.current_revision).to eq(2)
 

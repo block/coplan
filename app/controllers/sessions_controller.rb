@@ -6,16 +6,16 @@ class SessionsController < ApplicationController
   def new
     return unless Rails.env.development?
 
-    definitions = CoPlan::DevelopmentSeed::USERS
-    users = CoPlan::User.where(external_id: definitions.map { |entry| "seed:#{entry.fetch(:key)}" }).index_by(&:external_id)
+    definitions = Coplan::DevelopmentSeed::USERS
+    users = Coplan::User.where(external_id: definitions.map { |entry| "seed:#{entry.fetch(:key)}" }).index_by(&:external_id)
     @demo_users = definitions.filter_map { |entry| users["seed:#{entry.fetch(:key)}"] }
-    @demo_user = @demo_users.find { |user| user.email == CoPlan::DevelopmentSeed::DEFAULT_EMAIL }
+    @demo_user = @demo_users.find { |user| user.email == Coplan::DevelopmentSeed::DEFAULT_EMAIL }
   end
 
   def create
     email = params[:email].to_s.strip.downcase
 
-    user = CoPlan::User.find_or_initialize_by(email: email)
+    user = Coplan::User.find_or_initialize_by(email: email)
     user.assign_attributes(
       external_id: user.external_id || email,
       name: user.name || email.split("@").first.titleize

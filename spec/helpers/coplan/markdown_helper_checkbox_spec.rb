@@ -1,8 +1,8 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::MarkdownHelper, type: :helper do
+RSpec.describe Coplan::MarkdownHelper, type: :helper do
   before do
-    helper.extend(CoPlan::MarkdownHelper)
+    helper.extend(Coplan::MarkdownHelper)
   end
 
   describe "#render_markdown with task lists" do
@@ -211,7 +211,7 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       interactive.each do |cb|
         line = Integer(cb["data-line"])
         expect(source_lines[line - 1]).to eq(cb["data-line-text"])
-        expect(cb["data-line-text"]).to match(CoPlan::MarkdownHelper::TASK_LINE_PATTERN)
+        expect(cb["data-line-text"]).to match(Coplan::MarkdownHelper::TASK_LINE_PATTERN)
       end
     end
   end

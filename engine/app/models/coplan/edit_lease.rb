@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class EditLease < ApplicationRecord
     HOLDER_TYPES = %w[human local_agent cloud_persona system].freeze
     LEASE_DURATION = 5.minutes

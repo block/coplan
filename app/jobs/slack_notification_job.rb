@@ -58,7 +58,7 @@ class SlackNotificationJob < ApplicationJob
   def send_batch(comment_thread_id)
     return unless SlackClient.configured?
 
-    thread = CoPlan::CommentThread.find_by(id: comment_thread_id)
+    thread = Coplan::CommentThread.find_by(id: comment_thread_id)
     return unless thread
 
     batch_start = Rails.cache.read(self.class.batch_start_key(comment_thread_id)) || DEBOUNCE_WINDOW.ago
@@ -94,7 +94,7 @@ class SlackNotificationJob < ApplicationJob
     participant_ids = thread.comments.kept.where(author_type: %w[human local_agent]).distinct.pluck(:author_id)
     participant_ids = (participant_ids + [ plan.created_by_user_id ]).uniq
 
-    users_by_id = CoPlan::User.where(id: participant_ids).index_by(&:id)
+    users_by_id = Coplan::User.where(id: participant_ids).index_by(&:id)
     participant_ids.filter_map do |user_id|
       next unless new_comments.any? { |c| c.author_id != user_id }
       users_by_id[user_id]
@@ -110,8 +110,8 @@ class SlackNotificationJob < ApplicationJob
   end
 
   def compose_message(thread, plan, new_comments)
-    handle, slug_path = CoPlan::Urls::Canonical.split(plan.url_path)
-    plan_url = CoPlan::Engine.routes.url_helpers.browse_url(
+    handle, slug_path = Coplan::Urls::Canonical.split(plan.url_path)
+    plan_url = Coplan::Engine.routes.url_helpers.browse_url(
       handle: handle, slug_path: slug_path, thread: thread.id, **default_url_options)
     latest_body = (new_comments.last.body_markdown || "").truncate(300)
 

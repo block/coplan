@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Canonical URLs for the three browsable things. Views should link with
   # these rather than the id-based helpers, so what a reader copies out of
   # the address bar is already the readable form and no redirect is needed
@@ -69,8 +69,8 @@ module CoPlan
     # don't each need to know which helper to reach for.
     def browse_path_for(record)
       case record
-      when CoPlan::Folder then folder_browse_path(record)
-      when CoPlan::Library then library_browse_path(record)
+      when Coplan::Folder then folder_browse_path(record)
+      when Coplan::Library then library_browse_path(record)
       else plan_browse_path(record)
       end
     end

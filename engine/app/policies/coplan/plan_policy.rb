@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class PlanPolicy < ApplicationPolicy
     # Drafts are unlisted, not locked: anyone who has the URL may read the
     # plan (share a link to get early feedback). What "draft" withholds is

@@ -31,9 +31,6 @@
   margin-right: 0;
 }
 
-/* No label anymore — the visibility control floats into the top-right corner so the
-   outline starts at the very top (no empty header band where "Contents"
-   used to sit) and the first item's text flows beside it. */
 .content-nav__header {
   float: right;
   display: flex;

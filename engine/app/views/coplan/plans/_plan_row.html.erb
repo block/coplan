@@ -53,8 +53,6 @@
       <p class="plan-row__summary text-muted"><%= summary %></p>
     <% end %>
   </div>
-  <%# Byline, anchored to the card's top-right corner regardless of how the
-      title wraps — a floating "author · when" would read as misalignment. %>
   <div class="plan-row__meta">
     <span class="plan-row__time text-muted" title="<%= plan.updated_at %>"><%= time_ago_in_words(plan.updated_at) %> ago</span>
     <span class="plan-row__avatar"><%= link_to user_avatar(plan.created_by_user), profile_path_for(plan.created_by_user), title: plan.created_by_user.name, draggable: false, data: { turbo_frame: "_top" } %></span>

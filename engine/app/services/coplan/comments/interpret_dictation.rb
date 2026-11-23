@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Comments
     # Turns what somebody said into a comment worth reading: the words
     # tidied up, and the passage they were talking about.

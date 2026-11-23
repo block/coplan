@@ -7,7 +7,7 @@ RSpec.describe "Glass comment composer", type: :system do
   let!(:comment) { create(:comment, comment_thread: thread_record, author_id: author.id, body_markdown: "A thought worth refining") }
 
   before do
-    allow(CoPlan::Ai).to receive(:available?).and_return(false)
+    allow(Coplan::Ai).to receive(:available?).and_return(false)
     visit sign_in_path
     fill_in "Email address", with: author.email
     click_button "Sign In"
@@ -49,7 +49,7 @@ RSpec.describe "Glass comment composer", type: :system do
       expect(panel).to have_button("Try again", disabled: false)
       expect(panel).to have_css("button[type='submit']") { |button| button.rect.y + button.rect.height <= page.evaluate_script("window.innerHeight + window.scrollY") }
       expect(textarea.value).to eq(draft)
-      expect(CoPlan::Comment.where(body_markdown: draft)).not_to exist
+      expect(Coplan::Comment.where(body_markdown: draft)).not_to exist
       if surface == "reply"
         [ "light", "dark" ].each do |theme|
           page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
@@ -58,7 +58,7 @@ RSpec.describe "Glass comment composer", type: :system do
       end
       textarea.send_keys(:enter)
       expect(page).to have_no_text("Couldn't reach the server")
-      expect(CoPlan::Comment.where(body_markdown: draft).count).to eq(1)
+      expect(Coplan::Comment.where(body_markdown: draft).count).to eq(1)
     end
   end
 

@@ -27,7 +27,7 @@ RSpec.describe "Changed-section highlights", type: :request do
 
   it "highlights changed sections once, then clears on the next visit" do
     plan.current_plan_version.update_columns(created_at: 2.hours.ago)
-    CoPlan::PlanViewer.create!(plan: plan, user: viewer, last_seen_at: 1.hour.ago)
+    Coplan::PlanViewer.create!(plan: plan, user: viewer, last_seen_at: 1.hour.ago)
 
     v2 = create(:plan_version, plan: plan, revision: 2, actor_id: author.id,
       content_markdown: "# Plan Content\n\nSome content here, freshly edited.")
@@ -50,7 +50,7 @@ RSpec.describe "Changed-section highlights", type: :request do
     latest = create(:plan_version, plan: plan, revision: 3, actor_id: author.id,
       content_markdown: read_version.content_markdown.sub("Original rollout", "Revised rollout"), created_at: 5.minutes.ago)
     plan.update!(current_plan_version: latest, current_revision: 3)
-    CoPlan::PlanViewer.create!(plan: plan, user: viewer, last_seen_at: 10.minutes.ago)
+    Coplan::PlanViewer.create!(plan: plan, user: viewer, last_seen_at: 10.minutes.ago)
 
     sign_in_as(viewer)
     get plan_page_path(plan)
@@ -66,7 +66,7 @@ RSpec.describe "Changed-section highlights", type: :request do
     author.update!(name: 'Editor "<design>"')
     original = "## Design\n\nOriginal design.\n\n## Rollout\n\nOriginal rollout.\n"
     set_version_fixture(plan.current_plan_version, content_markdown: original, created_at: 2.hours.ago)
-    CoPlan::PlanViewer.create!(plan: plan, user: viewer, last_seen_at: 1.hour.ago)
+    Coplan::PlanViewer.create!(plan: plan, user: viewer, last_seen_at: 1.hour.ago)
     edited = create(:plan_version, plan: plan, revision: 2, actor_id: author.id,
       actor_type: "local_agent", agent_name: "Codex", created_at: 30.minutes.ago,
       content_markdown: original.sub("Original design", "Revised design"))
@@ -95,7 +95,7 @@ RSpec.describe "Changed-section highlights", type: :request do
   # so the page gets the rewrite flag and no keys.
   it "flags a rewrite instead of sending keys when most of the plan changed" do
     plan.current_plan_version.update_columns(created_at: 2.hours.ago)
-    CoPlan::PlanViewer.create!(plan: plan, user: viewer, last_seen_at: 1.hour.ago)
+    Coplan::PlanViewer.create!(plan: plan, user: viewer, last_seen_at: 1.hour.ago)
 
     v2 = create(:plan_version, plan: plan, revision: 2, actor_id: author.id,
       content_markdown: (1..5).map { |i| "## Part #{i}\n\nFreshly written body #{i}.\n" }.join("\n"))

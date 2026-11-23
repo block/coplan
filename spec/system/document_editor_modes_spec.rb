@@ -4,7 +4,7 @@ RSpec.describe "Document editor modes", type: :system do
   let(:author) { create(:coplan_user, email: "editor-modes@example.com") }
   let(:source) { "# Draft\n\nOriginal prose.\n\n| Item | State |\n|---|---|\n| Draft | Ready |\n\n```mermaid\ngraph LR; A-->B\n```\n\n```ruby\nputs :hello\n```\n" }
   let(:plan) do
-    CoPlan::Plans::Create.call(title: "Mode test", content: source, user: author, visibility: "draft", actor_type: "human")
+    Coplan::Plans::Create.call(title: "Mode test", content: source, user: author, visibility: "draft", actor_type: "human")
   end
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
@@ -53,7 +53,7 @@ RSpec.describe "Document editor modes", type: :system do
 
   it "keeps the caret on the same characters when switching between Editor and Markdown" do
     markdown = "# Draft\n\nBefore **bold** after.\n\n[link](https://example.com) tail.\n\n```ruby\nputs :hello\nconst message = `Hello`;\n```\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: markdown,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: markdown,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     open_editor
 
@@ -183,7 +183,7 @@ RSpec.describe "Document editor modes", type: :system do
     block_saves
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Local replacement")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 10)
     click_link "Done"
     expect(page).to have_current_path(plan_edit_page_path(plan))
@@ -199,7 +199,7 @@ RSpec.describe "Document editor modes", type: :system do
     click_button "Raw", exact: true
     page.execute_script('const c = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor"); c.rawEditor.select(c.textareaTarget.value.length)')
     raw.send_keys("\nHuman tail")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(raw).to have_text("Agent prose.", wait: 10)
     expect(raw).to have_text("Human tail")
     raw.send_keys([ mod, "z" ])
@@ -259,7 +259,7 @@ RSpec.describe "Document editor modes", type: :system do
     block_saves
     all('[aria-label="Code language"]').last.send_keys([ mod, "a" ], "python")
     expect(all('[aria-label="Code language"]').last.value).to eq("python")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("puts :hello", "puts :agent"), base_revision: 1,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("puts :hello", "puts :agent"), base_revision: 1,
       actor_type: "local_agent", actor_id: author.id)
     expect(page).to have_css(".document-editor__block pre", text: "puts :agent", wait: 10)
     expect(all('[aria-label="Code language"]').last.value).to eq("python")
@@ -324,7 +324,7 @@ RSpec.describe "Document editor modes", type: :system do
     block_saves
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Local draft")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 10)
     find('.document-editor__close-inline[data-state="conflict"]').click
     expect(raw).to have_text("Remote replacement", wait: 10)
@@ -350,7 +350,7 @@ RSpec.describe "Document editor modes", type: :system do
     raw.send_keys([ mod, "a" ], "# Autosaved new source\n\nUntouched **Markdown**.")
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", wait: 15, visible: :all)
     expect(raw).to have_text("Untouched **Markdown**.")
-    created = CoPlan::Plan.find_by!(title: "Autosaved new source")
+    created = Coplan::Plan.find_by!(title: "Autosaved new source")
     expect(page).to have_current_path(plan_page_path(created, edit: "continue"))
     expect(page).to have_css(".inline-editor form.document-editor", visible: true, wait: 15)
     within("#plan-toolbar") { click_link "Done" }
@@ -403,7 +403,7 @@ RSpec.describe "Document editor modes", type: :system do
     JS
     raw.send_keys("\nHuman tail")
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source + "\nHuman tail")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(raw).to have_text("Agent prose.", wait: 10)
     expect(find('[aria-label="Document body"]')).to have_text("Agent prose.")
     expect(page.evaluate_script('document.activeElement.getAttribute("aria-label")')).to eq("Markdown source")
@@ -440,7 +440,7 @@ RSpec.describe "Document editor modes", type: :system do
     block_saves
     click_button "Dual", exact: true
     raw.send_keys([ mod, "a" ], "Local replacement")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 10)
     click_link "Done"
     expect(raw).to have_text("Local replacement")
@@ -481,7 +481,7 @@ RSpec.describe "Document editor modes", type: :system do
         return response;
       };
     JS
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     Selenium::WebDriver::Wait.new(timeout: 5).until { page.evaluate_script('!!window.releaseRemote') }
     raw.send_keys([ mod, "a" ], :right)
     page.execute_script('document.activeElement.dispatchEvent(new CompositionEvent("compositionstart", {bubbles:true}))')

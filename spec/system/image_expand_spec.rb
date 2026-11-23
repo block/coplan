@@ -7,7 +7,7 @@ RSpec.describe "Expanding an image", type: :system do
   let(:image_width) { 320 }
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Mockup Plan", created_by_user: author)
+    p = Coplan::Plan.create!(title: "Mockup Plan", created_by_user: author)
     screenshot = attach(p, "console.png", width: 1600, height: 900)
     icon = attach(p, "icon.png", width: 16, height: 16)
     content = <<~MARKDOWN
@@ -25,7 +25,7 @@ RSpec.describe "Expanding an image", type: :system do
       |---|---|
       | Warn | ![Table mockup](#{blob_path(screenshot)}) |
     MARKDOWN
-    version = CoPlan::PlanVersion.create!(
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: content, actor_type: "human", actor_id: author.id
     )

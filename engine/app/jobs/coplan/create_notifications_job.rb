@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CreateNotificationsJob < ApplicationJob
     queue_as :default
 

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     class ApplyOperations
       def self.call(content:, operations:)

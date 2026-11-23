@@ -1,7 +1,3 @@
-<%# Whose library this is. A person and their library are one page, so the
-    identity that used to live on /people/:id sits at the top of it. Same
-    markup either way — your own library says your own name, which is what
-    a shared link says too. %>
 <header class="library-header">
   <div class="library-header__identity">
     <% if @profile %>
@@ -21,9 +17,6 @@
     </div>
   </div>
 
-  <%# The one visible difference between your library and anyone else's:
-      what you're allowed to do to it. Everything else on this page — the
-      filters, the folder counts, the level view — is identical. %>
   <% unless @can_write %>
     <span class="library-header__badge" title="You can browse this library, but only <%= @profile&.name || @library.name %> can file things into it">
       Read only

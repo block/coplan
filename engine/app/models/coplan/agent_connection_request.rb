@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A short-lived approval request, never a credential. Only digests of the
   # browser code and the separate, private redemption secret are persisted.
   class AgentConnectionRequest < ApplicationRecord

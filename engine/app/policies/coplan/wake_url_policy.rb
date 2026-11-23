@@ -1,7 +1,7 @@
 require "ipaddr"
 require "resolv"
 
-module CoPlan
+module Coplan
   # Egress policy for wake webhooks. The server POSTs to wake URLs its
   # users registered, which is a server-side request forgery primitive
   # unless somebody says no — so by default, no: a URL whose host
@@ -45,7 +45,7 @@ module CoPlan
     # URI, not its addresses, so an allow comes back as :unpinned —
     # there is nothing safe to pin to.
     def vetted_addresses(uri)
-      policy = CoPlan.configuration.wake_url_policy
+      policy = Coplan.configuration.wake_url_policy
       return (policy.call(uri) ? :unpinned : nil) if policy
 
       addresses = Resolv.getaddresses(uri.host.to_s)

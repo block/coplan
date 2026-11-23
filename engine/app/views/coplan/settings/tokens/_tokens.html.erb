@@ -6,7 +6,7 @@
     </div>
     <%= link_to "Manage agent sessions", settings_agent_sessions_path, class: "btn btn--secondary" %>
   </div>
-  <% if CoPlan.configuration.agent_connection_enabled? %>
+  <% if Coplan.configuration.agent_connection_enabled? %>
     <div class="settings-row access-summary__advanced">
       <div class="settings-row__main">
         <h2 class="settings-row__label access-heading">Connect your local agent</h2>

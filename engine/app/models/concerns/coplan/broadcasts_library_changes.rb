@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Live library listings. Anything that changes what a library's pages
   # show — a document arriving, moving, being retitled or hidden; a folder
   # created, renamed, moved or deleted — tells the library, and every

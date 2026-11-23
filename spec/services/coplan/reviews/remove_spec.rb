@@ -1,23 +1,23 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Reviews::Remove do
+RSpec.describe Coplan::Reviews::Remove do
   let(:plan) { create(:plan, :published) }
   let(:reviewer) { create(:coplan_user) }
-  let(:task) { CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user) }
+  let(:task) { Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user) }
 
   %w[approved changes_requested].each do |decision|
     it "preserves a removed reviewer's #{decision} decisions and starts a new pending request" do
-      previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1,
+      previous = Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1,
         decision: decision, note: decision == "changes_requested" ? "Earlier feedback" : nil)
-      other = CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
-      other_response = CoPlan::Reviews::Respond.call(request: other, actor: other.reviewer, revision: 1, decision: "approved")
+      other = Coplan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
+      other_response = Coplan::Reviews::Respond.call(request: other, actor: other.reviewer, revision: 1, decision: "approved")
 
       sequence = plan.reload.review_sequence
       described_class.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
       expect(plan.reload.review_sequence).to eq(sequence + 1)
 
       expect(task.reload).to be_removed
-      evidence = CoPlan::Reviews::Evidence.call(plan: plan)[:review_requests].find { |row| row[:id] == task.id }
+      evidence = Coplan::Reviews::Evidence.call(plan: plan)[:review_requests].find { |row| row[:id] == task.id }
       expect(evidence).to include(status: "removed", review_status: "removed", effective_status: "removed",
         current_response_id: nil, recorded_response_id: nil, effective_response_id: nil, effective_human_decision: nil)
       expect(evidence[:responses].map { |row| row[:id] }).to include(previous.id)
@@ -30,7 +30,7 @@ RSpec.describe CoPlan::Reviews::Remove do
       expect(task.reload.current_assignment).to be_nil
       expect(plan.review_requests.active).not_to include(task)
 
-      fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, create_only: true)
+      fresh = Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, create_only: true)
       expect(fresh.id).not_to eq(task.id)
       expect(fresh.status).to eq("pending")
       expect(fresh.review_responses).to be_empty
@@ -39,11 +39,11 @@ RSpec.describe CoPlan::Reviews::Remove do
   end
 
   it "preserves decisions across versions with their original agent attribution" do
-    first = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    first = Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A revised invitation plan")
     plan.update!(current_plan_version: version, current_revision: 2)
     token = create(:api_token, user: reviewer, agent_name: "Reviewbot")
-    second = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 2,
+    second = Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: 2,
       decision: "changes_requested", note: "Clarify the delivery retry limit", api_token: token)
     snapshots = [ first.attributes, second.attributes ]
 
@@ -58,10 +58,10 @@ RSpec.describe CoPlan::Reviews::Remove do
   it "does not remove or reset the replacement when an old removal is retried" do
     old_id = task.id
     described_class.call(plan: plan, request_id: old_id, actor: plan.created_by_user)
-    fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, create_only: true)
-    approval = CoPlan::Reviews::Respond.call(request: fresh, actor: reviewer, revision: 1, decision: "approved")
+    fresh = Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, create_only: true)
+    approval = Coplan::Reviews::Respond.call(request: fresh, actor: reviewer, revision: 1, decision: "approved")
     sequence = plan.reload.review_sequence
-    expect { described_class.call(plan: plan, request_id: old_id, actor: plan.created_by_user) }.not_to change(CoPlan::Notification, :count)
+    expect { described_class.call(plan: plan, request_id: old_id, actor: plan.created_by_user) }.not_to change(Coplan::Notification, :count)
     expect(plan.reload.review_sequence).to eq(sequence)
     expect(fresh.reload.status).to eq("approved")
     expect(fresh.review_responses).to eq([ approval ])
@@ -81,8 +81,8 @@ RSpec.describe CoPlan::Reviews::Remove do
   it "announces the old identity's removal when replacing a withdrawn legacy request" do
     legacy = create(:review_request, plan: plan, reviewer: reviewer, status: "withdrawn")
     watcher = create(:api_token, user: reviewer)
-    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
-    fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user,
+    Coplan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    fresh = Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user,
       create_only: true, replace_withdrawn: true)
     payloads = watcher.agent_events.where(event_type: "review.requested").order(:created_at).map(&:payload)
     expect(payloads.size).to eq(2)
@@ -93,10 +93,10 @@ RSpec.describe CoPlan::Reviews::Remove do
   end
 
   it "keeps the old review if a replacement request is invalid" do
-    previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
-    CoPlan::Reviews::Withdraw.call(request: task, actor: plan.created_by_user)
+    previous = Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    Coplan::Reviews::Withdraw.call(request: task, actor: plan.created_by_user)
     expect {
-      CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user,
+      Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user,
         requirement: "invalid", create_only: true, replace_withdrawn: true)
     }.to raise_error(ActiveRecord::RecordInvalid)
     expect(previous.reload.decision).to eq("approved")
@@ -117,13 +117,13 @@ RSpec.describe CoPlan::Reviews::Remove do
         plan.with_lock do
           worker = Thread.new do
             ActiveRecord::Base.connection_pool.with_connection do
-              stale = CoPlan::ReviewRequest.find(old_id)
+              stale = Coplan::ReviewRequest.find(old_id)
               ready << true
               begin
                 if action == :respond
-                  CoPlan::Reviews::Respond.call(request: stale, actor: stale.reviewer, revision: 1, decision: "approved")
+                  Coplan::Reviews::Respond.call(request: stale, actor: stale.reviewer, revision: 1, decision: "approved")
                 else
-                  CoPlan::Reviews::Request.again(request: stale, actor: stale.requested_by_user)
+                  Coplan::Reviews::Request.again(request: stale, actor: stale.requested_by_user)
                 end
               rescue ActiveRecord::RecordNotFound => error
                 error
@@ -132,7 +132,7 @@ RSpec.describe CoPlan::Reviews::Remove do
           end
           Timeout.timeout(10) { ready.pop }
           described_class.call(plan: plan, request_id: old_id, actor: plan.created_by_user)
-          fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: CoPlan::User.find(reviewer_id),
+          fresh = Coplan::Reviews::Request.call(plan: plan, reviewer: Coplan::User.find(reviewer_id),
             actor: plan.created_by_user, create_only: true)
         end
         expect(worker.join(10)).to be_present

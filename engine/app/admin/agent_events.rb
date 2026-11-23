@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::AgentEvent, as: "AgentEvent" do
+ActiveAdmin.register Coplan::AgentEvent, as: "AgentEvent" do
   # Inbox rows are written by the platform and acked by agents; admin is
   # for inspection only (a stuck inbox, a delivery question).
   actions :index, :show

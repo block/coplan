@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module MigrationSupport
     # Migration-only support for UnifyDocumentTitles (20261105220000).
     # Not a runtime API. Retain until that migration is retired from supported

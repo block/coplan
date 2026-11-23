@@ -1,10 +1,10 @@
-module CoPlan
+module Coplan
   # Provider-agnostic facade for AI calls where the caller doesn't care
   # which underlying provider runs the prompt. Use this from any place
   # that just wants "an AI" (e.g. SummarizePlanJob).
   #
   # The provider chosen here is an implementation detail; swap it without
-  # touching callers. Raises CoPlan::Ai::Error on provider failure so
+  # touching callers. Raises Coplan::Ai::Error on provider failure so
   # callers can `discard_on` without knowing which provider is in use.
   module Ai
     class Error < StandardError; end
@@ -13,7 +13,7 @@ module CoPlan
     def self.call(system_prompt:, user_content:, intensity: :medium)
       raise ArgumentError, "Unknown AI intensity: #{intensity.inspect}" unless INTENSITIES.include?(intensity)
 
-      model = CoPlan.configuration.ai_models&.[](intensity)
+      model = Coplan.configuration.ai_models&.[](intensity)
       options = { system_prompt: system_prompt, user_content: user_content }
       options[:model] = model if model.present?
       AiProviders::OpenAi.call(**options)
