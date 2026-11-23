@@ -1,5 +1,24 @@
 import { Controller } from "@hotwired/stimulus"
 
+// Only one embedded view can be under the pointer. Some browsers omit a
+// leave event when crossing directly between an opaque frame and the page.
+let hoveredFrame
+function clearPageHover(event) {
+  if (!hoveredFrame?.contains(event.target)) setHoveredFrame(null)
+}
+
+function setHoveredFrame(frame) {
+  if (frame === hoveredFrame) return
+  hoveredFrame?.classList.remove("is-frame-hovered")
+  hoveredFrame = frame
+  if (frame) {
+    frame.classList.add("is-frame-hovered")
+    document.addEventListener("pointermove", clearPageHover, true)
+  } else {
+    document.removeEventListener("pointermove", clearPageHover, true)
+  }
+}
+
 // Each fresh shell offers a private port. Never send a document to a Window
 // by wildcard origin: that browsing context could already have navigated.
 export default class extends Controller {
@@ -22,7 +41,8 @@ export default class extends Controller {
     this.challenge = null
     this.port = event.ports[0]
     this.port.onmessage = ({data}) => {
-      if (typeof data?.hovered === "boolean") this.element.classList.toggle("is-frame-hovered", data.hovered)
+      if (data?.hovered === true) setHoveredFrame(this.element)
+      else if (data?.hovered === false && hoveredFrame === this.element) setHoveredFrame(null)
       if (data?.captureId && data.captureId === this.pending?.id) this.pending.resolve(data)
       if (Number.isFinite(data?.height)) {
         this.frameTarget.style.height = Math.min(1200, Math.max(48, data.height)) + "px"
@@ -202,6 +222,7 @@ export default class extends Controller {
   }
 
   disconnect() {
+    if (hoveredFrame === this.element) setHoveredFrame(null)
     this.collapse()
     this.scheme.removeEventListener("change", this.schemeChanged)
     this.port?.close()

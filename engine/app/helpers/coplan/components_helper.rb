@@ -38,7 +38,11 @@ module CoPlan
             role: "button", aria: { label: "Click or drag to annotate. Press Enter for the whole view or Escape to cancel." },
             class: "document-component__selection", data: { "coplan--component-target": "selection", action: gestures.join(" ") })
         end
-        content << tag.div(safe_join(actions), class: "document-component__actions") if actions.any?
+        if actions.any?
+          content << tag.div(class: "document-component__tab", tabindex: -1) do
+            tag.div(safe_join(actions), class: "document-component__actions")
+          end
+        end
         safe_join(content)
       end
     end

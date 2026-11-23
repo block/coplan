@@ -999,6 +999,7 @@
 /* Keep the tools outside the authored surface, including on touch screens. */
 .document-component {
   position: relative;
+  isolation: isolate;
   margin: 1rem 0 2.3rem;
   padding: 0;
   border: 1px solid var(--color-border);
@@ -1007,9 +1008,22 @@
   background: var(--color-surface);
 }
 .document-component iframe { display: block; width: 100%; border: 0; border-radius: inherit; }
-.document-component__actions {
+/* A small perimeter and the stationary tab slot accept hover even while
+   the controls are retracted. Neither sits above the live frame. */
+.document-component::before {
+  content: "";
   position: absolute;
-  inset: 100% .35rem auto auto;
+  inset: -.35rem;
+  z-index: -1;
+}
+.document-component__tab {
+  position: absolute;
+  inset: 100% .2rem auto auto;
+  z-index: 1;
+  overflow: clip;
+  padding: 0 .15rem .25rem;
+}
+.document-component__actions {
   display: flex;
   align-items: center;
   gap: 1px;
@@ -1017,7 +1031,12 @@
   border: 1px solid var(--color-border);
   border-radius: 0 0 .45rem .45rem;
   background: var(--color-surface);
-  z-index: 1;
+  transform: translateY(calc(-100% - 1px));
+  transition: transform 150ms ease-out;
+}
+.document-component:is(:hover, .is-frame-hovered) > .document-component__tab > .document-component__actions,
+.document-component__tab:has(:focus-visible) > .document-component__actions {
+  transform: none;
 }
 .document-component__actions button {
   display: inline-grid;
@@ -1032,10 +1051,20 @@
   cursor: pointer;
 }
 .document-component__actions [hidden] { display: none; }
-@media (hover: hover) and (pointer: fine) {
-  .document-component:not(:hover):not(.is-frame-hovered):not(:focus-within):not(:popover-open):not(:has(.has-source-comments)) > .document-component__actions {
-    opacity: 0;
+@media (prefers-reduced-motion: reduce) {
+  .document-component__actions { transition: none; }
+}
+@media (hover: none) {
+  .document-component__tab::before {
+    content: "";
+    position: absolute;
+    inset: 1px .65rem auto auto;
+    width: 1.3rem;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--color-border);
   }
+  .document-component__tab:focus-within > .document-component__actions { transform: none; }
 }
 @media (pointer: coarse) {
   .document-component__actions button { min-width: 2.5rem; height: 2.25rem; }
@@ -1060,7 +1089,7 @@
   pointer-events: none;
   box-sizing: border-box;
   border: 2px solid var(--color-primary);
-  background: var(--color-interaction-hover-bg);
+  background: transparent;
 }
 .component-snapshot { display: block; height: auto; max-width: 100%; max-height: 14rem; object-fit: contain; margin: .35rem 0; }
 .component-snapshot[hidden] { display: none; }

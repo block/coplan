@@ -4,6 +4,14 @@ RSpec.describe "Interactive components", type: :system do
   let(:author) { create(:coplan_user, email: "components@example.com") }
   let(:source) { CoPlan::Engine.root.join("db/demo/content/interactive-components.md").read }
 
+  def tab_revealed?(actions)
+    page.evaluate_script("Math.abs(arguments[0].getBoundingClientRect().top - arguments[0].parentElement.getBoundingClientRect().top) < 1", actions)
+  end
+
+  def tab_retracted?(actions)
+    page.evaluate_script("arguments[0].getBoundingClientRect().bottom <= arguments[0].parentElement.getBoundingClientRect().top + 1", actions)
+  end
+
   before do
     visit sign_in_path
     fill_in "Email address", with: author.email
@@ -38,6 +46,7 @@ RSpec.describe "Interactive components", type: :system do
     simulator.find('button[aria-label="Expand component"]').click
     expect(simulator).to match_css(":popover-open")
     within_frame(simulator.find("iframe")) { expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds") }
+    simulator.hover
     simulator.find('button[aria-label="Collapse component"]').click
     expect(simulator).not_to match_css(":popover-open")
     find_button("Appearance").click
@@ -50,9 +59,14 @@ RSpec.describe "Interactive components", type: :system do
     expect(page).to have_css(".document-component[data-render-ms]", count: 2)
     simulator.hover
     tab = simulator.find(".document-component__actions")
-    expect(page.evaluate_script("arguments[0].getBoundingClientRect().top >= arguments[1].getBoundingClientRect().bottom - 1", tab, simulator.find("iframe"))).to be(true)
+    expect(simulator).to have_css(".document-component__actions") { |actions| tab_revealed?(actions) }
     tab.find("button[data-source-target]").click
-    simulator.find(".document-component__selection").click
+    selection = simulator.find(".document-component__selection")
+    mouse = page.driver.browser.action
+    mouse.move_to(selection.native, -60, -10).click_and_hold.move_by(80, 16).perform
+    mark = selection.find(".document-component__mark")
+    expect(page.evaluate_script("getComputedStyle(arguments[0]).backgroundColor", mark)).to eq("rgba(0, 0, 0, 0)")
+    mouse.release.perform
     expect(page).to have_css(".source-comments textarea:focus", visible: true)
     expect(page).to have_css(".source-comments img[src^='blob:']", visible: true)
     find("#source-comment-body").set("Explain this retry delay.")
@@ -65,9 +79,16 @@ RSpec.describe "Interactive components", type: :system do
     posted_image = find(".source-comments .comment__body img.component-snapshot", visible: true)
     expect(page.evaluate_async_script("arguments[0].decode().then(() => arguments[1](arguments[0].naturalWidth), () => arguments[1](0))", posted_image)).to be_positive
     comment = plan.comments.reload.sole
-    expect(comment.component_selection).to include("revision" => plan.current_revision, "w" => 0)
+    expect(comment.component_selection).to include("revision" => plan.current_revision, "w" => 80, "h" => 16)
     expect(comment.component_snapshot.download).to start_with(CoPlan::Comments::ComponentAnnotation::PNG_HEADER)
     visit plan_page_path(plan)
+    simulator = find("figure:has(iframe[title='Retry simulator'])")
+    find("#plan-title").hover
+    expect(simulator).to have_css(".document-component__actions", visible: :all) { |actions| tab_retracted?(actions) }
+    slot = simulator.find(".document-component__tab")
+    slot.hover
+    expect(simulator).to have_css(".document-component__actions") { |actions| tab_revealed?(actions) }
+    expect(slot).to have_css("button[data-component-discussions]", exact_text: "1")
     diagram = find("figure:has(iframe[title='Payment path'])")
     diagram.hover
     diagram.find("button[data-source-target]").click
