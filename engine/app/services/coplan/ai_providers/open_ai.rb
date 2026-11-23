@@ -16,8 +16,18 @@ module CoPlan
       # models cap how much of this they will read.
       MAX_PROMPT_LENGTH = 600
 
-      # How much of OpenAI's own error message to keep in ours.
-      MAX_ERROR_DETAIL = 300
+      # Response text can echo prompts, API keys, or uploaded content. Only
+      # recognized protocol identifiers are safe to add to logged errors.
+      ERROR_TYPES = %w[
+        invalid_request_error authentication_error permission_error
+        not_found_error rate_limit_error server_error api_error
+      ].freeze
+      ERROR_CODES = %w[
+        context_length_exceeded model_not_found invalid_api_key
+        insufficient_quota rate_limit_exceeded invalid_value invalid_type
+        missing_required_parameter unsupported_value unsupported_parameter
+        content_policy_violation invalid_audio audio_too_short
+      ].freeze
 
       def self.call(system_prompt:, user_content:, model: nil)
         new(system_prompt:, user_content:, model:).call
@@ -98,20 +108,20 @@ module CoPlan
         raise Error, "Chat request failed: #{e.message}#{self.class.failure_detail(e)}"
       end
 
-      # Faraday's message is only the status ("the server responded with
-      # status 400"). OpenAI's body says why: error type, code and a short
-      # message such as a context-length limit. Keep those, never the request.
+      # Keep the reason without copying arbitrary provider text into job logs
+      # or transcription responses. Unknown identifiers and free-form messages
+      # are omitted, including string-only errors from compatible gateways.
       def self.failure_detail(error)
-        body = error.respond_to?(:response) ? error.response&.dig(:body) : nil
+        response = error.response
+        body = response[:body] if response.is_a?(Hash)
         body = JSON.parse(body) if body.is_a?(String)
         detail = body.is_a?(Hash) ? body["error"] : nil
-        # Some OpenAI-compatible gateways send "error" as a plain string.
-        detail = { "message" => detail } if detail.is_a?(String)
         return "" unless detail.is_a?(Hash)
 
-        parts = [ detail["type"], detail["code"] ].compact_blank.join("/")
-        message = detail["message"].to_s.squish.truncate(MAX_ERROR_DETAIL)
-        " (#{[ parts.presence, message.presence ].compact.join(": ")})"
+        parts = []
+        parts << detail["type"] if ERROR_TYPES.include?(detail["type"])
+        parts << detail["code"] if ERROR_CODES.include?(detail["code"])
+        parts.empty? ? "" : " (#{parts.join("/")})"
       rescue JSON::ParserError
         ""
       end

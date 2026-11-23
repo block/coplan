@@ -288,6 +288,14 @@ Coplan provides a REST API for programmatic access. Users create API tokens in t
 
 Coplan inherits from your `::ApplicationController` for layout and middleware. The engine's nav bar will render a "Sign out" link if your app defines a `sign_out_path` route helper.
 
+## AI failure diagnostics
+
+Chat and transcription errors append recognized OpenAI error types and codes,
+such as `invalid_request_error/context_length_exceeded`. Arbitrary response
+messages and unknown identifiers are omitted because providers can echo plan
+content or credentials. Malformed bodies fall back to the existing transport
+error. The original exception remains available as the cause.
+
 ## Configuration reference
 
 ```ruby

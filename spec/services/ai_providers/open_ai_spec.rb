@@ -152,32 +152,6 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       end
     end
 
-    it "keeps OpenAI's error type, code and message when the request is rejected" do
-      body = { "error" => { "message" => "This model's maximum context length is 128000 tokens. However, you requested 151000 tokens.",
-                            "type" => "invalid_request_error", "code" => "context_length_exceeded" } }.to_json
-      failure = Faraday::BadRequestError.new("the server responded with status 400", { status: 400, body: body })
-      mock_client = instance_double(OpenAI::Client)
-      allow(OpenAI::Client).to receive(:new).and_return(mock_client)
-      allow(mock_client).to receive(:chat).and_raise(failure)
-
-      expect {
-        described_class.call(system_prompt: system_prompt, user_content: user_content)
-      }.to raise_error(described_class::Error,
-        "Chat request failed: the server responded with status 400 (invalid_request_error/context_length_exceeded: " \
-        "This model's maximum context length is 128000 tokens. However, you requested 151000 tokens.)")
-    end
-
-    it "keeps a gateway's plain-string error" do
-      failure = Faraday::BadRequestError.new("the server responded with status 400", { status: 400, body: { "error" => "prompt too long" } })
-      mock_client = instance_double(OpenAI::Client)
-      allow(OpenAI::Client).to receive(:new).and_return(mock_client)
-      allow(mock_client).to receive(:chat).and_raise(failure)
-
-      expect {
-        described_class.call(system_prompt: system_prompt, user_content: user_content)
-      }.to raise_error(described_class::Error, "Chat request failed: the server responded with status 400 (prompt too long)")
-    end
-
     it "raises an error when API key is not configured" do
       allow(CoPlan.configuration).to receive(:ai_api_key).and_return(nil)
       allow(ENV).to receive(:[]).with("OPENAI_API_KEY").and_return(nil)
@@ -187,5 +161,120 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
         described_class.call(system_prompt: system_prompt, user_content: user_content, model: model)
       }.to raise_error(CoPlan::AiProviders::OpenAi::Error, "OpenAI API key not configured")
     end
+  end
+
+  shared_examples "safe provider diagnostics" do |operation, prefix|
+    let(:mock_client) { instance_double(OpenAI::Client) }
+    let(:detail) do
+      { "error" => { "type" => "invalid_request_error", "code" => "context_length_exceeded",
+                     "message" => "Request contained private-plan-content and sk-secret-key" } }
+    end
+    let(:body) { detail }
+    let(:failure) { Faraday::BadRequestError.new("the server responded with status 400", { status: 400, body: body }) }
+
+    before do
+      allow(OpenAI::Client).to receive(:new).and_return(mock_client)
+      if operation == :chat
+        allow(mock_client).to receive(:chat).and_raise(failure)
+      else
+        audio = double("audio")
+        allow(mock_client).to receive(:audio).and_return(audio)
+        allow(audio).to receive(:transcribe).and_raise(failure)
+      end
+    end
+
+    def request
+      if operation == :chat
+        described_class.call(system_prompt: system_prompt, user_content: user_content)
+      else
+        described_class.transcribe(file: double("audio file"), context: "private context")
+      end
+    end
+
+    let(:operation) { operation }
+
+    it "keeps recognized reasons without echoing the provider message" do
+      expect { request }.to raise_error(described_class::Error,
+        "#{prefix}: the server responded with status 400 (invalid_request_error/context_length_exceeded)") { |error|
+          expect(error.cause).to equal(failure)
+        }
+    end
+
+    context "with a JSON body" do
+      let(:body) { detail.to_json }
+
+      it "keeps the same safe identifiers" do
+        expect { request }.to raise_error(described_class::Error,
+          "#{prefix}: the server responded with status 400 (invalid_request_error/context_length_exceeded)")
+      end
+    end
+
+    [ nil, "", "<html>Bad gateway</html>", "{broken", "null", "[]", '"error"', [],
+      { "error" => "private-plan-content sk-secret-key" }, { "error" => nil }, { "error" => [] },
+      { "error" => {} }, { "error" => { "message" => { "prompt" => "private-plan-content" } } },
+      { "error" => { "type" => "sk-secret-key", "code" => "private-plan-content" } },
+      { "error" => { "type" => "a" * 10_000, "code" => "b" * 10_000 } },
+      { "error" => { "type" => [ "invalid_request_error" ], "code" => { "secret" => "value" } } },
+      { "error" => { "type" => "invalid_request_error\nforged log line", "code" => false } }
+    ].each_with_index do |malformed_body, index|
+      context "with an untrusted or unusable error body (#{index})" do
+        let(:body) { malformed_body }
+
+        it "falls back to the original status without leaking text or masking the failure" do
+          expect { request }.to raise_error(described_class::Error, "#{prefix}: the server responded with status 400") { |error|
+            expect(error.cause).to equal(failure)
+          }
+        end
+      end
+    end
+
+    it "retains a recognized type when the code is unknown" do
+      detail["error"]["code"] = "sk-secret-key"
+      expect { request }.to raise_error(described_class::Error,
+        "#{prefix}: the server responded with status 400 (invalid_request_error)")
+    end
+
+    it "retains a recognized code when the type is unknown" do
+      detail["error"]["type"] = "private-plan-content"
+      expect { request }.to raise_error(described_class::Error,
+        "#{prefix}: the server responded with status 400 (context_length_exceeded)")
+    end
+
+    context "when Faraday cannot parse the gateway response" do
+      let(:failure) do
+        connection = Faraday.new do |faraday|
+          faraday.response :raise_error
+          faraday.response :json
+          faraday.adapter :test do |stub|
+            stub.post("/failure") { [ 502, { "Content-Type" => "application/json" }, "<html>Bad gateway</html>" ] }
+          end
+        end
+        begin
+          connection.post("/failure")
+        rescue Faraday::ParsingError => error
+          error
+        end
+      end
+
+      it "preserves the parsing failure without raising a formatter error" do
+        expect(failure.response).to be_a(Faraday::Response)
+        expect { request }.to raise_error(described_class::Error, "#{prefix}: #{failure.message}") { |error|
+          expect(error.cause).to equal(failure)
+        }
+      end
+    end
+
+    it "handles errors without a response" do
+      allow(failure).to receive(:response).and_return(nil)
+      expect { request }.to raise_error(described_class::Error, "#{prefix}: the server responded with status 400")
+    end
+  end
+
+  describe "chat errors" do
+    include_examples "safe provider diagnostics", :chat, "Chat request failed"
+  end
+
+  describe "transcription errors" do
+    include_examples "safe provider diagnostics", :transcribe, "Transcription failed"
   end
 end
