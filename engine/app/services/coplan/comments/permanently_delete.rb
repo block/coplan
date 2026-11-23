@@ -16,11 +16,11 @@ module Coplan
         raise NotAllowed, "Only an admin can permanently delete a comment." unless @actor&.admin?
 
         thread = @comment.comment_thread
-        recipient_ids = @comment.notifications.distinct.pluck(:user_id)
         @comment.with_lock do
           raise NotAllowed, "Soft-delete the comment before permanently deleting it." unless @comment.deleted?
           raise NotAllowed, "This comment belongs to an immutable review receipt and cannot be permanently deleted here." if @comment.review_note?
 
+          recipient_ids = @comment.notifications.distinct.pluck(:user_id)
           AgentEvent.where(comment_id: @comment.id).delete_all
           PlanEvent.where(plan_id: thread.plan_id, event_type: "comment_deleted").find_each do |event|
             next unless event.metadata["comment_id"] == @comment.id

@@ -43,6 +43,20 @@ RSpec.describe Coplan::Comments::PermanentlyDelete do
     expect(event.as_api_json[:payload]["comment_body"]).to eq(Coplan::Comment::DELETED_BODY)
   end
 
+  it "refreshes badges for notifications arriving just before the deletion lock" do
+    comment.soft_delete!
+    recipient = create(:coplan_user)
+    allow(comment).to receive(:lock!).and_wrap_original do |lock, *args|
+      create(:notification, comment: comment, comment_thread: thread, plan: plan, user: recipient)
+      lock.call(*args)
+    end
+
+    expect { described_class.call(comment: comment, actor: admin) }
+      .to have_enqueued_job(Coplan::BroadcastPermanentCommentDeletionJob)
+      .with(event_id: kind_of(String), user_ids: [ recipient.id ])
+    expect(Coplan::Notification.where(comment_id: comment.id)).to be_empty
+  end
+
   it "protects immutable review notes while allowing unrelated replies to be purged" do
     request = create(:review_request, plan: plan)
     receipt = create(:review_response, review_request: request, comment_thread: thread, note: comment.body_markdown)
