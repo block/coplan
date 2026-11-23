@@ -3,12 +3,12 @@ require "coplan/development_seed"
 
 RSpec.describe "Demo library", type: :system do
   it "signs in with the default author and browses the shared examples" do
-    CoPlan::DevelopmentSeed.call
+    Coplan::DevelopmentSeed.call
     allow(Rails.env).to receive(:development?).and_return(true)
 
     visit "/sign_in"
     expect(page).to have_field("Email address", with: "hampton@example.com")
-    CoPlan::DevelopmentSeed::USERS.each do |definition|
+    Coplan::DevelopmentSeed::USERS.each do |definition|
       expect(page).to have_selector("button", text: "#{definition.fetch(:key)}@example.com")
     end
     [ "light", "dark" ].each do |theme|
@@ -30,7 +30,7 @@ RSpec.describe "Demo library", type: :system do
   end
 
   it "signs in as a reviewer directly from the demo account list" do
-    CoPlan::DevelopmentSeed.call
+    Coplan::DevelopmentSeed.call
     allow(Rails.env).to receive(:development?).and_return(true)
 
     visit "/sign_in"
@@ -41,8 +41,8 @@ RSpec.describe "Demo library", type: :system do
 
   [ "light", "dark" ].each do |theme|
     it "opens real node and edge discussions from the content library in #{theme} mode" do
-      CoPlan::DevelopmentSeed.call
-      owner = CoPlan::User.find_by!(email: "hampton@example.com")
+      Coplan::DevelopmentSeed.call
+      owner = Coplan::User.find_by!(email: "hampton@example.com")
       owner.update!(theme_preference: theme)
       visit "/sign_in"
       fill_in "Email address", with: owner.email
@@ -65,7 +65,7 @@ RSpec.describe "Demo library", type: :system do
   end
 
   it "shows one slide and multiple independent decks mixed with prose" do
-    CoPlan::DevelopmentSeed.call
+    Coplan::DevelopmentSeed.call
     visit "/sign_in"
     fill_in "Email address", with: "hampton@example.com"
     click_button "Sign In"

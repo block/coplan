@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::EditSession, type: :model do
+RSpec.describe Coplan::EditSession, type: :model do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
 
@@ -56,18 +56,18 @@ RSpec.describe CoPlan::EditSession, type: :model do
 
   describe "defaults" do
     it "defaults operations_json to empty array" do
-      session = CoPlan::EditSession.new
+      session = Coplan::EditSession.new
       expect(session.operations_json).to eq([])
     end
   end
 
   describe "constants" do
     it "has correct LOCAL_AGENT_TTL" do
-      expect(CoPlan::EditSession::LOCAL_AGENT_TTL).to eq(10.minutes)
+      expect(Coplan::EditSession::LOCAL_AGENT_TTL).to eq(10.minutes)
     end
 
     it "has correct CLOUD_PERSONA_TTL" do
-      expect(CoPlan::EditSession::CLOUD_PERSONA_TTL).to eq(30.minutes)
+      expect(Coplan::EditSession::CLOUD_PERSONA_TTL).to eq(30.minutes)
     end
   end
 
@@ -140,7 +140,7 @@ RSpec.describe CoPlan::EditSession, type: :model do
         open_session = create(:edit_session, plan: plan, status: "open")
         create(:edit_session, :committed, plan: plan)
 
-        expect(CoPlan::EditSession.open_sessions).to contain_exactly(open_session)
+        expect(Coplan::EditSession.open_sessions).to contain_exactly(open_session)
       end
     end
 
@@ -150,7 +150,7 @@ RSpec.describe CoPlan::EditSession, type: :model do
         create(:edit_session, plan: plan, expires_at: 10.minutes.from_now)
         create(:edit_session, :committed, plan: plan, expires_at: 1.minute.ago)
 
-        expect(CoPlan::EditSession.expired_pending).to contain_exactly(expired)
+        expect(Coplan::EditSession.expired_pending).to contain_exactly(expired)
       end
     end
   end

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module References
     class ExtractFromContent
       def self.call(plan:, content: nil)

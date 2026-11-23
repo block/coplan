@@ -11,7 +11,7 @@ Publish the `coplan-engine` gem to RubyGems.org.
 
 ### 1. Bump the version
 
-Edit `engine/lib/coplan/version.rb` and update `CoPlan::VERSION` to the new version number.
+Edit `engine/lib/coplan/version.rb` and update `Coplan::VERSION` to the new version number.
 
 ### 2. Commit the version bump
 

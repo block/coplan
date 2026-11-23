@@ -1,5 +1,5 @@
 require "rails_helper"
-require CoPlan::Engine.root.join("db/migrate/20260925000000_wrap_presentation_plans_in_regions.rb")
+require Coplan::Engine.root.join("db/migrate/20260925000000_wrap_presentation_plans_in_regions.rb")
 
 RSpec.describe WrapPresentationPlansInRegions do
   subject(:migration) { described_class.new }

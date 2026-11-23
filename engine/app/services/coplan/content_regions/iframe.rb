@@ -1,7 +1,7 @@
 require "uri"
 require "cgi"
 
-module CoPlan
+module Coplan
   module ContentRegions
     class Iframe
       PREFIX = "::: {.iframe "

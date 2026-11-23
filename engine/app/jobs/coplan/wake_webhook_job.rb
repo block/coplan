@@ -1,7 +1,7 @@
 require "net/http"
 require "openssl"
 
-module CoPlan
+module Coplan
   # The wake path for hosted agents: POST a signed "you have inbox items"
   # ping to the URL the session registered at claim time. Deliberately a
   # ping and not a payload — the agent pulls and acks through the cursor
@@ -36,7 +36,7 @@ module CoPlan
       if session.wake_failures_count >= MAX_EXHAUSTIONS
         session.assign_attributes(wake_url: nil, wake_secret: nil)
         Rails.logger.warn(
-          "CoPlan::WakeWebhookJob: unregistered dead wake URL for agent session #{session.id} " \
+          "Coplan::WakeWebhookJob: unregistered dead wake URL for agent session #{session.id} " \
           "after #{MAX_EXHAUSTIONS} exhausted delivery runs"
         )
       end
@@ -57,7 +57,7 @@ module CoPlan
       # make it allowed.
       vetted = WakeUrlPolicy.vetted_addresses(uri)
       if vetted.nil?
-        Rails.logger.warn("CoPlan::WakeWebhookJob: egress policy refused wake URL for agent session #{session.id}")
+        Rails.logger.warn("Coplan::WakeWebhookJob: egress policy refused wake URL for agent session #{session.id}")
         return
       end
 
@@ -70,8 +70,8 @@ module CoPlan
 
       request = Net::HTTP::Post.new(uri)
       request["Content-Type"] = "application/json"
-      request["X-CoPlan-Event-Id"] = event.id
-      request["X-CoPlan-Signature"] = "sha256=#{OpenSSL::HMAC.hexdigest("SHA256", session.wake_secret.to_s, body)}"
+      request["X-Coplan-Event-Id"] = event.id
+      request["X-Coplan-Signature"] = "sha256=#{OpenSSL::HMAC.hexdigest("SHA256", session.wake_secret.to_s, body)}"
       request.body = body
 
       # Connect to the address the policy actually vetted (hostname still

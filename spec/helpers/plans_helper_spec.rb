@@ -1,12 +1,12 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::PlansHelper, type: :helper do
+RSpec.describe Coplan::PlansHelper, type: :helper do
   include ActiveSupport::Testing::TimeHelpers
 
   after { travel_back }
 
   describe "#render_plan_document" do
-    before { helper.extend(CoPlan::SlideshowsHelper) }
+    before { helper.extend(Coplan::SlideshowsHelper) }
     it "preserves the numbered title fragment alongside the canonical title anchor" do
       html = helper.render_plan_document("# 1 Overview\n\nOpening text. See [overview](#section-1).\n\n## 2 Details\n\nDetails.")
       doc = Nokogiri::HTML.fragment(html)

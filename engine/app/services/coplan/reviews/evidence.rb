@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     # Body/review writers serialize on this row too. This read deliberately
     # creates no PlanRead, agent session, or notification acknowledgement.

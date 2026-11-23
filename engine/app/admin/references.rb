@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::Reference, as: "Reference" do
+ActiveAdmin.register Coplan::Reference, as: "Reference" do
   permit_params :plan_id, :key, :url, :title, :reference_type, :source, :target_plan_id
 
   filter :plan_id

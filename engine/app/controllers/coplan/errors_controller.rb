@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Public, but retain the viewer's normal navigation and theme when signed in.
   # Also used by the host exceptions app.
   class ErrorsController < ApplicationController
@@ -17,7 +17,7 @@ module CoPlan
     private
 
     def resolve_optional_coplan_user
-      @current_coplan_user = CoPlan::Authentication.user_from_request(request) if request.format == Mime[:html]
+      @current_coplan_user = Coplan::Authentication.user_from_request(request) if request.format == Mime[:html]
     end
   end
 end

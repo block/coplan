@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Files a plan in (or removes it from) a folder — the single write
     # path for placements, shared by the web workspace and the API so

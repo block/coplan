@@ -18,7 +18,7 @@ RSpec.describe "Browser approval for a local agent", type: :system do
     base = page.server_url
     Dir.mktmpdir do |directory|
       credentials = File.join(directory, "private/credentials.json")
-      command = [ RbConfig.ruby, CoPlan::Engine.root.join("agent_tools/coplan-connect").to_s,
+      command = [ RbConfig.ruby, Coplan::Engine.root.join("agent_tools/coplan-connect").to_s,
         "--base", base, "--name", "Work laptop", "--credentials", credentials, "--no-open" ]
       Open3.popen3(*command) do |stdin, stdout, stderr, process|
         stdin.close
@@ -36,7 +36,7 @@ RSpec.describe "Browser approval for a local agent", type: :system do
         expect(page).to have_content(code)
         expect(page).to have_content("Work laptop")
         expect(page).to have_content(user.name)
-        expect(CoPlan::ApiToken.count).to eq(0)
+        expect(Coplan::ApiToken.count).to eq(0)
         page.execute_script("window.connectionMarker = 'same-page'")
         check "This matches the code shown by my local agent."
         click_button "Connect this computer"
@@ -48,7 +48,7 @@ RSpec.describe "Browser approval for a local agent", type: :system do
         expect(File.stat(credentials).mode & 0o777).to eq(0o600)
         expect(output).not_to include(saved.fetch("token"))
         expect(page).not_to have_content(saved.fetch("token"))
-        parent = CoPlan::ApiToken.authenticate(saved.fetch("token"))
+        parent = Coplan::ApiToken.authenticate(saved.fetch("token"))
         expect(parent.user).to eq(user)
         expect(parent.name).to eq("Work laptop")
 
@@ -59,7 +59,7 @@ RSpec.describe "Browser approval for a local agent", type: :system do
         request.body = JSON.generate(agent_name: "Codex", metadata: { harness: "codex" })
         response = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(request) }
         expect(response.code).to eq("201")
-        child = CoPlan::ApiToken.find(JSON.parse(response.body).fetch("id"))
+        child = Coplan::ApiToken.find(JSON.parse(response.body).fetch("id"))
         expect(child.parent).to eq(parent)
         expect(child.metadata["harness"]).to eq("codex")
         visit settings_tokens_path
@@ -76,7 +76,7 @@ RSpec.describe "Browser approval for a local agent", type: :system do
   %w[light dark].each do |theme|
     it "previews approval and declines without issuing access in #{theme} mode" do
       user.update!(theme_preference: theme)
-      record, secret, code = CoPlan::AgentConnectionRequest.issue!(name: "Work laptop")
+      record, secret, code = Coplan::AgentConnectionRequest.issue!(name: "Work laptop")
       sign_in
       visit agent_connect_path(user_code: code)
       expect(page).to have_content("Allow this computer")
@@ -88,7 +88,7 @@ RSpec.describe "Browser approval for a local agent", type: :system do
       page.save_screenshot(Rails.root.join("tmp/agent-connect/approval-mobile-#{theme}.png"))
       click_button "Decline"
       expect(page).to have_content("Connection declined")
-      expect(CoPlan::ApiToken.count).to eq(0)
+      expect(Coplan::ApiToken.count).to eq(0)
       expect(record.reload.status).to eq("denied")
     ensure
       page.current_window.resize_to(1400, 900)

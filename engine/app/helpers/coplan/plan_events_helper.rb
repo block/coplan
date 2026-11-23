@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module PlanEventsHelper
     # Who did this, for a history row — same convention as comment authors:
     # "Claude (via Hampton)" when an agent acted for a user, the plain name

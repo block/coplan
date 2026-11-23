@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Operational Transform engine for character-range transformations.
     #

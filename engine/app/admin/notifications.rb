@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::Notification, as: "Notification" do
+ActiveAdmin.register Coplan::Notification, as: "Notification" do
   actions :index, :show
 
   index do
@@ -11,7 +11,7 @@ ActiveAdmin.register CoPlan::Notification, as: "Notification" do
     actions
   end
 
-  filter :reason, as: :select, collection: CoPlan::Notification::REASONS
+  filter :reason, as: :select, collection: Coplan::Notification::REASONS
   filter :user
   filter :plan
   filter :created_at

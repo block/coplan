@@ -1,11 +1,11 @@
-CoPlan.configure do |config|
+Coplan.configure do |config|
   config.sign_in_path = "/sign_in"
 
   config.authenticate = ->(request) {
     user_id = request.session[:user_id]
     return nil unless user_id
 
-    user = CoPlan::User.find_by(id: user_id)
+    user = Coplan::User.find_by(id: user_id)
     return nil unless user
 
     {
@@ -71,7 +71,7 @@ CoPlan.configure do |config|
 
   # Web Push (VAPID) keys for browser notifications. Always read from ENV (or
   # Rails encrypted credentials in real deployments). When unset, web push is
-  # simply disabled (CoPlan.configuration.web_push_configured? returns false
+  # simply disabled (Coplan.configuration.web_push_configured? returns false
   # and the Settings UI / subscription endpoints stay quiet).
   #
   # Generate fresh keys with:

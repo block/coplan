@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :plan_collaborator, class: "CoPlan::PlanCollaborator" do
+  factory :plan_collaborator, class: "Coplan::PlanCollaborator" do
     plan
     user { association(:coplan_user) }
     role { "reviewer" }

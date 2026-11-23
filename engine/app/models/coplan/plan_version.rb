@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class PlanVersion < ApplicationRecord
     attr_readonly :id, :plan_id, :revision, :content_markdown, :content_sha256
 
@@ -11,8 +11,8 @@ module CoPlan
     ACTOR_TYPES = %w[human local_agent cloud_persona system].freeze
 
     belongs_to :plan
-    belongs_to :actor_user, class_name: "CoPlan::User", foreign_key: "actor_id", optional: true
-    belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
+    belongs_to :actor_user, class_name: "Coplan::User", foreign_key: "actor_id", optional: true
+    belongs_to :api_token, class_name: "Coplan::ApiToken", optional: true
     has_many :comment_threads, dependent: :nullify
 
     def self.ransackable_attributes(_auth_object = nil)
@@ -123,7 +123,7 @@ module CoPlan
     end
 
     def extract_references
-      CoPlan::References::ExtractFromContent.call(plan: plan, content: content_markdown)
+      Coplan::References::ExtractFromContent.call(plan: plan, content: content_markdown)
       Broadcaster.replace_plan_references(plan)
     end
 
@@ -151,7 +151,7 @@ module CoPlan
     end
 
     def enqueue_summary_regeneration
-      SummarizePlanJob.set(wait: CoPlan.configuration.summary_debounce_delay).perform_later(plan_id: plan_id, version_id: id)
+      SummarizePlanJob.set(wait: Coplan.configuration.summary_debounce_delay).perform_later(plan_id: plan_id, version_id: id)
     end
   end
 end

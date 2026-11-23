@@ -1,7 +1,7 @@
-module CoPlan
+module Coplan
   module Slack
     class Engine < ::Rails::Engine
-      isolate_namespace CoPlan::Slack
+      isolate_namespace Coplan::Slack
     end
   end
 end

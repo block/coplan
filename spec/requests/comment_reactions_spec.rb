@@ -16,10 +16,10 @@ RSpec.describe "Comment reactions", type: :request do
   before { sign_in_as(bob) }
 
   it "adds the signed-in person's reaction and returns the chips inline" do
-    expect { react }.to change(CoPlan::CommentReaction, :count).by(1)
+    expect { react }.to change(Coplan::CommentReaction, :count).by(1)
 
     expect(response).to have_http_status(:ok)
-    reaction = CoPlan::CommentReaction.last
+    reaction = Coplan::CommentReaction.last
     expect(reaction).to have_attributes(comment_id: comment.id, user_id: bob.id, kind: "thumbs_up")
     expect(response.body).to include(%(action="replace"))
     expect(response.body).to include(ActionView::RecordIdentifier.dom_id(comment, :reactions))
@@ -34,7 +34,7 @@ RSpec.describe "Comment reactions", type: :request do
   it "is idempotent when the reaction already exists" do
     create(:comment_reaction, comment: comment, user: bob, kind: "heart")
 
-    expect { react(kind: "heart") }.not_to change(CoPlan::CommentReaction, :count)
+    expect { react(kind: "heart") }.not_to change(Coplan::CommentReaction, :count)
     expect(response).to have_http_status(:ok)
   end
 
@@ -43,13 +43,13 @@ RSpec.describe "Comment reactions", type: :request do
     # Another request inserts the row after this request's lookup misses it.
     missed = false
     allow_any_instance_of(ActiveRecord::Relation).to receive(:exists?).and_wrap_original do |original, *args, **kwargs|
-      next original.call(*args, **kwargs) if missed || original.receiver.klass != CoPlan::CommentReaction
+      next original.call(*args, **kwargs) if missed || original.receiver.klass != Coplan::CommentReaction
 
       missed = true
       false
     end
 
-    expect { react }.not_to change(CoPlan::CommentReaction, :count)
+    expect { react }.not_to change(Coplan::CommentReaction, :count)
     expect(response).to have_http_status(:ok)
   end
 
@@ -88,7 +88,7 @@ RSpec.describe "Comment reactions", type: :request do
   end
 
   it "saves nothing when the version can't be bumped" do
-    allow_any_instance_of(CoPlan::Comment).to receive(:bump_reactions_version!).and_raise(ActiveRecord::StatementInvalid)
+    allow_any_instance_of(Coplan::Comment).to receive(:bump_reactions_version!).and_raise(ActiveRecord::StatementInvalid)
 
     expect { react }.to raise_error(ActiveRecord::StatementInvalid)
     expect(comment.reactions).to be_empty
@@ -98,7 +98,7 @@ RSpec.describe "Comment reactions", type: :request do
     create(:comment_reaction, comment: comment, user: bob, kind: "rocket")
     create(:comment_reaction, comment: comment, user: alice, kind: "rocket")
 
-    expect { react(kind: "rocket", reacted: false) }.to change(CoPlan::CommentReaction, :count).by(-1)
+    expect { react(kind: "rocket", reacted: false) }.to change(Coplan::CommentReaction, :count).by(-1)
 
     expect(response).to have_http_status(:ok)
     expect(comment.reactions.pluck(:user_id)).to eq([ alice.id ])
@@ -106,13 +106,13 @@ RSpec.describe "Comment reactions", type: :request do
   end
 
   it "rejects a kind outside the fixed set" do
-    expect { react(kind: "👍") }.not_to change(CoPlan::CommentReaction, :count)
+    expect { react(kind: "👍") }.not_to change(Coplan::CommentReaction, :count)
     expect(response).to have_http_status(:unprocessable_content)
   end
 
   [ "", "remove", "0x" ].each do |value|
     it "rejects #{value.inspect} as the desired state" do
-      expect { react(reacted: value) }.not_to change(CoPlan::CommentReaction, :count)
+      expect { react(reacted: value) }.not_to change(Coplan::CommentReaction, :count)
       expect(response).to have_http_status(:unprocessable_content)
     end
   end
@@ -120,7 +120,7 @@ RSpec.describe "Comment reactions", type: :request do
   it "rejects reactions on a deleted comment" do
     comment.soft_delete!
 
-    expect { react }.not_to change(CoPlan::CommentReaction, :count)
+    expect { react }.not_to change(Coplan::CommentReaction, :count)
     expect(response).to have_http_status(:unprocessable_content)
   end
 
@@ -128,7 +128,7 @@ RSpec.describe "Comment reactions", type: :request do
     comment
     reset!
 
-    expect { react }.not_to change(CoPlan::CommentReaction, :count)
+    expect { react }.not_to change(Coplan::CommentReaction, :count)
     expect(response).not_to have_http_status(:ok)
   end
 
@@ -138,13 +138,13 @@ RSpec.describe "Comment reactions", type: :request do
     expect {
       patch plan_comment_thread_comment_reactions_path(plan, other_thread, comment),
         params: { kind: "thumbs_up", reacted: true }, headers: turbo
-    }.not_to change(CoPlan::CommentReaction, :count)
+    }.not_to change(Coplan::CommentReaction, :count)
     expect(response).to have_http_status(:not_found)
   end
 
   it "broadcasts a requestless render of the chips" do
     comment
-    expect(CoPlan::Broadcaster).to receive(:replace_to) do |streamable, **kwargs|
+    expect(Coplan::Broadcaster).to receive(:replace_to) do |streamable, **kwargs|
       expect(streamable).to eq(plan)
       expect(kwargs[:target]).to eq(ActionView::RecordIdentifier.dom_id(comment, :reactions))
       expect(kwargs[:partial]).to eq("coplan/comments/reactions")
@@ -156,7 +156,7 @@ RSpec.describe "Comment reactions", type: :request do
 
   it "does not notify anyone" do
     comment
-    expect { react }.not_to change(CoPlan::Notification, :count)
+    expect { react }.not_to change(Coplan::Notification, :count)
     expect { react(kind: "eyes") }.not_to have_enqueued_job
   end
 end

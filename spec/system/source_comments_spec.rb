@@ -21,7 +21,7 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     MARKDOWN
   end
   let(:plan) do
-    CoPlan::Plan.create!(title: "Source selections", created_by_user: user).tap do |p|
+    Coplan::Plan.create!(title: "Source selections", created_by_user: user).tap do |p|
       version = create(:plan_version, plan: p, revision: 1, content_markdown: content)
       p.update!(current_plan_version: version, current_revision: 1)
     end
@@ -368,7 +368,7 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     thread = plan.comment_threads.last
     edited = content.dup
     edited[thread.anchor_start...thread.anchor_end] = " changed "
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: edited, base_revision: 1,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: edited, base_revision: 1,
       actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
     click_button "Outdated element comments (1)"
@@ -387,8 +387,8 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     all(".data-grid tbody tr")[1].all("td")[1].send_keys("c")
     panel.fill_in "Write a comment...", with: "Keep this stale draft"
     # Leave this browser on its displayed revision, as if cable disconnected.
-    allow(CoPlan::Broadcaster).to receive(:replace_plan_content)
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Preface\n\n#{content}", base_revision: 1,
+    allow(Coplan::Broadcaster).to receive(:replace_plan_content)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: "Preface\n\n#{content}", base_revision: 1,
       actor_type: "human", actor_id: user.id)
     panel.click_button "Comment", exact: true
     expect(panel).to have_text("selection is no longer valid")

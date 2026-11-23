@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Works out a plan's URL segment and writes it, recording an alias for
     # the old one.

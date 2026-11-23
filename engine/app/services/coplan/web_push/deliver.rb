@@ -1,6 +1,6 @@
 require "web-push"
 
-module CoPlan
+module Coplan
   module WebPush
     # Sends a single push payload to a single browser subscription using the
     # configured VAPID key pair. Returns one of:
@@ -26,7 +26,7 @@ module CoPlan
       end
 
       def call
-        unless CoPlan.configuration.web_push_configured?
+        unless Coplan.configuration.web_push_configured?
           raise ConfigurationError, "Web Push VAPID keys are not configured"
         end
 
@@ -57,9 +57,9 @@ module CoPlan
 
       def vapid_options
         {
-          subject: CoPlan.configuration.vapid_subject,
-          public_key: CoPlan.configuration.vapid_public_key,
-          private_key: CoPlan.configuration.vapid_private_key
+          subject: Coplan.configuration.vapid_subject,
+          public_key: Coplan.configuration.vapid_public_key,
+          private_key: Coplan.configuration.vapid_private_key
         }
       end
     end

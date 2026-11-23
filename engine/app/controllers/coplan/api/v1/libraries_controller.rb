@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       # The agent-facing organization API. A library is a shelf (folder tree
@@ -52,7 +52,7 @@ module CoPlan
               }
             },
             top_tags: top_tags_json,
-            organize_instructions_url: CoPlan::Engine.routes.url_helpers.agent_instructions_organizing_path
+            organize_instructions_url: Coplan::Engine.routes.url_helpers.agent_instructions_organizing_path
           }
           if writable?
             json[:unfiled_count] = unfiled_plans.count

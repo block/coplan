@@ -9,7 +9,7 @@ require "fileutils"
 require "tempfile"
 require "rbconfig"
 
-module CoPlanConnect
+module CoplanConnect
   class Error < StandardError; end
 
   class Client
@@ -159,5 +159,5 @@ end
 
 if $PROGRAM_NAME == __FILE__
   $stdout.sync = true
-  exit(CoPlanConnect.run(ARGV))
+  exit(CoplanConnect.run(ARGV))
 end

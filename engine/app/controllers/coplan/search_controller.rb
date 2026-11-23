@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Sitewide search. Accessible from anywhere via the `/` keyboard shortcut or
   # the header search bar.
   #

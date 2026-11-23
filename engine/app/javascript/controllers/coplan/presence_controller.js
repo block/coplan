@@ -13,7 +13,7 @@ export default class extends Controller {
 
   connect() {
     this.channel = getConsumer().subscriptions.create(
-      { channel: "CoPlan::PlanPresenceChannel", plan_id: this.planIdValue },
+      { channel: "Coplan::PlanPresenceChannel", plan_id: this.planIdValue },
       {
         connected: () => { this.startPinging() },
         disconnected: () => { this.stopPinging() }

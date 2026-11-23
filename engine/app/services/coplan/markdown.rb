@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Lettered markers use the same source positions as numbered markers. Keep
   # every byte in place so selections, table targets, and edits share one map.
   module Markdown

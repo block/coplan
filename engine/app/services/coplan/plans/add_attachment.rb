@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Attaches an uploaded file to a plan, enforcing the size/content-type
     # limits declared on Plan, stamping the uploader into the blob metadata,

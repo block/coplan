@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::User, type: :model do
+RSpec.describe Coplan::User, type: :model do
   it "is valid with valid attributes" do
     user = create(:coplan_user)
     expect(user).to be_valid
@@ -9,9 +9,9 @@ RSpec.describe CoPlan::User, type: :model do
   it "does not create a library when a People record is provisioned" do
     user = create(:coplan_user, username: "newperson")
 
-    expect(CoPlan::Library.where(owner: user)).not_to exist
+    expect(Coplan::Library.where(owner: user)).not_to exist
     expect(user.library.handle).to eq("newperson")
-    expect(CoPlan::Library.where(owner: user).count).to eq(1)
+    expect(Coplan::Library.where(owner: user).count).to eq(1)
   end
 
   it "requires external_id" do
@@ -27,12 +27,12 @@ RSpec.describe CoPlan::User, type: :model do
   end
 
   it "defaults notification_preferences to empty hash" do
-    user = CoPlan::User.new
+    user = Coplan::User.new
     expect(user.notification_preferences).to eq({})
   end
 
   it "defaults metadata to empty hash" do
-    user = CoPlan::User.new
+    user = Coplan::User.new
     expect(user.metadata).to eq({})
   end
 
@@ -76,8 +76,8 @@ RSpec.describe CoPlan::User, type: :model do
 
     it "defaults the app theme to the site default and accepts every theme" do
       expect(described_class.new.app_theme).to eq("default")
-      expect(described_class::APP_THEMES).to eq([ "default", *CoPlan::Themes.keys ])
-      CoPlan::Themes.keys.each do |key|
+      expect(described_class::APP_THEMES).to eq([ "default", *Coplan::Themes.keys ])
+      Coplan::Themes.keys.each do |key|
         expect(build(:coplan_user, app_theme: key)).to be_valid
       end
     end

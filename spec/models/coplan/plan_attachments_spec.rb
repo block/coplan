@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plan, "attachments", type: :model do
+RSpec.describe Coplan::Plan, "attachments", type: :model do
   let(:plan) { create(:plan) }
 
   def attach(filename:, content_type:, io: StringIO.new("data"))
@@ -25,7 +25,7 @@ RSpec.describe CoPlan::Plan, "attachments", type: :model do
   end
 
   it "rejects files over the size limit" do
-    stub_const("CoPlan::Plan::ATTACHMENT_MAX_BYTES", 2)
+    stub_const("Coplan::Plan::ATTACHMENT_MAX_BYTES", 2)
     attach(filename: "big.txt", content_type: "text/plain")
     expect(plan.errors[:attachments].join).to include("too large")
     expect(plan.reload.attachments.count).to eq(0)

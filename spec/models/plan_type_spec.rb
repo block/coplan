@@ -1,9 +1,9 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::PlanType, type: :model do
+RSpec.describe Coplan::PlanType, type: :model do
   # These examples configure their own catalog. Seeded reference data must
   # not determine their fixtures or the order in which they pass.
-  before { CoPlan::PlanType.delete_all }
+  before { Coplan::PlanType.delete_all }
 
   it "is valid with valid attributes" do
     plan_type = create(:plan_type)
@@ -34,13 +34,13 @@ RSpec.describe CoPlan::PlanType, type: :model do
     it "resolves names case-insensitively regardless of database collation" do
       plan_type = create(:plan_type, name: "General")
       %w[general General GENERAL gEnErAl].each do |name|
-        expect(CoPlan::PlanType.find_by_name(name)).to eq(plan_type)
+        expect(Coplan::PlanType.find_by_name(name)).to eq(plan_type)
       end
     end
 
     it "returns nil for unknown or blank names" do
-      expect(CoPlan::PlanType.find_by_name("missing")).to be_nil
-      expect(CoPlan::PlanType.find_by_name(nil)).to be_nil
+      expect(Coplan::PlanType.find_by_name("missing")).to be_nil
+      expect(Coplan::PlanType.find_by_name(nil)).to be_nil
     end
   end
 
@@ -56,12 +56,12 @@ RSpec.describe CoPlan::PlanType, type: :model do
   end
 
   it "defaults default_tags to empty array" do
-    plan_type = CoPlan::PlanType.new
+    plan_type = Coplan::PlanType.new
     expect(plan_type.default_tags).to eq([])
   end
 
   it "defaults metadata to empty hash" do
-    plan_type = CoPlan::PlanType.new
+    plan_type = Coplan::PlanType.new
     expect(plan_type.metadata).to eq({})
   end
 
@@ -82,20 +82,20 @@ RSpec.describe CoPlan::PlanType, type: :model do
 
   it "can be destroyed once no plans use it" do
     plan_type = create(:plan_type)
-    expect { plan_type.destroy! }.to change(CoPlan::PlanType, :count).by(-1)
+    expect { plan_type.destroy! }.to change(Coplan::PlanType, :count).by(-1)
   end
 
   describe ".general" do
     it "returns the existing General type, matched case-insensitively" do
       existing = create(:plan_type, name: "general")
-      expect(CoPlan::PlanType.general).to eq(existing)
+      expect(Coplan::PlanType.general).to eq(existing)
     end
 
     it "recreates the General type when missing" do
       # A migrated database always has General (RequirePlanTypeOnCoplanPlans
       # seeds it) — remove it to exercise the self-healing branch.
-      CoPlan::PlanType.find_by_name("General")&.destroy!
-      general = CoPlan::PlanType.general
+      Coplan::PlanType.find_by_name("General")&.destroy!
+      general = Coplan::PlanType.general
       expect(general.name).to eq("General")
       expect(general).to be_persisted
     end

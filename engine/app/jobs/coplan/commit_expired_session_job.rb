@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CommitExpiredSessionJob < ApplicationJob
     queue_as :default
 

@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :coplan_web_push_subscription, class: "CoPlan::WebPushSubscription" do
+  factory :coplan_web_push_subscription, class: "Coplan::WebPushSubscription" do
     user { association :coplan_user }
     sequence(:endpoint) { |n| "https://fcm.googleapis.com/fcm/send/test-#{n}" }
     p256dh_key { "BLc4xRzKlKOR_1mfH-7sa-XYqI_3rExample256dhKeyPlaceholderValueHere" }

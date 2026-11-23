@@ -28,8 +28,8 @@ RSpec.describe "Data tables", type: :system do
   end
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Rollout Plan", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Rollout Plan", created_by_user: author)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: plan_content, actor_type: "human", actor_id: author.id
     )
@@ -81,8 +81,8 @@ RSpec.describe "Data tables", type: :system do
       "| #{row.join(' | ')} |", ""
     ].join("\n")
 
-    p = CoPlan::Plan.create!(title: "Wide Plan", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Wide Plan", created_by_user: author)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: markdown, actor_type: "human", actor_id: author.id
     )
@@ -300,8 +300,8 @@ RSpec.describe "Data tables", type: :system do
   end
 
   it "leaves a table small enough to read as it is" do
-    small = CoPlan::Plan.create!(title: "Small Plan", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(
+    small = Coplan::Plan.create!(title: "Small Plan", created_by_user: author)
+    version = Coplan::PlanVersion.create!(
       plan: small, revision: 1, actor_type: "human", actor_id: author.id,
       content_markdown: "| A | B |\n|---|---|\n| 1 | 2 |\n"
     )

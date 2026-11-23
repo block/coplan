@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Agent Instructions", type: :request do
   # These examples configure their own catalog. Seeded reference data must
   # not determine their fixtures or the order in which they pass.
-  before { CoPlan::PlanType.delete_all }
+  before { Coplan::PlanType.delete_all }
 
   describe "GET /agent-instructions" do
     it "returns markdown content" do
@@ -30,7 +30,7 @@ RSpec.describe "Agent Instructions", type: :request do
       get agent_instructions_path
 
       linked = response.body.scan(%r{http://www\.example\.com/agent-instructions/([a-z/-]+)}).flatten.uniq
-      expect(linked).to match_array(CoPlan::AgentInstructionsController::GUIDES.keys)
+      expect(linked).to match_array(Coplan::AgentInstructionsController::GUIDES.keys)
     end
 
     it "keeps the long-lived token when minting fails" do
@@ -107,7 +107,7 @@ RSpec.describe "Agent Instructions", type: :request do
     end
 
     it "uses request authentication for the first token mint when the host provides it" do
-      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+      allow(Coplan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
 
       get agent_instructions_path
 
@@ -120,8 +120,8 @@ RSpec.describe "Agent Instructions", type: :request do
     end
 
     it "uses the host's authenticated mint command when configured" do
-      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
-      allow(CoPlan.configuration).to receive(:agent_mint_curl_prefix).and_return("sq curl -s")
+      allow(Coplan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+      allow(Coplan.configuration).to receive(:agent_mint_curl_prefix).and_return("sq curl -s")
 
       get agent_instructions_path
       expect(response.body).to include("SESSION=$(sq curl -s -X POST")
@@ -133,7 +133,7 @@ RSpec.describe "Agent Instructions", type: :request do
 
     it "includes the host's auth instructions" do
       get agent_instructions_path
-      expect(response.body).to include(CoPlan.configuration.agent_auth_instructions.lines.first.strip)
+      expect(response.body).to include(Coplan.configuration.agent_auth_instructions.lines.first.strip)
     end
 
     it "builds example URLs from the request base (root mount)" do
@@ -153,7 +153,7 @@ RSpec.describe "Agent Instructions", type: :request do
   end
 
   describe "GET /agent-instructions/:guide" do
-    CoPlan::AgentInstructionsController::GUIDES.each_key do |guide|
+    Coplan::AgentInstructionsController::GUIDES.each_key do |guide|
       it "serves the #{guide} guide as markdown" do
         get agent_instructions_guide_path(guide: guide)
 
@@ -176,7 +176,7 @@ RSpec.describe "Agent Instructions", type: :request do
 
       expect(response).to have_http_status(:success)
       expect(response.body).to include("# Organizing a Library")
-      expect(response.body).to include("up to #{CoPlan::Folder::MAX_DEPTH} levels deep")
+      expect(response.body).to include("up to #{Coplan::Folder::MAX_DEPTH} levels deep")
     end
 
     describe "comments" do
@@ -221,7 +221,7 @@ RSpec.describe "Agent Instructions", type: :request do
 
       it "advertises the configured folder depth" do
         get agent_instructions_guide_path(guide: "creating")
-        expect(response.body).to include("up to #{CoPlan::Folder::MAX_DEPTH} levels deep")
+        expect(response.body).to include("up to #{Coplan::Folder::MAX_DEPTH} levels deep")
       end
 
       it "says so when no plan types are configured" do
@@ -382,7 +382,7 @@ RSpec.describe "Agent Instructions", type: :request do
     end
 
     it "renders with host request authentication and configured plan types" do
-      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+      allow(Coplan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
       create(:plan_type, name: "Design Doc", description: "For design documents")
 
       get agent_instructions_reference_path, headers: { "Accept" => "text/html" }

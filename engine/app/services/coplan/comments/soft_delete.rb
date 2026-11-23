@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Comments
     # Soft-deletes a comment and records the event in the plan history feed
     # in a single transaction. Idempotent — calling on an already-deleted

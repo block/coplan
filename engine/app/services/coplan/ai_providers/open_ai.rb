@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module AiProviders
     class OpenAi
       # Used when the host configures neither, so a host that sets only an
@@ -56,11 +56,11 @@ module CoPlan
       # vLLM, Ollama, an internal gateway. The gem appends its own "/v1"
       # only when the base URL doesn't already carry one.
       def self.base_url
-        CoPlan.configuration.ai_base_url.presence || DEFAULT_BASE_URL
+        Coplan.configuration.ai_base_url.presence || DEFAULT_BASE_URL
       end
 
       def self.api_key
-        key = CoPlan.configuration.ai_api_key ||
+        key = Coplan.configuration.ai_api_key ||
           Rails.application.credentials.dig(:openai, :api_key) ||
           ENV["OPENAI_API_KEY"]
         raise Error, "OpenAI API key not configured" if key.blank?
@@ -73,7 +73,7 @@ module CoPlan
         @user_content = user_content
         # An explicit argument wins, then the host's configuration. Callers
         # pass a model only when the prompt needs a particular one.
-        @model = model.presence || CoPlan.configuration.ai_model.presence || DEFAULT_MODEL
+        @model = model.presence || Coplan.configuration.ai_model.presence || DEFAULT_MODEL
       end
 
       def call

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module AttachmentsHelper
     # Uploader identity is stamped into the blob metadata at upload time (see
     # Plans::AddAttachment) because ActiveStorage has no user association of

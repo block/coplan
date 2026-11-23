@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       # Read-only catalog of plan types. Agents fetch this before creating a

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class User < ApplicationRecord
     # Light/dark mode, not an app theme (docs/THEMES.md). The "theme" names
     # predate app themes and are persisted, so they stay.
@@ -31,13 +31,13 @@ module CoPlan
 
     has_many :api_tokens, dependent: :destroy
     has_many :agent_connection_requests, dependent: :delete_all
-    has_many :created_plans, class_name: "CoPlan::Plan", foreign_key: :created_by_user_id, dependent: :nullify, inverse_of: :created_by_user
-    has_many :created_folders, class_name: "CoPlan::Folder", foreign_key: :created_by_user_id, dependent: :nullify, inverse_of: :created_by_user
+    has_many :created_plans, class_name: "Coplan::Plan", foreign_key: :created_by_user_id, dependent: :nullify, inverse_of: :created_by_user
+    has_many :created_folders, class_name: "Coplan::Folder", foreign_key: :created_by_user_id, dependent: :nullify, inverse_of: :created_by_user
     has_many :plan_collaborators, dependent: :destroy
     has_many :notifications, dependent: :destroy
-    has_many :comment_reactions, class_name: "CoPlan::CommentReaction", dependent: :delete_all
+    has_many :comment_reactions, class_name: "Coplan::CommentReaction", dependent: :delete_all
     has_many :review_requests, foreign_key: :reviewer_id, dependent: :destroy
-    has_many :web_push_subscriptions, class_name: "CoPlan::WebPushSubscription", dependent: :destroy
+    has_many :web_push_subscriptions, class_name: "Coplan::WebPushSubscription", dependent: :destroy
 
     validates :external_id, presence: true, uniqueness: true
     # Settings belong to the engine; metadata is replaceable host/directory data.

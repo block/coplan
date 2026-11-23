@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::PlanEvent, type: :model do
+RSpec.describe Coplan::PlanEvent, type: :model do
   let(:plan) { create(:plan) }
 
   describe "validations" do
@@ -37,13 +37,13 @@ RSpec.describe CoPlan::PlanEvent, type: :model do
 
   describe "after_initialize" do
     it "defaults metadata to an empty hash (per AGENTS.md JSON-column rule)" do
-      expect(CoPlan::PlanEvent.new.metadata).to eq({})
+      expect(Coplan::PlanEvent.new.metadata).to eq({})
     end
   end
 
   describe "association with plan" do
     it "is configured to be destroyed when the plan is destroyed" do
-      reflection = CoPlan::Plan.reflect_on_association(:plan_events)
+      reflection = Coplan::Plan.reflect_on_association(:plan_events)
       expect(reflection).to be_present
       expect(reflection.options[:dependent]).to eq(:destroy)
     end

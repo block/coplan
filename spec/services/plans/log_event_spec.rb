@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::LogEvent do
+RSpec.describe Coplan::Plans::LogEvent do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
 
@@ -14,9 +14,9 @@ RSpec.describe CoPlan::Plans::LogEvent do
           before: "considering",
           after: "developing"
         )
-      }.to change { CoPlan::PlanEvent.count }.by(1)
+      }.to change { Coplan::PlanEvent.count }.by(1)
 
-      event = CoPlan::PlanEvent.last
+      event = Coplan::PlanEvent.last
       expect(event.plan).to eq(plan)
       expect(event.actor_user).to eq(user)
       expect(event.actor_type).to eq("human")
@@ -27,12 +27,12 @@ RSpec.describe CoPlan::Plans::LogEvent do
 
     it "infers a sensible default field per event_type when not provided" do
       described_class.call(plan: plan, actor: user, event_type: "tag_added", after: "payments")
-      expect(CoPlan::PlanEvent.last.field).to eq("tags")
+      expect(Coplan::PlanEvent.last.field).to eq("tags")
     end
 
     it "treats the actor as 'system' when no user is passed (e.g. backfill jobs)" do
       described_class.call(plan: plan, actor: nil, event_type: "status_changed", before: "a", after: "b")
-      event = CoPlan::PlanEvent.last
+      event = Coplan::PlanEvent.last
       expect(event.actor_type).to eq("system")
       expect(event.actor_id).to be_nil
     end
@@ -42,13 +42,13 @@ RSpec.describe CoPlan::Plans::LogEvent do
       # the service no-ops when nothing actually changed.
       expect {
         described_class.call(plan: plan, actor: user, event_type: "status_changed", before: "considering", after: "considering")
-      }.not_to change { CoPlan::PlanEvent.count }
+      }.not_to change { Coplan::PlanEvent.count }
     end
 
     it "still records add/remove events even when one side is nil" do
       described_class.call(plan: plan, actor: user, event_type: "tag_added", after: "payments")
       described_class.call(plan: plan, actor: user, event_type: "reference_removed", before: "https://x")
-      expect(CoPlan::PlanEvent.count).to eq(2)
+      expect(Coplan::PlanEvent.count).to eq(2)
     end
 
     it "passes through structured metadata" do
@@ -59,13 +59,13 @@ RSpec.describe CoPlan::Plans::LogEvent do
         after: "https://github.com/example/repo",
         metadata: { title: "Example", reference_type: "repository" }
       )
-      event = CoPlan::PlanEvent.last
+      event = Coplan::PlanEvent.last
       expect(event.metadata).to include("title" => "Example", "reference_type" => "repository")
     end
 
     it "coerces non-string before/after values to strings for storage" do
       described_class.call(plan: plan, actor: user, event_type: "tag_added", after: 42)
-      expect(CoPlan::PlanEvent.last.after_value).to eq("42")
+      expect(Coplan::PlanEvent.last.after_value).to eq("42")
     end
 
     it "lets callers override actor_type/actor_id so API token edits attribute to the agent, not the token owner" do
@@ -76,10 +76,10 @@ RSpec.describe CoPlan::Plans::LogEvent do
         event_type: "title_changed",
         before: "old",
         after: "new",
-        actor_type: CoPlan::ApiToken::HOLDER_TYPE,
+        actor_type: Coplan::ApiToken::HOLDER_TYPE,
         actor_id: token.id
       )
-      event = CoPlan::PlanEvent.last
+      event = Coplan::PlanEvent.last
       expect(event.actor_type).to eq("local_agent")
       expect(event.actor_id).to eq(token.id)
     end

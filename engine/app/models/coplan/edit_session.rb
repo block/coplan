@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class EditSession < ApplicationRecord
     STATUSES = %w[open committed expired cancelled failed].freeze
     ACTOR_TYPES = %w[human local_agent cloud_persona].freeze

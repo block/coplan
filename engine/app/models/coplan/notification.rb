@@ -1,12 +1,12 @@
-module CoPlan
+module Coplan
   class Notification < ApplicationRecord
     REASONS = %w[new_comment reply agent_response status_change mention review_requested review_response].freeze
 
-    belongs_to :user, class_name: "CoPlan::User"
-    belongs_to :plan, class_name: "CoPlan::Plan"
-    belongs_to :comment_thread, class_name: "CoPlan::CommentThread", optional: true
+    belongs_to :user, class_name: "Coplan::User"
+    belongs_to :plan, class_name: "Coplan::Plan"
+    belongs_to :comment_thread, class_name: "Coplan::CommentThread", optional: true
     belongs_to :review_request, optional: true
-    belongs_to :comment, class_name: "CoPlan::Comment", optional: true
+    belongs_to :comment, class_name: "Coplan::Comment", optional: true
     has_many :notification_deliveries, dependent: :delete_all
 
     validates :reason, presence: true, inclusion: { in: REASONS }
@@ -43,14 +43,14 @@ module CoPlan
     private
 
     def enqueue_adapter_deliveries
-      DispatchNotificationJob.perform_later(id) if CoPlan.configuration.notification_delivery_handlers.any?
+      DispatchNotificationJob.perform_later(id) if Coplan.configuration.notification_delivery_handlers.any?
     end
 
     # Fan-out to at most MAX_PER_USER most recently registered devices for
     # the recipient. Quietly skips when Web Push isn't configured (host hasn't
     # set VAPID keys) or the recipient hasn't subscribed any browsers yet.
     def enqueue_web_push_deliveries
-      return unless CoPlan.configuration.web_push_configured?
+      return unless Coplan.configuration.web_push_configured?
 
       # Bound fan-out immediately, including accounts already over the cap
       # before it was introduced and which haven't subscribed again yet.

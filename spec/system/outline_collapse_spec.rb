@@ -18,7 +18,7 @@ RSpec.describe "Collapsible document outline", type: :system do
   end
 
   def replace_content(content)
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
   end
 
@@ -283,7 +283,7 @@ RSpec.describe "Collapsible document outline", type: :system do
       visit plan_page_path(plan)
       expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all, wait: 10)
       expect_expanded("9. Operations", false)
-      CoPlan::Plans::ReplaceContent.call(plan: plan.reload,
+      Coplan::Plans::ReplaceContent.call(plan: plan.reload,
         new_content: long_content.sub("Notes for 9.1, paragraph 1.", "Updated notes for 9.1, paragraph 1."),
         base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
       expect(page).to have_css("#plan-content-body", text: "Updated notes for 9.1", wait: 10)

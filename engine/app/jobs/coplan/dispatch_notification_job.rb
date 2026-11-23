@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class DispatchNotificationJob < ApplicationJob
     queue_as :default
 
@@ -6,7 +6,7 @@ module CoPlan
       notification = Notification.find_by(id: notification_id)
       return unless notification
 
-      CoPlan.configuration.notification_delivery_handlers.each { |handler| handler.call(notification) }
+      Coplan.configuration.notification_delivery_handlers.each { |handler| handler.call(notification) }
     end
   end
 end

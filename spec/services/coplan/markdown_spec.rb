@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Markdown do
+RSpec.describe Coplan::Markdown do
   def html(source)
     Nokogiri::HTML.fragment(described_class.to_html(source))
   end
@@ -34,7 +34,7 @@ RSpec.describe CoPlan::Markdown do
     normalized, = described_class.normalize(source)
     expect(normalized.bytesize).to eq(source.bytesize)
     expect(normalized.index("同じ")).to eq(source.index("同じ"))
-    text, positions = CoPlan::Plans::MarkdownTextExtractor.call(source)
+    text, positions = Coplan::Plans::MarkdownTextExtractor.call(source)
     text.chars.each_with_index do |character, index|
       expect(source[positions[index]]).to eq(character) if positions[index]
     end
@@ -78,12 +78,12 @@ RSpec.describe CoPlan::Markdown do
   it "keeps nested table comment targets bound to their original source" do
     source = "AA) Item\n\n    | Name | State |\n    | --- | --- |\n    | 同 | Ready |\n"
     doc = Nokogiri::HTML.fragment(described_class.to_html(source, options: { render: { sourcepos: true } }))
-    CoPlan::Plans::SourceTargets.new(source).annotate(doc)
+    Coplan::Plans::SourceTargets.new(source).annotate(doc)
     targets = doc.css("td[data-source-target]").map { |cell| JSON.parse(cell["data-source-target"]) }
     expect(targets.length).to eq(2)
     targets.each do |target|
       expect(source[target["start"]...target["end"]]).to eq(target["text"])
-      expect(CoPlan::Plans::SourceTargets.resolve(target["token"], source)).to include("kind" => "table_cell")
+      expect(Coplan::Plans::SourceTargets.resolve(target["token"], source)).to include("kind" => "table_cell")
     end
   end
 end

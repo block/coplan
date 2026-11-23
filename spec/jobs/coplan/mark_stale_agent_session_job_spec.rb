@@ -1,12 +1,12 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::MarkStaleAgentSessionJob, type: :job do
+RSpec.describe Coplan::MarkStaleAgentSessionJob, type: :job do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
-  let(:token) { CoPlan::ApiToken.create_with_raw_token(user: user, name: "agent", agent_name: "Claude").first }
+  let(:token) { Coplan::ApiToken.create_with_raw_token(user: user, name: "agent", agent_name: "Claude").first }
 
   def session(state:, last_activity_at:)
-    CoPlan::AgentSession.create!(
+    Coplan::AgentSession.create!(
       plan: plan, api_token: token, agent_name: "Claude",
       state: state, last_activity_at: last_activity_at
     )
@@ -63,7 +63,7 @@ RSpec.describe CoPlan::MarkStaleAgentSessionJob, type: :job do
   it "is scheduled by wake! with a full-precision timestamp" do
     record = session(state: "watching", last_activity_at: Time.zone.parse("2026-08-20 12:00:00.654321"))
 
-    expect(CoPlan::MarkStaleAgentSessionJob).to receive(:set).with(wait: CoPlan::AgentSession::STALE_AFTER) do
+    expect(Coplan::MarkStaleAgentSessionJob).to receive(:set).with(wait: Coplan::AgentSession::STALE_AFTER) do
       double.tap do |scheduled|
         expect(scheduled).to receive(:perform_later) do |agent_session_id:, woken_at:|
           expect(agent_session_id).to eq(record.id)

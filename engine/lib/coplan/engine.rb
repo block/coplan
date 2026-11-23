@@ -1,16 +1,10 @@
-module CoPlan
+module Coplan
   class Engine < ::Rails::Engine
-    isolate_namespace CoPlan
+    isolate_namespace Coplan
 
     config.after_initialize do
-      CoPlan::Themes.check_default!
-      CoPlan::WritingProvenanceBackfillJob.start unless Rails.env.test? || ENV["SECRET_KEY_BASE_DUMMY"]
-    end
-
-    initializer "coplan.autoloader", before: :set_autoload_paths do
-      Rails.autoloaders.each do |autoloader|
-        autoloader.inflector.inflect("coplan" => "CoPlan")
-      end
+      Coplan::Themes.check_default!
+      Coplan::WritingProvenanceBackfillJob.start unless Rails.env.test? || ENV["SECRET_KEY_BASE_DUMMY"]
     end
 
     initializer "coplan.importmap", before: "importmap" do |app|
@@ -33,11 +27,5 @@ module CoPlan
         FactoryBot.definition_file_paths << Engine.root.join("spec", "factories")
       end
     end
-  end
-
-  # Override table name prefix: isolate_namespace generates "co_plan_"
-  # from CoPlan.underscore, but our tables use "coplan_"
-  ActiveSupport.on_load(:active_record) do
-    CoPlan.singleton_class.redefine_method(:table_name_prefix) { "coplan_" }
   end
 end

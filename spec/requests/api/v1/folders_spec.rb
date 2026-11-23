@@ -27,7 +27,7 @@ RSpec.describe "Api::V1::Folders", type: :request do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
       plan = create(:plan, :considering, created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: plan, folder: sub, actor: alice)
+      Coplan::Plans::Place.call(plan: plan, folder: sub, actor: alice)
 
       get api_v1_folders_path, headers: headers
       expect(response).to have_http_status(:success)
@@ -41,8 +41,8 @@ RSpec.describe "Api::V1::Folders", type: :request do
 
     it "does not count unlisted drafts for other viewers" do
       folder = create(:folder, created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: create(:plan, :draft, created_by_user: alice), folder: folder, actor: alice)
-      CoPlan::Plans::Place.call(plan: create(:plan, :published, created_by_user: alice), folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: create(:plan, :draft, created_by_user: alice), folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: create(:plan, :published, created_by_user: alice), folder: folder, actor: alice)
 
       get api_v1_folders_path, headers: headers
       counts = JSON.parse(response.body).find { |f| f["id"] == folder.id }
@@ -64,7 +64,7 @@ RSpec.describe "Api::V1::Folders", type: :request do
       json = JSON.parse(response.body)
       expect(json["name"]).to eq("Infra")
       expect(json["parent_id"]).to be_nil
-      expect(CoPlan::Folder.find(json["id"]).created_by_user).to eq(alice)
+      expect(Coplan::Folder.find(json["id"]).created_by_user).to eq(alice)
 
       event = alice.library.library_events.find_by!(event_type: "folder_created")
       expect(event).to have_attributes(
@@ -84,16 +84,16 @@ RSpec.describe "Api::V1::Folders", type: :request do
     end
 
     it "creates fourth and fifth levels but rejects a sixth" do
-      parent = CoPlan::Folder.find_or_create_by_path!("Features/Feature/Android", library: alice.library)
+      parent = Coplan::Folder.find_or_create_by_path!("Features/Feature/Android", library: alice.library)
       %w[Rollout Retro].each do |name|
         post api_v1_folders_path, params: { name: name, parent_id: parent.id }, headers: headers, as: :json
         expect(response).to have_http_status(:created)
-        parent = CoPlan::Folder.find(response.parsed_body.fetch("id"))
+        parent = Coplan::Folder.find(response.parsed_body.fetch("id"))
       end
       expect(parent.depth).to eq(5)
       expect {
         post api_v1_folders_path, params: { name: "Too deep", parent_id: parent.id }, headers: headers, as: :json
-      }.not_to change(CoPlan::Folder, :count)
+      }.not_to change(Coplan::Folder, :count)
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body["error"]).to include("maximum folder depth of 5")
     end
@@ -171,28 +171,28 @@ RSpec.describe "Api::V1::Folders", type: :request do
     it "deletes an empty folder as creator" do
       delete api_v1_folder_path(folder), headers: headers
       expect(response).to have_http_status(:no_content)
-      expect(CoPlan::Folder.exists?(folder.id)).to be false
+      expect(Coplan::Folder.exists?(folder.id)).to be false
     end
 
     it "forbids non-creator non-admins" do
       delete api_v1_folder_path(folder), headers: bob_headers
       expect(response).to have_http_status(:forbidden)
-      expect(CoPlan::Folder.exists?(folder.id)).to be true
+      expect(Coplan::Folder.exists?(folder.id)).to be true
     end
 
     it "refuses to delete a folder containing plans" do
-      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
       delete api_v1_folder_path(folder), headers: headers
       expect(response).to have_http_status(:unprocessable_content)
       expect(JSON.parse(response.body)["error"]).to include("contains plans")
-      expect(CoPlan::Folder.exists?(folder.id)).to be true
+      expect(Coplan::Folder.exists?(folder.id)).to be true
     end
 
     it "refuses to delete a folder with subfolders" do
       create(:folder, parent: folder, created_by_user: alice)
       delete api_v1_folder_path(folder), headers: headers
       expect(response).to have_http_status(:unprocessable_content)
-      expect(CoPlan::Folder.exists?(folder.id)).to be true
+      expect(Coplan::Folder.exists?(folder.id)).to be true
     end
   end
 end

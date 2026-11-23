@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CommentThreadPolicy < ApplicationPolicy
     def create?
       true

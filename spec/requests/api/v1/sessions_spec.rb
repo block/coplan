@@ -9,7 +9,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   before do
     alice_token # ensure token exists
     # Revision 1 is a human version, so the agent has to have read the plan
-    # before it may write (CoPlan::Plans::HumanEditGuard). The intervening
+    # before it may write (Coplan::Plans::HumanEditGuard). The intervening
     # versions these specs create are agent versions on purpose — OT rebase
     # is for agent-vs-agent races; a human's hand edit stops the write.
     agent_has_read(plan, alice_token)
@@ -19,7 +19,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
     it "creates a session with correct defaults" do
       expect {
         post api_v1_plan_sessions_path(plan), headers: headers, as: :json
-      }.to change(CoPlan::EditSession, :count).by(1)
+      }.to change(Coplan::EditSession, :count).by(1)
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
@@ -58,13 +58,13 @@ RSpec.describe "Api::V1::Sessions", type: :request do
 
   describe "POST /api/v1/plans/:plan_id/sessions/:id/commit" do
     it "returns 422 and retains a stale legacy session with invalid section content" do
-      document = CoPlan::Plan.create!(title: "Legacy session", created_by_user: alice)
-      base = CoPlan::PlanVersion.create!(plan: document, revision: 1, content_markdown: "# H", actor_type: "human", actor_id: alice.id)
+      document = Coplan::Plan.create!(title: "Legacy session", created_by_user: alice)
+      base = Coplan::PlanVersion.create!(plan: document, revision: 1, content_markdown: "# H", actor_type: "human", actor_id: alice.id)
       document.update!(current_revision: 1, current_plan_version: base)
       agent_has_read(document, alice_token)
       session = create(:edit_session, plan: document, actor_id: alice_token.id, base_revision: 1,
         operations_json: [ { "op" => "replace_section", "heading" => "# H", "include_heading" => false, "new_content" => 3, "resolved_range" => [ 3, 3 ] } ])
-      version = CoPlan::PlanVersion.create!(plan: document, revision: 2, content_markdown: "# H",
+      version = Coplan::PlanVersion.create!(plan: document, revision: 2, content_markdown: "# H",
         actor_type: "local_agent", actor_id: alice.id, operations_json: [])
       document.update!(current_revision: 2, current_plan_version: version)
       expect {
@@ -79,7 +79,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       session = create(:edit_session, plan: plan, actor_id: alice_token.id)
       # Apply an operation to the session first
       current_content = plan.current_content
-      result = CoPlan::Plans::ApplyOperations.call(
+      result = Coplan::Plans::ApplyOperations.call(
         content: current_content,
         operations: [ { "op" => "replace_exact", "old_text" => "Some content here.", "new_text" => "Updated content.", "count" => 1 } ]
       )
@@ -90,7 +90,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
 
       expect {
         post commit_api_v1_plan_session_path(plan, session), headers: headers, as: :json
-      }.to change(CoPlan::PlanVersion, :count).by(1)
+      }.to change(Coplan::PlanVersion, :count).by(1)
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -102,7 +102,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       # The session is keyed by the token (ownership), but the version is
       # attributed to the human behind it, with the agent named — so the
       # history tab can say "Claude (via Alice)" instead of a bare badge.
-      version = CoPlan::PlanVersion.find(body["version_id"])
+      version = Coplan::PlanVersion.find(body["version_id"])
       expect(version.actor_type).to eq("local_agent")
       expect(version.actor_id).to eq(alice.id)
       expect(version.agent_name).to eq(alice_token.name)
@@ -113,7 +113,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
 
       expect {
         post commit_api_v1_plan_session_path(plan, session), headers: headers, as: :json
-      }.not_to change(CoPlan::PlanVersion, :count)
+      }.not_to change(Coplan::PlanVersion, :count)
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -124,7 +124,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
     it "commits with change_summary param" do
       session = create(:edit_session, plan: plan, actor_id: alice_token.id)
       current_content = plan.current_content
-      result = CoPlan::Plans::ApplyOperations.call(
+      result = Coplan::Plans::ApplyOperations.call(
         content: current_content,
         operations: [ { "op" => "replace_exact", "old_text" => "Some content here.", "new_text" => "Changed.", "count" => 1 } ]
       )
@@ -236,7 +236,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
           },
           headers: headers,
           as: :json
-      }.to change(CoPlan::PlanVersion, :count).by(1)
+      }.to change(Coplan::PlanVersion, :count).by(1)
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
@@ -254,7 +254,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       # Intervening edit changes the heading
       intervening_content = original_content.sub("# #{plan.title}", "# Updated Plan Title")
       new_rev = plan.current_revision + 1
-      intervening_version = CoPlan::PlanVersion.create!(
+      intervening_version = Coplan::PlanVersion.create!(
         plan: plan,
         revision: new_rev,
         content_markdown: intervening_content,
@@ -283,7 +283,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
           },
           headers: headers,
           as: :json
-      }.to change(CoPlan::PlanVersion, :count).by(1)
+      }.to change(Coplan::PlanVersion, :count).by(1)
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
@@ -297,7 +297,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       # Create an intervening version that changes the same text
       intervening_content = original_content.sub("Some content here.", "Completely different text.")
       new_rev = plan.current_revision + 1
-      intervening_version = CoPlan::PlanVersion.create!(
+      intervening_version = Coplan::PlanVersion.create!(
         plan: plan,
         revision: new_rev,
         content_markdown: intervening_content,
@@ -333,8 +333,8 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   describe "stale rebase verification for non-replace ops" do
     let(:rich_content) { "# My Plan\n\n## Overview\n\nThis is the overview.\n\n## Goals\n\nWe want to achieve great things.\n\n## Timeline\n\nQ1 2026 launch." }
     let(:rich_plan) do
-      p = CoPlan::Plan.create!(title: "Rich Plan", created_by_user: alice)
-      v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
+      p = Coplan::Plan.create!(title: "Rich Plan", created_by_user: alice)
+      v = Coplan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
       p.update!(current_plan_version: v, current_revision: 1)
       agent_has_read(p, alice_token)
       p
@@ -345,7 +345,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       pos = content.index(old_text)
       new_content = content.sub(old_text, new_text)
       new_rev = plan.current_revision + 1
-      v = CoPlan::PlanVersion.create!(
+      v = Coplan::PlanVersion.create!(
         plan: plan, revision: new_rev,
         content_markdown: new_content, actor_type: "local_agent", actor_id: alice.id,
         operations_json: [ {
@@ -429,8 +429,8 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   describe "stale session commit verification for non-replace ops" do
     let(:rich_content) { "# My Plan\n\n## Overview\n\nThis is the overview.\n\n## Goals\n\nWe want to achieve great things.\n\n## Timeline\n\nQ1 2026 launch." }
     let(:rich_plan) do
-      p = CoPlan::Plan.create!(title: "Rich Plan", created_by_user: alice)
-      v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
+      p = Coplan::Plan.create!(title: "Rich Plan", created_by_user: alice)
+      v = Coplan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
       p.update!(current_plan_version: v, current_revision: 1)
       agent_has_read(p, alice_token)
       p
@@ -441,7 +441,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       pos = content.index(old_text)
       new_content = content.sub(old_text, new_text)
       new_rev = plan.current_revision + 1
-      v = CoPlan::PlanVersion.create!(
+      v = Coplan::PlanVersion.create!(
         plan: plan, revision: new_rev,
         content_markdown: new_content, actor_type: "local_agent", actor_id: alice.id,
         operations_json: [ {
@@ -509,7 +509,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   describe "POST /api/v1/plans/:plan_id/operations with lease_token (legacy mode)" do
     it "existing behavior unchanged" do
       lease_token = SecureRandom.hex(32)
-      CoPlan::EditLease.acquire!(
+      Coplan::EditLease.acquire!(
         plan: plan,
         holder_type: "local_agent",
         holder_id: alice_token.id,
@@ -527,7 +527,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
           },
           headers: headers,
           as: :json
-      }.to change(CoPlan::PlanVersion, :count).by(1)
+      }.to change(Coplan::PlanVersion, :count).by(1)
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)

@@ -27,7 +27,7 @@ RSpec.describe "References (web)", type: :request do
         post plan_references_path(plan), params: {
           reference: { url: "https://github.com/squareup/anon" }
         }
-      }.not_to change(CoPlan::Reference, :count)
+      }.not_to change(Coplan::Reference, :count)
       expect(response).to have_http_status(:redirect)
       expect(response.location).to include("sign_in")
     end

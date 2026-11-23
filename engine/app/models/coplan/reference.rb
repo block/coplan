@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class Reference < ApplicationRecord
     SOURCES = %w[extracted explicit].freeze
     REFERENCE_TYPES = %w[plan repository pull_request document link].freeze
@@ -6,7 +6,7 @@ module CoPlan
     KEY_FORMAT = /\A[a-z0-9][a-z0-9_-]*\z/.freeze
 
     belongs_to :plan
-    belongs_to :target_plan, class_name: "CoPlan::Plan", optional: true
+    belongs_to :target_plan, class_name: "Coplan::Plan", optional: true
 
     validates :url, presence: true, uniqueness: { scope: :plan_id }, format: { with: /\Ahttps?:\/\//i, message: "must start with http:// or https://" }
     validates :key, uniqueness: { scope: :plan_id }, allow_nil: true,

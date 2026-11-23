@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::AgentHarness, type: :model do
+RSpec.describe Coplan::AgentHarness, type: :model do
   describe ".resolve" do
     it "canonicalizes standard harness identities" do
       expected_harnesses = {

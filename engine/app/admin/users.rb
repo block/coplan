@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::User, as: "User" do
+ActiveAdmin.register Coplan::User, as: "User" do
   # Host authentication owns identity and privileges. A stored admin flag can
   # also be read by bearer-token API calls, so this page must not grant it.
   actions :index, :show

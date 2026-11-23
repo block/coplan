@@ -4,7 +4,7 @@ RSpec.describe "Math in the rich editor", type: :system do
   let(:author) { create(:coplan_user, email: "editor-math@example.com") }
   let(:source) { "# Math\n\nThe area is $\\pi r^2$ and $x_1 * y_1$.\n\n$$\n\\sum_{i=1}^n a_i\n$$\n" }
   let(:plan) do
-    CoPlan::Plans::Create.call(title: "Math", content: source, user: author,
+    Coplan::Plans::Create.call(title: "Math", content: source, user: author,
       visibility: "draft", actor_type: "human")
   end
 
@@ -126,7 +126,7 @@ RSpec.describe "Math in the rich editor", type: :system do
       }).catch(error => done({ error: error.message }));
     JS
     server = lines.map do |line|
-      html = Commonmarker.to_html(line, options: { extension: CoPlan::MarkdownHelper::EXTENSION_OPTIONS })
+      html = Commonmarker.to_html(line, options: { extension: Coplan::MarkdownHelper::EXTENSION_OPTIONS })
       Nokogiri::HTML.fragment(html).css("[data-math-style]").map { |node| node.text.gsub(/\s+/, " ").strip }
     end
     expect(browser).to eq(server)
