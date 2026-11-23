@@ -1,4 +1,4 @@
-name: Verify Coplan migration on PostgreSQL
+name: Diagnose Coplan browser shard
 on:
   push:
     branches: [verify-coplan-namespace-migration]
@@ -6,43 +6,40 @@ permissions:
   contents: read
   statuses: write
 jobs:
-  verify:
+  reproduce:
     runs-on:
       group: ubuntu-x86-runners
     env:
       RAILS_ENV: test
-      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/planning_department_test?encoding=unicode
-      PGPASSWORD: test-password-do-not-use
-      SCHEMA: tmp/pg_schema.rb
+      DATABASE_URL: mysql2://root:root@127.0.0.1:3306/planning_department_test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - run: |
-          sudo systemctl start postgresql.service
-          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'test-password-do-not-use';"
+      - run: sudo systemctl start mysql
       - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-      - run: bin/rails db:create db:migrate
-      - name: Run migration spec
-        continue-on-error: true
-        run: bundle exec rspec spec/migrations/rename_coplan_class_names_spec.rb --seed 50468 --format progress --format json --out tmp/coplan-migration-report.json
-      - name: Report migration example status
+      - run: bin/rails db:create db:schema:load
+      - name: Run shard
+        run: bin/rspec-system-shard 1 4 --seed 60447 --format progress --format json --out tmp/cop-browser-report.json
+      - name: Report results
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
           import json, os, pathlib, subprocess
-          report = pathlib.Path('tmp/coplan-migration-report.json')
-          parsed = json.loads(report.read_text()) if report.exists() else {}
-          for n, example in enumerate(parsed.get('examples', [])):
-              error = example.get('exception', {})
-              lines = [s.strip() for s in error.get('message', '').splitlines() if s.strip()]
-              for section, body in [('result', str(error.get('class', example['status']))), *[(str(i), s) for i, s in enumerate(lines[:8])]]:
-                  subprocess.run(['gh','api','--method','POST',
-                      f'repos/{os.environ["GITHUB_REPOSITORY"]}/statuses/{os.environ["GITHUB_SHA"]}',
-                      '-f','state=' + ('failure' if error else 'success'),
-                      '-f',f'context=Migration diagnostic {n} {section}',
-                      '-f','description=' + body[:136]], check=True)
+          report = pathlib.Path('tmp/cop-browser-report.json')
+          data = json.loads(report.read_text()) if report.exists() else {}
+          def publish(context, state, value):
+              subprocess.run(['gh', 'api', '--method', 'POST',
+                f'repos/{os.environ["GITHUB_REPOSITORY"]}/statuses/{os.environ["GITHUB_SHA"]}',
+                '-f', 'state='+state, '-f', 'context='+context, '-f', 'description='+value[:136]], check=True)
+          failed = [x for x in data.get('examples', []) if x['status'] == 'failed']
+          publish('Browser diagnostic summary', 'success' if data and not failed else 'failure', str(data.get('summary_line', 'RSpec did not produce a report')))
+          for n, ex in enumerate(failed):
+              err = ex.get('exception', {})
+              publish(f'Browser diagnostic {n} example', 'failure', f'{ex["file_path"]}:{ex["line_number"]} {err.get("class", "")}')
+              for i, line in enumerate(line.strip() for line in err.get('message', '').splitlines()[:8] if line.strip()):
+                  publish(f'Browser diagnostic {n} detail {i}', 'failure', line)
           PY
