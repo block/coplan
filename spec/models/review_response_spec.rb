@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::ReviewResponse do
+RSpec.describe Coplan::ReviewResponse do
   let(:request) { create(:review_request) }
 
   it "records an immutable response with the exact reviewer and version" do

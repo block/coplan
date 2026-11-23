@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CommentReactionsController < ApplicationController
     before_action :set_comment
 

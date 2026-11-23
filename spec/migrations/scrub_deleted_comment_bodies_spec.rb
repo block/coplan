@@ -1,5 +1,5 @@
 require "rails_helper"
-require CoPlan::Engine.root.join("db/migrate/20261120230000_scrub_deleted_comment_bodies.rb")
+require Coplan::Engine.root.join("db/migrate/20261120230000_scrub_deleted_comment_bodies.rb")
 
 RSpec.describe ScrubDeletedCommentBodies do
   subject(:migration) { described_class.new }
@@ -15,9 +15,9 @@ RSpec.describe ScrubDeletedCommentBodies do
   def legacy_deleted_comment(body)
     comment = create(:comment, comment_thread: thread, author_type: "human", author_id: user.id, body_markdown: body)
     comment.update_column(:deleted_at, Time.current)
-    CoPlan::PlanEvent.create!(plan: plan, event_type: "comment_deleted", actor_type: "human", actor_id: user.id,
+    Coplan::PlanEvent.create!(plan: plan, event_type: "comment_deleted", actor_type: "human", actor_id: user.id,
       metadata: { "comment_id" => comment.id, "thread_id" => thread.id, "body_preview" => body })
-    CoPlan::AgentEvent.create!(api_token: token, plan: plan, comment_thread_id: thread.id, comment_id: comment.id,
+    Coplan::AgentEvent.create!(api_token: token, plan: plan, comment_thread_id: thread.id, comment_id: comment.id,
       event_type: "comment.created", payload: { "comment_body" => body })
     comment
   end
@@ -31,7 +31,7 @@ RSpec.describe ScrubDeletedCommentBodies do
 
     expect(deleted.reload.body_markdown).to eq("Retracted salary numbers")
     expect(kept.reload.body_markdown).to eq("Still here")
-    expect(CoPlan::AgentEvent.find_by!(comment_id: deleted.id).payload["comment_body"]).to eq("Retracted salary numbers")
-    expect(CoPlan::PlanEvent.find_by(event_type: "comment_deleted").metadata).to eq("comment_id" => deleted.id, "thread_id" => thread.id, "body_preview" => "Retracted salary numbers")
+    expect(Coplan::AgentEvent.find_by!(comment_id: deleted.id).payload["comment_body"]).to eq("Retracted salary numbers")
+    expect(Coplan::PlanEvent.find_by(event_type: "comment_deleted").metadata).to eq("comment_id" => deleted.id, "thread_id" => thread.id, "body_preview" => "Retracted salary numbers")
   end
 end

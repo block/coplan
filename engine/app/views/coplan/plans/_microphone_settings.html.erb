@@ -1,5 +1,5 @@
 <span class="microphone-settings" data-controller="coplan--microphone"
-      data-coplan--microphone-transcription-value="<%= CoPlan::Ai.available? %>"
+      data-coplan--microphone-transcription-value="<%= Coplan::Ai.available? %>"
       data-action="resize@window->coplan--microphone#position coplan:microphone-change@document->coplan--microphone#sync coplan:composer-close@document->coplan--microphone#closed">
   <button type="button" class="microphone-settings__button" aria-label="Microphone settings" title="Choose audio input"
           aria-expanded="false" data-coplan--microphone-target="button" data-action="coplan--microphone#toggle">

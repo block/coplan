@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Folder, type: :model do
+RSpec.describe Coplan::Folder, type: :model do
   let(:user) { create(:coplan_user) }
   let(:library) { user.library }
 
@@ -127,7 +127,7 @@ RSpec.describe CoPlan::Folder, type: :model do
     it "cannot be deleted while it holds placements" do
       folder = create(:folder, created_by_user: user)
       plan = create(:plan, :considering, created_by_user: user)
-      CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: user)
+      Coplan::Plans::Place.call(plan: plan, folder: folder, actor: user)
 
       expect(folder.destroy).to be false
       expect(folder.errors[:base].join).to include("contains plans")

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Comments
     class PermanentlyDelete
       class NotAllowed < StandardError; end

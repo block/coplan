@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Comment, type: :model do
+RSpec.describe Coplan::Comment, type: :model do
   it "is valid with valid attributes" do
     comment = create(:comment)
     expect(comment).to be_valid
@@ -57,7 +57,7 @@ RSpec.describe CoPlan::Comment, type: :model do
     it "enqueues NotificationJob for the first comment in a thread" do
       expect {
         create(:comment, comment_thread: thread_record)
-      }.to have_enqueued_job(CoPlan::NotificationJob)
+      }.to have_enqueued_job(Coplan::NotificationJob)
     end
 
     # Every comment fires the event now, not just the thread opener — a
@@ -69,7 +69,7 @@ RSpec.describe CoPlan::Comment, type: :model do
 
       expect {
         create(:comment, comment_thread: thread_record)
-      }.to have_enqueued_job(CoPlan::NotificationJob)
+      }.to have_enqueued_job(Coplan::NotificationJob)
     end
   end
 
@@ -80,8 +80,8 @@ RSpec.describe CoPlan::Comment, type: :model do
       expect { comment.soft_delete! }.to change { comment.reload.deleted_at }.from(nil)
       expect(comment.deleted?).to be(true)
       expect(comment.reload.body_markdown).to be_present
-      expect(comment.body_markdown).not_to eq(CoPlan::Comment::DELETED_BODY)
-      expect(comment.public_body_markdown).to eq(CoPlan::Comment::DELETED_BODY)
+      expect(comment.body_markdown).not_to eq(Coplan::Comment::DELETED_BODY)
+      expect(comment.public_body_markdown).to eq(Coplan::Comment::DELETED_BODY)
     end
 
     it "kept scope excludes deleted comments" do
@@ -89,13 +89,13 @@ RSpec.describe CoPlan::Comment, type: :model do
       deleted = create(:comment)
       deleted.soft_delete!
 
-      expect(CoPlan::Comment.kept).to include(kept)
-      expect(CoPlan::Comment.kept).not_to include(deleted)
+      expect(Coplan::Comment.kept).to include(kept)
+      expect(Coplan::Comment.kept).not_to include(deleted)
     end
 
     it "does not re-fire ProcessMentions when soft-deleting" do
       comment # create before block, so ProcessMentions runs once on creation
-      expect(CoPlan::Comments::ProcessMentions).not_to receive(:call)
+      expect(Coplan::Comments::ProcessMentions).not_to receive(:call)
       comment.soft_delete!
     end
   end

@@ -6,7 +6,7 @@ require "rails_helper"
 # rejections ARE the security boundary.
 #
 # A plan lives in exactly one place, so every call here is a move.
-RSpec.describe CoPlan::Plans::Place do
+RSpec.describe Coplan::Plans::Place do
   let(:author) { create(:coplan_user) }
   let(:other) { create(:coplan_user) }
   let(:folder) { create(:folder, created_by_user: author) }
@@ -43,14 +43,14 @@ RSpec.describe CoPlan::Plans::Place do
       draft = create(:plan, :draft, created_by_user: author,
         archived_at: archived ? nil : Time.current)
       old_path = draft.url_path
-      CoPlan::Plan.where(id: draft.id).update_all(archived_at: archived ? Time.current : nil)
+      Coplan::Plan.where(id: draft.id).update_all(archived_at: archived ? Time.current : nil)
 
       result = place(plan: draft, folder: folder, actor: author)
 
       expect(result).to be_success
       expect(draft.reload.archived?).to eq(archived)
       expect(draft.folder).to eq(folder)
-      expect(CoPlan::UrlAlias.rewrite(old_path)).to eq(archived ? nil : draft.url_path)
+      expect(Coplan::UrlAlias.rewrite(old_path)).to eq(archived ? nil : draft.url_path)
     end
   end
 
@@ -88,7 +88,7 @@ RSpec.describe CoPlan::Plans::Place do
     result = place(plan: plan, folder: second_folder, actor: author)
 
     expect(result).to be_success
-    expect(CoPlan::PlanPlacement.where(plan: plan).count).to eq(1)
+    expect(Coplan::PlanPlacement.where(plan: plan).count).to eq(1)
     expect(result.placement.folder).to eq(second_folder)
   end
 

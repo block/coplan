@@ -10,7 +10,7 @@ RSpec.describe "coplan:summaries:backfill", type: :task do
     previous_application = Rake.application
     Rake.application = Rake::Application.new
     Rake::Task.define_task(:environment)
-    load CoPlan::Engine.root.join("lib/tasks/coplan_summaries.rake").to_s
+    load Coplan::Engine.root.join("lib/tasks/coplan_summaries.rake").to_s
     example.run
   ensure
     Rake.application = previous_application
@@ -21,19 +21,19 @@ RSpec.describe "coplan:summaries:backfill", type: :task do
   it "enqueues SummarizePlanJob for summary-less plans with a current version" do
     plan = create(:plan)
 
-    expect { run_task }.to have_enqueued_job(CoPlan::SummarizePlanJob).with(plan_id: plan.id)
+    expect { run_task }.to have_enqueued_job(Coplan::SummarizePlanJob).with(plan_id: plan.id)
   end
 
   it "skips plans that already have a summary" do
     create(:plan).update_columns(summary: "Already summarized.")
 
-    expect { run_task }.not_to have_enqueued_job(CoPlan::SummarizePlanJob)
+    expect { run_task }.not_to have_enqueued_job(Coplan::SummarizePlanJob)
   end
 
   it "skips plans with no current_plan_version" do
     create(:plan).update_columns(current_plan_version_id: nil)
 
-    expect { run_task }.not_to have_enqueued_job(CoPlan::SummarizePlanJob)
+    expect { run_task }.not_to have_enqueued_job(Coplan::SummarizePlanJob)
   end
 
   it "enqueues only the eligible plans when mixed" do
@@ -55,7 +55,7 @@ RSpec.describe "coplan:summaries:backfill", type: :task do
     # summary stays nil while the sha is already claimed.
     plan.update_columns(summary_content_sha256: plan.current_plan_version.content_sha256)
 
-    expect { run_task }.to have_enqueued_job(CoPlan::SummarizePlanJob).with(plan_id: plan.id)
+    expect { run_task }.to have_enqueued_job(Coplan::SummarizePlanJob).with(plan_id: plan.id)
     expect(plan.reload.summary_content_sha256).to be_nil
   end
 
@@ -74,7 +74,7 @@ RSpec.describe "coplan:summaries:backfill", type: :task do
     ENV["BATCH_SIZE"] = ""
     ENV["INTERVAL"] = ""
 
-    expect { run_task }.to have_enqueued_job(CoPlan::SummarizePlanJob).with(plan_id: plan.id)
+    expect { run_task }.to have_enqueued_job(Coplan::SummarizePlanJob).with(plan_id: plan.id)
   ensure
     ENV.delete("BATCH_SIZE")
     ENV.delete("INTERVAL")

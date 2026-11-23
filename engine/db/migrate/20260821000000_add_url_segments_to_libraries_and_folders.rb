@@ -4,7 +4,7 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
   # segment at a time, so nothing stores a joined path and renaming a
   # folder touches only its own row.
   #
-  # Slug logic is inlined rather than calling CoPlan::Slug — a migration
+  # Slug logic is inlined rather than calling Coplan::Slug — a migration
   # has to keep producing the same backfill years from now, even if the
   # app's slug rules move on.
   #
@@ -53,7 +53,7 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
              u.username AS owner_username, u.email AS owner_email, u.name AS owner_name
       FROM coplan_libraries l
       LEFT JOIN coplan_users u
-        ON l.owner_type = 'CoPlan::User' AND l.owner_id = u.id
+        ON l.owner_type IN ('CoPlan::User', 'Coplan::User') AND l.owner_id = u.id
       ORDER BY l.created_at, l.id
     SQL
 
@@ -85,7 +85,7 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
       SELECT u.id, u.username, u.email, u.name
       FROM coplan_users u
       LEFT JOIN coplan_libraries l
-        ON l.owner_type = 'CoPlan::User' AND l.owner_id = u.id
+        ON l.owner_type IN ('CoPlan::User', 'Coplan::User') AND l.owner_id = u.id
       WHERE l.id IS NULL
       ORDER BY u.created_at, u.id
     SQL
@@ -103,7 +103,7 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
       execute <<~SQL
         INSERT INTO coplan_libraries (id, name, handle, owner_type, owner_id, created_at, updated_at)
         VALUES (#{quote(SecureRandom.uuid_v7)}, 'Library', #{quote(handle)},
-                'CoPlan::User', #{quote(row['id'])}, #{quote(now)}, #{quote(now)})
+                'Coplan::User', #{quote(row['id'])}, #{quote(now)}, #{quote(now)})
       SQL
     end
   end
@@ -128,7 +128,7 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
     end
   end
 
-  # Mirrors CoPlan::Slug.call / .handle, inlined so this backfill keeps
+  # Mirrors Coplan::Slug.call / .handle, inlined so this backfill keeps
   # producing the same slugs if the app's rules move on. Folders keep
   # Unicode letters — a folder named 設計 gets a segment that says so —
   # while handles stay ASCII because they're typed and read aloud.

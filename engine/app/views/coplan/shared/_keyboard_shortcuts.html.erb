@@ -42,7 +42,7 @@
     <% unless current_user.voice_hotkey == "off" %>
       <section class="keyboard-shortcuts__group" aria-labelledby="shortcut-voice">
         <h3 id="shortcut-voice">Voice comments</h3>
-        <dl><div><dt><kbd><%= CoPlan::User::VOICE_HOTKEY_LABELS.fetch(current_user.voice_hotkey) %></kbd></dt><dd>Hold to comment by voice on a plan</dd></div></dl>
+        <dl><div><dt><kbd><%= Coplan::User::VOICE_HOTKEY_LABELS.fetch(current_user.voice_hotkey) %></kbd></dt><dd>Hold to comment by voice on a plan</dd></div></dl>
       </section>
     <% end %>
   </div>

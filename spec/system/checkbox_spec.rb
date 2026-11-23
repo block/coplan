@@ -15,8 +15,8 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Checklist Plan", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Checklist Plan", created_by_user: author)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: plan_content, actor_type: "human", actor_id: author.id
     )
@@ -72,7 +72,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   it "checks an unchecked checkbox and creates a new version" do
     visit plan_page_path(plan)
 
-    initial_version_count = CoPlan::PlanVersion.count
+    initial_version_count = Coplan::PlanVersion.count
 
     checkbox = find_field("Task: Write documentation", type: "checkbox", enable_aria_label: true)
     expect(checkbox).not_to be_checked
@@ -85,7 +85,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
 
     plan.reload
     expect(plan.current_content).to include("- [x] Write documentation")
-    expect(CoPlan::PlanVersion.count).to eq(initial_version_count + 1)
+    expect(Coplan::PlanVersion.count).to eq(initial_version_count + 1)
 
     version = plan.current_plan_version
     expect(version.actor_id).to eq(author.id)

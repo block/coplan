@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Commits an EditSession's accumulated operations as a single PlanVersion.
     #

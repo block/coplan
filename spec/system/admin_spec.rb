@@ -19,7 +19,7 @@ RSpec.describe "Coplan administration", type: :system do
     expect(page).to have_content("Comment permanently deleted.")
     expect(page).not_to have_content("Retained for administrator review")
     expect(page.evaluate_script("window.deletionPageMarker")).to eq("same-page")
-    expect(CoPlan::Comment.exists?(comment.id)).to be(false)
+    expect(Coplan::Comment.exists?(comment.id)).to be(false)
   end
 
   it "opens the shared dashboard and delivery history from the app menu" do
@@ -45,10 +45,10 @@ RSpec.describe "Coplan administration", type: :system do
   it "filters agent sessions and opens the matching record" do
     user = create(:coplan_user, admin: true, email: "admin-filter@example.com")
     plan = create(:plan, created_by_user: user)
-    watching = CoPlan::AgentSession.create!(
+    watching = Coplan::AgentSession.create!(
       plan: plan, api_token: create(:api_token, user: user), agent_name: "Watching agent", state: "watching"
     )
-    complete = CoPlan::AgentSession.create!(
+    complete = Coplan::AgentSession.create!(
       plan: plan, api_token: create(:api_token, user: user), agent_name: "Complete agent", state: "complete"
     )
 

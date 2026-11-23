@@ -23,7 +23,7 @@ RSpec.describe "Claiming a URL segment" do
   end
 
   it "takes the lock when asked inside a transaction" do
-    expect { CoPlan::Library.transaction { library.lock_namespace! } }
+    expect { Coplan::Library.transaction { library.lock_namespace! } }
       .not_to raise_error
   end
 
@@ -41,7 +41,7 @@ RSpec.describe "Claiming a URL segment" do
     plan = create(:plan, :published, created_by_user: author, title: "Cart Roadmap")
 
     [ nil, folder ].each do |level|
-      sql = CoPlan::Plans::AssignSlug.new(plan: plan, folder: level).send(:siblings).lock.to_sql
+      sql = Coplan::Plans::AssignSlug.new(plan: plan, folder: level).send(:siblings).lock.to_sql
 
       expect(sql).to match(/FOR UPDATE/i)
       expect(sql).not_to match(/LEFT OUTER JOIN/i), "FOR UPDATE over an outer join is a PostgreSQL error"
@@ -70,7 +70,7 @@ RSpec.describe "Claiming a URL segment" do
       plan = create(:plan, :published, created_by_user: author, title: "Cart Roadmap")
 
       taken = namespace_locks_during do
-        CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: author)
+        Coplan::Plans::Place.call(plan: plan, folder: folder, actor: author)
       end
 
       expect(taken).to be >= 1
@@ -109,7 +109,7 @@ RSpec.describe "Claiming a URL segment" do
     let!(:author) { create(:coplan_user, username: "hampton") }
     # Committed up front: two threads both reaching for the default type
     # would race on creating it, which is not what this example is about.
-    let!(:plan_type) { CoPlan::PlanType.general }
+    let!(:plan_type) { Coplan::PlanType.general }
     # Commit the namespace before starting requests. Sharing a lazily cached
     # User#library across threads can expose an uncommitted library to the
     # other connection. Each request below loads its own user, as Rails does.
@@ -117,7 +117,7 @@ RSpec.describe "Claiming a URL segment" do
 
     before do
       Rails.application.routes.eager_load!
-      CoPlan::Engine.routes.eager_load!
+      Coplan::Engine.routes.eager_load!
     end
 
     # A lock taken outside a transaction is released by the next statement,
@@ -152,8 +152,8 @@ RSpec.describe "Claiming a URL segment" do
 
     it "gives two same-titled plans two addresses" do
       plans = in_parallel(2) do |index|
-        CoPlan::Plans::Create.call(
-          title: "Cart Roadmap", content: "Draft #{index}.", user: CoPlan::User.find(author.id),
+        Coplan::Plans::Create.call(
+          title: "Cart Roadmap", content: "Draft #{index}.", user: Coplan::User.find(author.id),
           plan_type_id: plan_type.id
         )
       end
@@ -169,15 +169,15 @@ RSpec.describe "Claiming a URL segment" do
     # `uniq.size` alone wouldn't catch a path that resolves to neither.
     it "leaves both plans reachable" do
       plans = in_parallel(2) do |index|
-        CoPlan::Plans::Create.call(
-          title: "Cart Roadmap", content: "Draft #{index}.", user: CoPlan::User.find(author.id),
+        Coplan::Plans::Create.call(
+          title: "Cart Roadmap", content: "Draft #{index}.", user: Coplan::User.find(author.id),
           plan_type_id: plan_type.id
         )
       end
 
       plans.each do |plan|
         handle, _, rest = plan.url_path.partition("/")
-        result = CoPlan::Urls::Resolve.call(handle: handle, slug_path: rest)
+        result = Coplan::Urls::Resolve.call(handle: handle, slug_path: rest)
         expect(result.plan&.id).to eq(plan.id), "#{plan.url_path} did not resolve to its own plan"
       end
     end

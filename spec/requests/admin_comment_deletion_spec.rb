@@ -49,7 +49,7 @@ RSpec.describe "Admin permanent comment deletion", type: :request do
     delete path, params: { confirmation: "DELETE" }, as: :json
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body["html"]).to include("Comment permanently deleted")
-    expect(CoPlan::Comment.exists?(comment.id)).to be(false)
+    expect(Coplan::Comment.exists?(comment.id)).to be(false)
   end
 
   it "accepts the form's authenticity token when CSRF protection is enabled" do
@@ -62,7 +62,7 @@ RSpec.describe "Admin permanent comment deletion", type: :request do
 
     delete path, params: { confirmation: "DELETE", authenticity_token: token }, as: :json
     expect(response).to have_http_status(:ok)
-    expect(CoPlan::Comment.exists?(comment.id)).to be(false)
+    expect(Coplan::Comment.exists?(comment.id)).to be(false)
   ensure
     ActionController::Base.allow_forgery_protection = previous
   end

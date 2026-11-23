@@ -1,10 +1,10 @@
-module CoPlan
+module Coplan
   module Authentication
-    MISSING_AUTHENTICATE_MESSAGE = "CoPlan.configure { |c| c.authenticate = ->(request) { ... } } is required"
+    MISSING_AUTHENTICATE_MESSAGE = "Coplan.configure { |c| c.authenticate = ->(request) { ... } } is required"
 
     module_function
 
-    def user_from_request(request, callback: CoPlan.configuration.authenticate)
+    def user_from_request(request, callback: Coplan.configuration.authenticate)
       raise MISSING_AUTHENTICATE_MESSAGE unless callback
 
       attrs = callback.call(request)
@@ -15,12 +15,12 @@ module CoPlan
 
     def provision_user!(attrs)
       external_id = attrs[:external_id].to_s
-      user = CoPlan::User.find_or_initialize_by(external_id: external_id)
+      user = Coplan::User.find_or_initialize_by(external_id: external_id)
       sync_user_attrs(user, attrs)
       user.save! if user.new_record? || user.changed?
       user
     rescue ActiveRecord::RecordNotUnique
-      user = CoPlan::User.find_by!(external_id: external_id)
+      user = Coplan::User.find_by!(external_id: external_id)
       sync_user_attrs(user, attrs)
       user.save! if user.changed?
       user
@@ -41,7 +41,7 @@ module CoPlan
     # (nil for a brand-new account).
     def resolve_username_collision(user)
       return if user.username.blank? || !user.username_changed?
-      return unless CoPlan::User.where(username: user.username).where.not(id: user.id).exists?
+      return unless Coplan::User.where(username: user.username).where.not(id: user.id).exists?
 
       user.username = user.username_was
     end

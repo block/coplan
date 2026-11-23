@@ -8,7 +8,7 @@ RSpec.describe "Api::V1::Tokens", type: :request do
   before { root_token }
 
   def hook_auth_as(user)
-    allow(CoPlan.configuration).to receive(:api_authenticate)
+    allow(Coplan.configuration).to receive(:api_authenticate)
       .and_return(->(_req) { { external_id: user.external_id } })
   end
 
@@ -24,7 +24,7 @@ RSpec.describe "Api::V1::Tokens", type: :request do
       expect(body["agent_name"]).to eq("Claude run")
       expect(body["parent_id"]).to eq(root_token.id)
 
-      minted = CoPlan::ApiToken.authenticate(body["token"])
+      minted = Coplan::ApiToken.authenticate(body["token"])
       expect(minted.user_id).to eq(alice.id)
       expect(minted.expires_at).to be_within(1.minute).of(1.hour.from_now)
     end
@@ -40,7 +40,7 @@ RSpec.describe "Api::V1::Tokens", type: :request do
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
       expect(body["parent_id"]).to be_nil
-      minted = CoPlan::ApiToken.authenticate(body["token"])
+      minted = Coplan::ApiToken.authenticate(body["token"])
       expect(minted.user_id).to eq(alice.id)
       expect(minted.expires_at).to be_present
     end
@@ -58,7 +58,7 @@ RSpec.describe "Api::V1::Tokens", type: :request do
       expect(body["metadata"]).to eq(
         "harness" => "claude-code", "harness_version" => "2.1.3", "model" => "claude-fable-5"
       )
-      minted = CoPlan::ApiToken.authenticate(body["token"])
+      minted = Coplan::ApiToken.authenticate(body["token"])
       expect(minted.metadata["harness"]).to eq("claude-code")
     end
 
@@ -170,7 +170,7 @@ RSpec.describe "Api::V1::Tokens", type: :request do
       expect(first).not_to eq(second)
 
       post api_v1_plan_agent_session_path(plan), headers: { "Authorization" => "Bearer #{first}" }, as: :json
-      CoPlan::AgentEvents::Publish.call(plan: plan, event_type: "plan.content_changed")
+      Coplan::AgentEvents::Publish.call(plan: plan, event_type: "plan.content_changed")
 
       get api_v1_agent_events_path, headers: { "Authorization" => "Bearer #{first}" }, params: { wait: 0 }
       expect(JSON.parse(response.body)["events"].length).to eq(1)

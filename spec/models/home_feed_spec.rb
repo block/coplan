@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::HomeFeed, type: :model do
+RSpec.describe Coplan::HomeFeed, type: :model do
   let(:author) { create(:coplan_user) }
 
   describe ".build" do

@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Editable code selection and highlighting", type: :system do
   let(:author) { create(:coplan_user, email: "code-scope@example.com") }
   let(:source) { "# Code scopes\n\nBefore prose.\n\n```js extra=1\nfunction hi() {\n  return 42;\n}\n```\n\nAfter prose.\n\n```ruby\nputs :other\n```\n" }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Code scopes", content: source, user: author, visibility: "draft", actor_type: "human") }
+  let(:plan) { Coplan::Plans::Create.call(title: "Code scopes", content: source, user: author, visibility: "draft", actor_type: "human") }
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
   before do
@@ -183,7 +183,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
 
   it "falls back to plain text for large blocks without rewriting their source" do
     large = "# Large code\n\n```javascript\n" + ("const number = 42;\n" * 1200) + "```\n"
-    large_plan = CoPlan::Plans::Create.call(title: "Large code", content: large, user: author, visibility: "draft", actor_type: "human")
+    large_plan = Coplan::Plans::Create.call(title: "Large code", content: large, user: author, visibility: "draft", actor_type: "human")
     visit plan_edit_page_path(large_plan)
     expect(page).to have_css('[aria-label="Document body"]', wait: 20)
     expect(code).to have_text("const number = 42;")

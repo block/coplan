@@ -1,7 +1,7 @@
 require "rails_helper"
 require "timeout"
 
-RSpec.describe CoPlan::WebPushSubscription, "concurrent subscriptions", type: :model do
+RSpec.describe Coplan::WebPushSubscription, "concurrent subscriptions", type: :model do
   self.use_transactional_tests = false
 
   let!(:users) { create_list(:coplan_user, 2) }

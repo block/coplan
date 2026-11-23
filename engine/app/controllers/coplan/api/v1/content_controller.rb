@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       # PUT /api/v1/plans/:plan_id/content — replace plan content wholesale.

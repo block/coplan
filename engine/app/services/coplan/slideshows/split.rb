@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Slideshows
     # Splits a plan's markdown into slides. Slides are a rendering convention
     # over the document — nothing here is persisted — so this must agree with
@@ -63,7 +63,7 @@ module CoPlan
       def call
         return Result.new(slides: [], shared_definitions: "", definition_blocks: []) if @content.strip.empty?
 
-        doc = CoPlan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
+        doc = Coplan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
         lines = @content.split("\n", -1)
 
         break_lines = []
@@ -228,7 +228,7 @@ module CoPlan
         return false unless text.lstrip.start_with?("[")
         return false if text.each_line.any? { |line| line.lstrip.start_with?("[^") }
 
-        CoPlan::Markdown.parse(text, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).first_child.nil?
+        Coplan::Markdown.parse(text, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).first_child.nil?
       end
 
       # Keys namespace footnotes apart from link references and normalize the

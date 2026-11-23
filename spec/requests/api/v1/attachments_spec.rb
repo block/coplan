@@ -76,7 +76,7 @@ RSpec.describe "Api::V1::Attachments", type: :request do
     end
 
     it "rejects files over the size limit without creating a blob" do
-      stub_const("CoPlan::Plan::ATTACHMENT_MAX_BYTES", 4)
+      stub_const("Coplan::Plan::ATTACHMENT_MAX_BYTES", 4)
 
       expect { upload_file }.not_to change(ActiveStorage::Blob, :count)
       expect(response).to have_http_status(:unprocessable_content)

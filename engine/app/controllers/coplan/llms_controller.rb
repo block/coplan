@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class LlmsController < ApplicationController
     skip_before_action :authenticate_coplan_user!
 

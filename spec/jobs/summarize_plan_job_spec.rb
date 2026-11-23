@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::SummarizePlanJob, type: :job do
+RSpec.describe Coplan::SummarizePlanJob, type: :job do
   include ActiveJob::TestHelper
 
   let(:plan) do
@@ -11,28 +11,28 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
   let(:current_sha) { plan.current_plan_version.content_sha256 }
 
   before do
-    allow(CoPlan::Ai).to receive(:call).and_return("Fresh summary.")
+    allow(Coplan::Ai).to receive(:call).and_return("Fresh summary.")
   end
 
   describe "#perform" do
     it "uses gpt-6-luna as the default summary model" do
-      allow(CoPlan::Ai).to receive(:call).and_call_original
-      allow(CoPlan::AiProviders::OpenAi).to receive(:call).and_return("Fresh summary.")
+      allow(Coplan::Ai).to receive(:call).and_call_original
+      allow(Coplan::AiProviders::OpenAi).to receive(:call).and_return("Fresh summary.")
 
       described_class.perform_now(plan_id: plan.id)
 
-      expect(CoPlan::AiProviders::OpenAi).to have_received(:call).with(
+      expect(Coplan::AiProviders::OpenAi).to have_received(:call).with(
         system_prompt: File.read(described_class::PROMPT_PATH),
         user_content: plan.current_content,
         model: "gpt-6-luna"
       )
     end
 
-    it "passes the summarize prompt and plan content to CoPlan::Ai" do
+    it "passes the summarize prompt and plan content to Coplan::Ai" do
       described_class.perform_now(plan_id: plan.id)
 
-      expect(CoPlan::Ai).to have_received(:call).with(
-        system_prompt: File.read(CoPlan::SummarizePlanJob::PROMPT_PATH),
+      expect(Coplan::Ai).to have_received(:call).with(
+        system_prompt: File.read(Coplan::SummarizePlanJob::PROMPT_PATH),
         user_content: plan.current_content,
         intensity: :low
       )
@@ -50,7 +50,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
     end
 
     it "strips whitespace from the AI response before persisting" do
-      allow(CoPlan::Ai).to receive(:call).and_return("  trimmed\n\n")
+      allow(Coplan::Ai).to receive(:call).and_return("  trimmed\n\n")
 
       described_class.perform_now(plan_id: plan.id)
 
@@ -66,7 +66,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
 
       described_class.perform_now(plan_id: plan.id)
 
-      expect(CoPlan::Ai).not_to have_received(:call)
+      expect(Coplan::Ai).not_to have_received(:call)
       expect(plan.reload.summary).to eq("Existing.")
     end
 
@@ -85,7 +85,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
     end
 
     it "does not update when the AI returns blank" do
-      allow(CoPlan::Ai).to receive(:call).and_return("   \n")
+      allow(Coplan::Ai).to receive(:call).and_return("   \n")
 
       expect {
         described_class.perform_now(plan_id: plan.id)
@@ -97,7 +97,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
 
       described_class.perform_now(plan_id: plan.id)
 
-      expect(CoPlan::Ai).not_to have_received(:call)
+      expect(Coplan::Ai).not_to have_received(:call)
     end
 
     it "no-ops when the plan has been deleted" do
@@ -106,7 +106,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       expect {
         described_class.perform_now(plan_id: missing_id)
       }.not_to raise_error
-      expect(CoPlan::Ai).not_to have_received(:call)
+      expect(Coplan::Ai).not_to have_received(:call)
     end
 
     # Concurrency guard: two workers waking up against the same plan-and-sha
@@ -114,7 +114,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
     # would pass a naive pre-check and both burn an AI request.
     it "claims the sha before calling AI so a concurrent worker skips" do
       call_count = 0
-      allow(CoPlan::Ai).to receive(:call) do
+      allow(Coplan::Ai).to receive(:call) do
         call_count += 1
         # Simulate a second worker firing while we're mid-AI-call. With the
         # claim already taken, this inner perform should no-op.
@@ -132,30 +132,30 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       existing_plan = plan
       job = described_class.new
       allow(job).to receive(:claim_version).and_wrap_original do |claim, record, version|
-        CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Newer\n\nStill editing.",
+        Coplan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Newer\n\nStill editing.",
           base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
         claim.call(record, version)
       end
 
       job.perform(plan_id: existing_plan.id, version_id: existing_plan.current_plan_version_id)
 
-      expect(CoPlan::Ai).not_to have_received(:call)
+      expect(Coplan::Ai).not_to have_received(:call)
       expect(existing_plan.reload.summary_content_sha256).to be_nil
     end
 
     it "skips a superseded job even when the latest version is already quiet" do
       existing_plan = plan
       old_version_id = existing_plan.current_plan_version_id
-      result = CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Newer\n\nFinal content.",
+      result = Coplan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Newer\n\nFinal content.",
         base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
 
       travel_to(result.fetch(:version).created_at + 1.minute, with_usec: true) do
         described_class.perform_now(plan_id: existing_plan.id, version_id: old_version_id)
-        expect(CoPlan::Ai).not_to have_received(:call)
+        expect(Coplan::Ai).not_to have_received(:call)
 
         described_class.perform_now(plan_id: existing_plan.id, version_id: result.fetch(:version).id)
         described_class.perform_now(plan_id: existing_plan.id)
-        expect(CoPlan::Ai).to have_received(:call).once
+        expect(Coplan::Ai).to have_received(:call).once
       end
     end
 
@@ -167,7 +167,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       # Simulate "a newer version landed while the AI was thinking" by
       # mutating the plan's current_plan_version between the AI call and
       # the persist step.
-      allow(CoPlan::Ai).to receive(:call) do
+      allow(Coplan::Ai).to receive(:call) do
         newer = create(:plan_version, plan: plan, revision: plan.current_revision + 1,
                                        content_markdown: "# Fresher\n\nNewer body.")
         plan.update!(current_plan_version: newer, current_revision: newer.revision,
@@ -193,17 +193,17 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
           described_class.perform_now(plan_id: fresh_plan.id)
         }.to have_enqueued_job(described_class)
           .with(plan_id: fresh_plan.id, version_id: version.id).at(1.minute.from_now)
-        expect(CoPlan::Ai).not_to have_received(:call)
+        expect(Coplan::Ai).not_to have_received(:call)
         expect(fresh_plan.reload.summary_content_sha256).to be_nil
 
         travel 1.minute
         perform_enqueued_jobs(only: described_class, at: Time.current)
-        expect(CoPlan::Ai).to have_received(:call).once
+        expect(Coplan::Ai).to have_received(:call).once
       end
     end
 
     it "discards on AI errors instead of retrying" do
-      allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "boom")
+      allow(Coplan::Ai).to receive(:call).and_raise(Coplan::Ai::Error, "boom")
 
       expect {
         perform_enqueued_jobs { described_class.perform_later(plan_id: plan.id) }
@@ -213,9 +213,9 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
     it "discards a provider connection failure, preserving the summary and its sha claim" do
       generated_at = 1.hour.ago.change(usec: 0)
       plan.update!(summary: "Existing summary.", summary_generated_at: generated_at)
-      allow(CoPlan::Ai).to receive(:call).and_call_original
+      allow(Coplan::Ai).to receive(:call).and_call_original
       mock_client = instance_double(OpenAI::Client)
-      allow(CoPlan::AiProviders::OpenAi).to receive(:client).and_return(mock_client)
+      allow(Coplan::AiProviders::OpenAi).to receive(:client).and_return(mock_client)
       allow(mock_client).to receive(:chat).and_raise(Faraday::ConnectionFailed, '503 "Service Unavailable"')
 
       expect {
@@ -243,7 +243,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
 
   describe "PlanVersion after_create_commit hook" do
     it "uses the host's quiet period for new versions and legacy jobs" do
-      allow(CoPlan.configuration).to receive(:summary_debounce_delay).and_return(120)
+      allow(Coplan.configuration).to receive(:summary_debounce_delay).and_return(120)
 
       freeze_time do
         fresh_plan = create(:plan)
@@ -260,21 +260,21 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
 
         travel 59.seconds
         perform_enqueued_jobs(only: described_class, at: Time.current)
-        expect(CoPlan::Ai).not_to have_received(:call)
+        expect(Coplan::Ai).not_to have_received(:call)
 
         travel 1.second
         perform_enqueued_jobs(only: described_class, at: Time.current)
-        expect(CoPlan::Ai).to have_received(:call).once
+        expect(Coplan::Ai).to have_received(:call).once
       end
     end
 
     it "can skip the quiet period when the host configures zero" do
-      allow(CoPlan.configuration).to receive(:summary_debounce_delay).and_return(0)
+      allow(Coplan.configuration).to receive(:summary_debounce_delay).and_return(0)
       fresh_plan = create(:plan)
 
       described_class.perform_now(plan_id: fresh_plan.id, version_id: fresh_plan.current_plan_version_id)
 
-      expect(CoPlan::Ai).to have_received(:call).once
+      expect(Coplan::Ai).to have_received(:call).once
       expect(fresh_plan.reload.summary).to eq("Fresh summary.")
     end
 
@@ -283,24 +283,24 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
         existing_plan = plan
         clear_enqueued_jobs
 
-        CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Draft\n\nFirst edit.",
+        Coplan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Draft\n\nFirst edit.",
           base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
 
         travel 45.seconds
         latest_content = "# Draft\n\nFinal edit."
-        result = CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: latest_content,
+        result = Coplan::Plans::ReplaceContent.call(plan: existing_plan, new_content: latest_content,
           base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
         expect(described_class).to have_been_enqueued
           .with(plan_id: existing_plan.id, version_id: result.fetch(:version).id).at(1.minute.from_now)
 
         travel 59.seconds
         perform_enqueued_jobs(only: described_class, at: Time.current)
-        expect(CoPlan::Ai).not_to have_received(:call)
+        expect(Coplan::Ai).not_to have_received(:call)
         expect(existing_plan.reload.summary_content_sha256).to be_nil
 
         travel 1.second
         perform_enqueued_jobs(only: described_class, at: Time.current)
-        expect(CoPlan::Ai).to have_received(:call).with(
+        expect(Coplan::Ai).to have_received(:call).with(
           system_prompt: File.read(described_class::PROMPT_PATH),
           user_content: latest_content,
           intensity: :low

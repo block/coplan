@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Human edits are a fence, not a merge input.
     #
@@ -16,7 +16,7 @@ module CoPlan
     # edited since this caller last actually read the plan, every agent
     # write is refused until the caller pulls the new content.
     #
-    # "Actually read" means a read receipt (CoPlan::PlanRead), not a
+    # "Actually read" means a read receipt (Coplan::PlanRead), not a
     # `base_revision` the caller asserts — an agent handed a 409 that names
     # the current revision could otherwise just echo the number back and
     # clobber the edit on the retry.
@@ -177,7 +177,7 @@ module CoPlan
       end
 
       def resolve_instructions
-        base = CoPlan::Engine.routes.url_helpers.snapshot_api_v1_plan_path(@plan)
+        base = Coplan::Engine.routes.url_helpers.snapshot_api_v1_plan_path(@plan)
         "GET #{base} to pull the current content (that read is what lifts this block), " \
         "then re-send your write with base_revision=#{@plan.current_revision}. " \
         "Do not re-send your previous body unchanged — it predates the human's edit."

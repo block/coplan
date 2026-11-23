@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A first-class log entry for metadata mutations on a plan — status changes,
   # title changes, tag adds/removes, reference adds/removes, plan_type changes.
   #
@@ -40,8 +40,8 @@ module CoPlan
     ].freeze
 
     belongs_to :plan
-    belongs_to :actor_user, class_name: "CoPlan::User", foreign_key: "actor_id", optional: true
-    belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
+    belongs_to :actor_user, class_name: "Coplan::User", foreign_key: "actor_id", optional: true
+    belongs_to :api_token, class_name: "Coplan::ApiToken", optional: true
 
     after_initialize { self.metadata ||= {} }
 

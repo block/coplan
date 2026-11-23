@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class BroadcastPermanentCommentDeletionJob < ApplicationJob
     queue_as :default
     self.enqueue_after_transaction_commit = false

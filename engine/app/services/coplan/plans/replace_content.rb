@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Replaces a plan's content wholesale by diffing the supplied new_content
     # against the plan's current_content, decomposing the diff into a series

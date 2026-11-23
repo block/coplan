@@ -25,8 +25,8 @@ RSpec.describe "Expanding a Mermaid diagram", type: :system do
   end
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Diagram Plan", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Diagram Plan", created_by_user: author)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: plan_content, actor_type: "human", actor_id: author.id
     )

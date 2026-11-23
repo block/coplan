@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Settings
     class TokensController < ApplicationController
       PER_PAGE = 25

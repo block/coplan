@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A placement files a plan in a library folder. A plan has at most one:
   # it lives in exactly one place, the way a file does. Filing it
   # somewhere else is a move, never a second copy — which is what lets a
@@ -11,10 +11,10 @@ module CoPlan
   class PlanPlacement < ApplicationRecord
     include BroadcastsLibraryChanges
 
-    belongs_to :plan, class_name: "CoPlan::Plan", inverse_of: :placement
-    belongs_to :folder, class_name: "CoPlan::Folder", inverse_of: :placements
-    belongs_to :library, class_name: "CoPlan::Library", inverse_of: :placements
-    belongs_to :placed_by_user, class_name: "CoPlan::User", optional: true
+    belongs_to :plan, class_name: "Coplan::Plan", inverse_of: :placement
+    belongs_to :folder, class_name: "Coplan::Folder", inverse_of: :placements
+    belongs_to :library, class_name: "Coplan::Library", inverse_of: :placements
+    belongs_to :placed_by_user, class_name: "Coplan::User", optional: true
 
     before_validation :inherit_library_from_folder
 

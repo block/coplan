@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Editor draft recovery", type: :system do
   let(:author) { create(:coplan_user, email: "editor-recovery@example.com") }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Recovery", content: "Saved content", user: author, actor_type: "human") }
+  let(:plan) { Coplan::Plans::Create.call(title: "Recovery", content: "Saved content", user: author, actor_type: "human") }
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
   let(:legacy_key) { "coplan-editor-draft-#{plan.id}" }
 
@@ -47,7 +47,7 @@ RSpec.describe "Editor draft recovery", type: :system do
         first = created.plan_versions.find_by!(revision: 1)
         provenance = first.writing_provenance
         start = first.content_markdown.index(snapshot[:content])
-        runs = CoPlan::Plans::WritingProvenance.slice(provenance.fetch("runs"), start, start + snapshot[:content].length)
+        runs = Coplan::Plans::WritingProvenance.slice(provenance.fetch("runs"), start, start + snapshot[:content].length)
         expect(runs.map { |_, key| provenance.fetch("sources").fetch(key).fetch("kind") }).to all(eq("human"))
       end
     end

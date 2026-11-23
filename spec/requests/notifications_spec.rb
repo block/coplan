@@ -7,7 +7,7 @@ RSpec.describe "Notifications", type: :request do
 
   before do
     sign_in_as(user)
-    allow(CoPlan::Broadcaster).to receive(:update_to)
+    allow(Coplan::Broadcaster).to receive(:update_to)
   end
 
   describe "GET /notifications" do
@@ -18,11 +18,11 @@ RSpec.describe "Notifications", type: :request do
 
       get notifications_path
       expect(response.body).not_to include("Retained private wording")
-      expect(response.body).to include(CoPlan::Comment::DELETED_BODY)
+      expect(response.body).to include(Coplan::Comment::DELETED_BODY)
 
       get notifications_path(panel: true)
       expect(response.body).not_to include("Retained private wording")
-      expect(response.body).to include(CoPlan::Comment::DELETED_BODY)
+      expect(response.body).to include(Coplan::Comment::DELETED_BODY)
       expect(comment.reload.body_markdown).to eq("Retained private wording")
     end
 

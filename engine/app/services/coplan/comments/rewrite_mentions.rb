@@ -1,8 +1,8 @@
-module CoPlan
+module Coplan
   module Comments
     # Rewrites plain `@username` mentions in a comment body into the canonical
     # `[@username](mention:username)` markdown form, but only for usernames that
-    # resolve to a real CoPlan::User. Unresolved `@foo` is left as plain text.
+    # resolve to a real Coplan::User. Unresolved `@foo` is left as plain text.
     #
     # This runs `before_save` on Comment so:
     # - The textarea stays visually clean while the user is typing.
@@ -30,7 +30,7 @@ module CoPlan
         usernames = @body.scan(PLAIN_MENTION_PATTERN).flatten.uniq
         return @body if usernames.empty?
 
-        resolved = CoPlan::User.where(username: usernames).pluck(:username).to_set
+        resolved = Coplan::User.where(username: usernames).pluck(:username).to_set
 
         @body.gsub(PLAIN_MENTION_PATTERN) do
           username = ::Regexp.last_match(1)

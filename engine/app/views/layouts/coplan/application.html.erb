@@ -11,8 +11,8 @@
     <% if signed_in? %>
       <meta name="coplan-current-user-id" content="<%= current_user.id %>">
     <% end %>
-    <% if CoPlan.configuration.web_push_configured? %>
-      <meta name="coplan-vapid-public-key" content="<%= CoPlan.configuration.vapid_public_key %>">
+    <% if Coplan.configuration.web_push_configured? %>
+      <meta name="coplan-vapid-public-key" content="<%= Coplan.configuration.vapid_public_key %>">
       <meta name="coplan-service-worker-url" content="<%= coplan.service_worker_path %>">
       <meta name="coplan-web-push-subscription-url" content="<%= coplan.web_push_subscription_path %>">
     <% end %>
@@ -131,7 +131,7 @@
       </div>
     </nav>
     <% if @show_onboarding_banner %>
-      <div class="onboarding-banner"><%= CoPlan.configuration.onboarding_banner.html_safe %></div>
+      <div class="onboarding-banner"><%= Coplan.configuration.onboarding_banner.html_safe %></div>
     <% end %>
     <main class="main-content">
       <% if notice.present? %>

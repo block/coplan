@@ -4,7 +4,7 @@ require "coplan/slack/version"
 require "coplan/slack/configuration"
 require "coplan/slack/engine"
 
-module CoPlan
+module Coplan
   module Slack
     class << self
       def configuration
@@ -13,8 +13,8 @@ module CoPlan
 
       def configure
         yield(configuration)
-        if configuration.notifications_enabled && !CoPlan.configuration.notification_delivery_handlers.include?(notification_delivery_handler)
-          CoPlan.configuration.notification_delivery_handlers << notification_delivery_handler
+        if configuration.notifications_enabled && !Coplan.configuration.notification_delivery_handlers.include?(notification_delivery_handler)
+          Coplan.configuration.notification_delivery_handlers << notification_delivery_handler
         end
       end
 
@@ -27,7 +27,7 @@ module CoPlan
             raise ArgumentError, "Coplan Slack notifications require bot_token and base_url"
           end
 
-          delivery = CoPlan::NotificationDelivery.create_or_find_by!(notification: notification, channel: "slack") do |record|
+          delivery = Coplan::NotificationDelivery.create_or_find_by!(notification: notification, channel: "slack") do |record|
             record.status = "pending"
           end
           next unless delivery.status == "pending"

@@ -1,14 +1,14 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::WakeUrlPolicy do
+RSpec.describe Coplan::WakeUrlPolicy do
   around do |example|
     # The test env installs a permissive policy; nil it out so these
     # examples exercise the engine default.
-    original = CoPlan.configuration.wake_url_policy
-    CoPlan.configuration.wake_url_policy = nil
+    original = Coplan.configuration.wake_url_policy
+    Coplan.configuration.wake_url_policy = nil
     example.run
   ensure
-    CoPlan.configuration.wake_url_policy = original
+    Coplan.configuration.wake_url_policy = original
   end
 
   def allowed_for(addresses)
@@ -61,7 +61,7 @@ RSpec.describe CoPlan::WakeUrlPolicy do
   end
 
   it "defers entirely to a configured host policy" do
-    CoPlan.configuration.wake_url_policy = ->(uri) { uri.host == "trusted.internal" }
+    Coplan.configuration.wake_url_policy = ->(uri) { uri.host == "trusted.internal" }
 
     expect(described_class.allowed?(URI.parse("http://trusted.internal/wake"))).to be(true)
     expect(described_class.allowed?(URI.parse("http://other.internal/wake"))).to be(false)
@@ -84,7 +84,7 @@ RSpec.describe CoPlan::WakeUrlPolicy do
     end
 
     it "returns :unpinned when a custom policy allows — it vets URIs, not addresses" do
-      CoPlan.configuration.wake_url_policy = ->(_uri) { true }
+      Coplan.configuration.wake_url_policy = ->(_uri) { true }
 
       expect(described_class.vetted_addresses(URI.parse("http://trusted.internal/wake"))).to eq(:unpinned)
     end

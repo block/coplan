@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # One row per (event, subscribed agent token) — the durable inbox an agent
   # (or its bridge daemon) drains via GET /api/v1/agent/events. IDs are
   # UUIDv7, so lexicographic order is creation order and the id doubles as
@@ -14,8 +14,8 @@ module CoPlan
       session.commit_failed
     ].freeze
 
-    belongs_to :api_token, class_name: "CoPlan::ApiToken"
-    belongs_to :plan, class_name: "CoPlan::Plan"
+    belongs_to :api_token, class_name: "Coplan::ApiToken"
+    belongs_to :plan, class_name: "Coplan::Plan"
 
     validates :event_type, inclusion: { in: TYPES }
 

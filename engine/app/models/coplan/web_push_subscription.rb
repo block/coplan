@@ -1,8 +1,8 @@
 require "digest"
 
-module CoPlan
+module Coplan
   class WebPushSubscription < ApplicationRecord
-    belongs_to :user, class_name: "CoPlan::User"
+    belongs_to :user, class_name: "Coplan::User"
 
     # Every notification queues one delivery job per subscription on the
     # job worker that runs every queue, so a person's device count is a
@@ -46,7 +46,7 @@ module CoPlan
       }
 
       transaction do
-        CoPlan::User.lock.find(user.id)
+        Coplan::User.lock.find(user.id)
         record = find_or_initialize_by(endpoint_digest: digest)
         record.assign_attributes(attrs)
         begin

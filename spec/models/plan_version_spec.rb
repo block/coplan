@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::PlanVersion, type: :model do
+RSpec.describe Coplan::PlanVersion, type: :model do
   it "is valid with valid attributes" do
     plan = create(:plan)
     version = plan.current_plan_version
@@ -26,7 +26,7 @@ RSpec.describe CoPlan::PlanVersion, type: :model do
   it "rejects a supplied hash that differs from the stored bytes and fails closed on corrupt legacy data" do
     expect(build(:plan_version, content_markdown: "body", content_sha256: "wrong")).not_to be_valid
     version = create(:plan).current_plan_version
-    CoPlan::PlanVersion.where(id: version.id).update_all(content_markdown: "tampered")
+    Coplan::PlanVersion.where(id: version.id).update_all(content_markdown: "tampered")
     expect { version.reload.verified_content! }.to raise_error(ActiveRecord::RecordInvalid)
   end
 

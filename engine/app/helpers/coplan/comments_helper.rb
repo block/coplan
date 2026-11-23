@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module CommentsHelper
     def comment_author_name(comment)
       user = comment_author_user(comment)

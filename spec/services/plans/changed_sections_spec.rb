@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::ChangedSections do
+RSpec.describe Coplan::Plans::ChangedSections do
   def result(old_content, new_content)
     described_class.call(old_content: old_content, new_content: new_content)
   end

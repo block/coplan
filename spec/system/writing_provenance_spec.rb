@@ -2,14 +2,14 @@ require "rails_helper"
 
 RSpec.describe "Writing provenance", type: :system do
   let(:user) { create(:coplan_user, email: "writing@example.com") }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Writing sources", content: "# Delivery\n\nExisting agent proposal.\n", user: user, actor_type: "local_agent", agent_name: "Claude") }
+  let(:plan) { Coplan::Plans::Create.call(title: "Writing sources", content: "# Delivery\n\nExisting agent proposal.\n", user: user, actor_type: "local_agent", agent_name: "Claude") }
 
   after { page.current_window.resize_to(1400, 900) }
 
   it "shows early human-labeled history as unknown after automatic repair" do
     plan.current_plan_version.update_columns(actor_type: "human", agent_name: nil, created_at: Time.utc(2026, 7, 9), writing_provenance: nil)
     plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 0 })
-    CoPlan::WritingProvenanceJob.perform_now(plan_id: plan.id)
+    Coplan::WritingProvenanceJob.perform_now(plan_id: plan.id)
     visit sign_in_path
     fill_in "Email", with: user.email
     click_button "Sign In"
@@ -46,7 +46,7 @@ RSpec.describe "Writing provenance", type: :system do
   context "when reordering a person's writing" do
     let(:content) { "# Current Architecture\n\nDevices connect directly to the cloud.\n\n# Proposal\n\nConnect devices securely over the local network.\n" }
     let(:plan) do
-      CoPlan::Plans::Create.call(title: "Moved writing", content: content, user: user, actor_type: "human",
+      Coplan::Plans::Create.call(title: "Moved writing", content: content, user: user, actor_type: "human",
         input_sources: { "runs" => [ [ content.length, "human" ] ] })
     end
 
@@ -105,7 +105,7 @@ RSpec.describe "Writing provenance", type: :system do
 
   it "keeps mixed typed and pasted citation text separate from retained agent writing" do
     content = "Read source[^ref].\n\n[^ref]: Original evidence.\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: user.id)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: user.id)
     open_editor
     click_button "Edit citation ref", enable_aria_label: true
     body = find('#coplan-citation-body')
@@ -129,7 +129,7 @@ RSpec.describe "Writing provenance", type: :system do
 
   it "leaves native link-prompt input unknown and distinguishes pasted code-language fields" do
     content = "# Delivery\n\nLink label\n\n```ruby\nputs 'hello'\n```\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: user.id)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: user.id)
     open_editor
     page.execute_script(<<~JS)
       const node = document.querySelector('[aria-label="Document body"] p').firstChild
@@ -151,7 +151,7 @@ RSpec.describe "Writing provenance", type: :system do
 
   it "explains the inspection limit while keeping named percentages usable" do
     plan
-    stub_const("CoPlan::Plans::WritingProvenance::MAX_INSPECTION_CHARACTERS", 4)
+    stub_const("Coplan::Plans::WritingProvenance::MAX_INSPECTION_CHARACTERS", 4)
     visit sign_in_path
     fill_in "Email", with: user.email
     click_button "Sign In"
@@ -189,7 +189,7 @@ RSpec.describe "Writing provenance", type: :system do
 
   it "inspects citation numbers with the reference's author and version" do
     content = "Read source[^ref].\n\n[^ref]: Evidence.\n"
-    cited = CoPlan::Plans::Create.call(title: "Cited writing", content: content, user: user, actor_type: "local_agent", agent_name: "Claude")
+    cited = Coplan::Plans::Create.call(title: "Cited writing", content: content, user: user, actor_type: "local_agent", agent_name: "Claude")
     visit sign_in_path
     fill_in "Email", with: user.email
     click_button "Sign In"
@@ -226,7 +226,7 @@ RSpec.describe "Writing provenance", type: :system do
   it "shows the actor and version for a one-word edit, and blocks editing until inspection ends" do
     original = plan.current_content
     changed = original.sub("Existing", "Existing not")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: changed, base_revision: 1, actor_type: "human", actor_id: user.id,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: changed, base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ changed.length, "human" ] ] })
     visit sign_in_path
     fill_in "Email", with: user.email
@@ -309,7 +309,7 @@ RSpec.describe "Writing provenance", type: :system do
   it "keeps new pasted text unknown after the historical editor backfill" do
     plan.current_plan_version.update_columns(actor_type: "human", agent_name: nil, writing_provenance: nil)
     plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 0 })
-    CoPlan::WritingProvenanceJob.perform_now(plan_id: plan.id, restart: true)
+    Coplan::WritingProvenanceJob.perform_now(plan_id: plan.id, restart: true)
     expect(plan.reload.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
     open_editor
     surface = find('[aria-label="Document body"]')
@@ -322,14 +322,14 @@ RSpec.describe "Writing provenance", type: :system do
     JS
     expect(page).to have_css('#writing-provenance[data-coplan--writing-provenance-revision-value="2"]', wait: 20)
     expect(plan.reload.writing_provenance_summary.dig("counts", "unknown")).to eq(13)
-    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => CoPlan::Plans::WritingProvenance::HISTORY_POLICY)
+    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => Coplan::Plans::WritingProvenance::HISTORY_POLICY)
   end
 
   it "attributes repeated prose to its writer rather than an earlier diagram label" do
     source = "```mermaid\nflowchart LR\n A[Foo]\n```\n"
-    diagram = CoPlan::Plans::Create.call(title: "Repeated sources", content: source, user: user, actor_type: "local_agent", agent_name: "Claude")
+    diagram = Coplan::Plans::Create.call(title: "Repeated sources", content: source, user: user, actor_type: "local_agent", agent_name: "Claude")
     changed = source + "\n**Foo**\n"
-    CoPlan::Plans::ReplaceContent.call(plan: diagram, new_content: changed, base_revision: 1, actor_type: "human", actor_id: user.id,
+    Coplan::Plans::ReplaceContent.call(plan: diagram, new_content: changed, base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ changed.length, "human" ] ] })
     visit sign_in_path
     fill_in "Email", with: user.email
@@ -349,7 +349,7 @@ RSpec.describe "Writing provenance", type: :system do
 
   it "keeps escaped punctuation, entities, and following text in their known source highlight" do
     content = 'Typed \*literal\* &amp; café &copy; &#x1F600; after.'
-    escaped = CoPlan::Plans::Create.call(title: "Escaped writing", content: content, user: user, actor_type: "local_agent", agent_name: "Claude")
+    escaped = Coplan::Plans::Create.call(title: "Escaped writing", content: content, user: user, actor_type: "local_agent", agent_name: "Claude")
     visit sign_in_path
     fill_in "Email", with: user.email
     click_button "Sign In"
@@ -365,7 +365,7 @@ RSpec.describe "Writing provenance", type: :system do
 
   it "inspects a document made entirely of supported raw HTML" do
     content = '<details><summary>Note</summary>raw <b>HTML</b> &amp; café</details>'
-    html = CoPlan::Plans::Create.call(title: "HTML writing", content: content, user: user, actor_type: "local_agent", agent_name: "Claude")
+    html = Coplan::Plans::Create.call(title: "HTML writing", content: content, user: user, actor_type: "local_agent", agent_name: "Claude")
     visit sign_in_path
     fill_in "Email", with: user.email
     click_button "Sign In"
@@ -382,7 +382,7 @@ RSpec.describe "Writing provenance", type: :system do
 
   it "distinguishes typing from pasted input in embed fields" do
     source = '::: {.iframe src="https://example.com/frame" title="Original" /}'
-    embedded = CoPlan::Plans::Create.call(title: "Embed writing", content: source, user: user, actor_type: "local_agent", agent_name: "Claude")
+    embedded = Coplan::Plans::Create.call(title: "Embed writing", content: source, user: user, actor_type: "local_agent", agent_name: "Claude")
     visit sign_in_path
     fill_in "Email", with: user.email
     click_button "Sign In"

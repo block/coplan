@@ -10,7 +10,7 @@ class BackfillPlanSlugs < ActiveRecord::Migration[8.1]
   # actually happen.
   #
   # The slug rules are inlined below rather than called through
-  # CoPlan::Slug and Plans::AssignSlug, for the same reason the folder and
+  # Coplan::Slug and Plans::AssignSlug, for the same reason the folder and
   # handle backfills inline theirs: a migration has to keep producing the
   # same result years from now, even after the app's rules move on.
   #
@@ -18,7 +18,7 @@ class BackfillPlanSlugs < ActiveRecord::Migration[8.1]
   # there's no old path anyone could be holding — the legacy /plans/<uuid>
   # route is what their existing links go through, and it 301s onward.
 
-  # Mirrors CoPlan::Slug.
+  # Mirrors Coplan::Slug.
   MAX_LENGTH = 60
   NOISE_TOKENS = %w[plan plans doc document].freeze
   # Mirrors Plans::AssignSlug. Unambiguous alphabet — no 0/o/1/l.
@@ -239,7 +239,7 @@ class BackfillPlanSlugs < ActiveRecord::Migration[8.1]
 
   def load_creator_libraries
     connection.select_all(<<~SQL.squish).to_a
-      SELECT owner_id, id FROM coplan_libraries WHERE owner_type = 'CoPlan::User'
+      SELECT owner_id, id FROM coplan_libraries WHERE owner_type IN ('CoPlan::User', 'Coplan::User')
     SQL
       .to_h { |row| [ row["owner_id"], row["id"] ] }
   end

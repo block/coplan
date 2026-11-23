@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A delegation of a plan to an agent — one per (plan, api_token). The
   # state machine mirrors Linear's agent sessions: it drives the presence
   # pill on the plan page, so humans can see the agent is engaged the
@@ -49,8 +49,8 @@ module CoPlan
     # on this token right now".
     TRANSPORT_WINDOW = 90.seconds
 
-    belongs_to :plan, class_name: "CoPlan::Plan"
-    belongs_to :api_token, class_name: "CoPlan::ApiToken"
+    belongs_to :plan, class_name: "Coplan::Plan"
+    belongs_to :api_token, class_name: "Coplan::ApiToken"
 
     validates :agent_name, presence: true
     validates :state, inclusion: { in: STATES }

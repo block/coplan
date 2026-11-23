@@ -1,11 +1,11 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::CreateNotificationsJob do
+RSpec.describe Coplan::CreateNotificationsJob do
   it "skips queued work for a missing or soft-deleted comment" do
     comment = create(:comment)
     thread = comment.comment_thread
     comment.soft_delete!
-    expect(CoPlan::Notifications::Create).not_to receive(:call)
+    expect(Coplan::Notifications::Create).not_to receive(:call)
     described_class.perform_now(comment_thread_id: thread.id, actor_id: thread.created_by_user_id,
       comment_id: comment.id, reason: "new_comment")
     described_class.perform_now(comment_thread_id: thread.id, actor_id: thread.created_by_user_id,
@@ -14,7 +14,7 @@ RSpec.describe CoPlan::CreateNotificationsJob do
 
   it "still delivers commentless status events" do
     thread = create(:comment_thread)
-    expect(CoPlan::Notifications::Create).to receive(:call).with(hash_including(comment_thread: thread, comment: nil, reason: "status_change"))
+    expect(Coplan::Notifications::Create).to receive(:call).with(hash_including(comment_thread: thread, comment: nil, reason: "status_change"))
     described_class.perform_now(comment_thread_id: thread.id, actor_id: thread.created_by_user_id, reason: "status_change")
   end
 end

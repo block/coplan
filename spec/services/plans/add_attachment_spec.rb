@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::AddAttachment do
+RSpec.describe Coplan::Plans::AddAttachment do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
 
@@ -119,7 +119,7 @@ RSpec.describe CoPlan::Plans::AddAttachment do
   end
 
   it "rejects an oversized file before creating a blob" do
-    stub_const("CoPlan::Plan::ATTACHMENT_MAX_BYTES", 4)
+    stub_const("Coplan::Plan::ATTACHMENT_MAX_BYTES", 4)
 
     expect {
       result = described_class.call(plan: plan, file: uploaded_file, user: user)

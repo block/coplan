@@ -1,11 +1,11 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::PlanTypes::InstallDefaults do
+RSpec.describe Coplan::PlanTypes::InstallDefaults do
   # The database may already contain plan types when the suite runs — the PG
   # CI job seeds before rspec, and a data migration installs General. These
   # examples are about what the installer does from a known starting state,
   # so start from a clean table. Transactional fixtures roll the delete back.
-  before { CoPlan::PlanType.delete_all }
+  before { Coplan::PlanType.delete_all }
 
   describe "the shipped defaults" do
     it "creates the full default set on a fresh install" do
@@ -16,22 +16,22 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
         "Research", "Technical Documentation", "Implementation Plan",
         "Test Plan", "Handoff", "Scratchpad", "General", "Presentation"
       )
-      expect(CoPlan::PlanType.count).to eq(result.created.size)
+      expect(Coplan::PlanType.count).to eq(result.created.size)
 
-      design = CoPlan::PlanType.find_by_name("Engineering Design")
+      design = Coplan::PlanType.find_by_name("Engineering Design")
       expect(design.description).to include("decision")
       expect(design.template_content).to include("## Alternatives considered")
       expect(design.icon).to eq("scroll")
 
       # The catch-alls deliberately ship without templates.
-      expect(CoPlan::PlanType.find_by_name("Scratchpad").template_content).to eq("# Document title")
-      expect(CoPlan::PlanType.find_by_name("General").template_content).to eq("# Document title")
+      expect(Coplan::PlanType.find_by_name("Scratchpad").template_content).to eq("# Document title")
+      expect(Coplan::PlanType.find_by_name("General").template_content).to eq("# Document title")
     end
 
     it "installs a presentation template with an explicit region" do
       described_class.call
 
-      presentation = CoPlan::PlanType.find_by_name("Presentation")
+      presentation = Coplan::PlanType.find_by_name("Presentation")
       expect(presentation.template_content).to include("::: {.presentation}")
       expect(presentation.template_content).to include("---")
       expect(presentation.template_content).to end_with(":::")
@@ -53,7 +53,7 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
 
       result = described_class.call
 
-      research = CoPlan::PlanType.find_by_name("Research")
+      research = Coplan::PlanType.find_by_name("Research")
       expect(result.updated).to include("Research")
       expect(research.description).to eq("Hand-written description")
       expect(research.template_content).to include("## Findings")
@@ -66,7 +66,7 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
       result = described_class.call
 
       expect(result.created).not_to include("Handoff")
-      expect(CoPlan::PlanType.find_by_name("Handoff").description).to eq("custom")
+      expect(Coplan::PlanType.find_by_name("Handoff").description).to eq("custom")
     end
 
     it "overwrites edited fields with force" do
@@ -74,7 +74,7 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
 
       described_class.call(force: true)
 
-      research = CoPlan::PlanType.find_by_name("Research")
+      research = Coplan::PlanType.find_by_name("Research")
       expect(research.description).not_to eq("Hand-written description")
       expect(research.template_content).to include("## Findings")
     end
@@ -86,7 +86,7 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
 
       described_class.call(force: true)
 
-      scratchpad = CoPlan::PlanType.find_by_name("Scratchpad")
+      scratchpad = Coplan::PlanType.find_by_name("Scratchpad")
       expect(scratchpad.template_content).to eq("# Document title")
       expect(scratchpad.default_tags).to eq([])
     end

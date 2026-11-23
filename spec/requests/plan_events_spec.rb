@@ -127,7 +127,7 @@ RSpec.describe "Plan metadata event logging", type: :request do
   end
 
   describe "PATCH /api/v1/plans/:id (API)" do
-    let(:raw_token) { CoPlan::ApiToken.generate_token }
+    let(:raw_token) { Coplan::ApiToken.generate_token }
     let!(:token) { create(:api_token, user: user, raw_token: raw_token) }
     let(:auth_headers) { { "Authorization" => "Bearer #{raw_token}" } }
 

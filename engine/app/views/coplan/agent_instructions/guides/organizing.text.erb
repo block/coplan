@@ -6,7 +6,7 @@ This guide assumes that you have read the primer at <<%= @base %>/agent-instruct
 
 ## The model
 
-- A **library** is a tree of folders, up to <%= CoPlan::Folder::MAX_DEPTH %> levels deep. Each person has one.
+- A **library** is a tree of folders, up to <%= Coplan::Folder::MAX_DEPTH %> levels deep. Each person has one.
 - A plan is filed in **one** place. Filing it somewhere else moves it, also across libraries. A move changes the plan's URL. For active plans, including private plans, the old URL redirects to the new one. Moving an archived plan does not create a redirect.
 - To move a plan, your principal must have written it or must have write access to the library where it is now. The destination library must also be writable.
 - Each folder has a one-line `description` of what belongs in it.
@@ -110,6 +110,6 @@ Use it to answer "who moved my plan?", to check what an earlier run did, or to s
 - **Use the existing structure.** Read the layout first. Add to the existing folders before you make new ones. The descriptions say what the owner meant.
 - **Describe each new folder.** Every `create_folder` needs a `description`. The next agent reads it.
 - **Propose, then apply.** For more than a few moves, run a dry run and show your principal the outline first. Never reorganize a library that nobody asked you to reorganize.
-- **Keep it shallow.** A few clear top-level folders are better than a deep tree. The depth limit is <%= CoPlan::Folder::MAX_DEPTH %>.
+- **Keep it shallow.** A few clear top-level folders are better than a deep tree. The depth limit is <%= Coplan::Folder::MAX_DEPTH %>.
 - **File unfiled plans first.** If `unfiled_count` is more than 0, filing those plans is the most useful low-risk change.
 - **Keep tags and folders separate.** Do not repeat the folder tree in tags. If a tag and a folder mean the same thing, use `move_by_tag` once and remove the duplicate.

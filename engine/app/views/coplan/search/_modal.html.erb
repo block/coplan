@@ -46,7 +46,7 @@
     <%= render partial: "coplan/search/results", locals: {
       query: "",
       results: [],
-      recent_queries: CoPlan::SearchQuery.recent_for(current_user).pluck(:query)
+      recent_queries: Coplan::SearchQuery.recent_for(current_user).pluck(:query)
     } %>
   </div>
 </div>

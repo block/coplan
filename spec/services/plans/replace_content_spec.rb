@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::ReplaceContent do
+RSpec.describe Coplan::Plans::ReplaceContent do
   let(:user) { create(:coplan_user) }
   let(:initial_content) do
     <<~MD
@@ -16,8 +16,8 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
     MD
   end
   let!(:plan) do
-    plan = CoPlan::Plan.create!(title: "Test Plan", created_by_user: user)
-    version = CoPlan::PlanVersion.create!(
+    plan = Coplan::Plan.create!(title: "Test Plan", created_by_user: user)
+    version = Coplan::PlanVersion.create!(
       plan: plan, revision: 1,
       content_markdown: initial_content,
       actor_type: "human", actor_id: user.id,
@@ -31,8 +31,8 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
     let(:new_content) { initial_content.sub("unit tests", "integration tests") }
 
     it "broadcasts the new content body so other tabs live-update" do
-      expect(CoPlan::Broadcaster).to receive(:replace_plan_content)
-        .with(plan, changed_sections: kind_of(CoPlan::Plans::ChangedSections::Result)).and_call_original
+      expect(Coplan::Broadcaster).to receive(:replace_plan_content)
+        .with(plan, changed_sections: kind_of(Coplan::Plans::ChangedSections::Result)).and_call_original
       allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to)
       allow(Turbo::StreamsChannel).to receive(:broadcast_replace_to)
 
@@ -58,7 +58,7 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
           actor_type: "local_agent",
           actor_id: user.id
         )
-      }.to change(CoPlan::PlanVersion, :count).by(1)
+      }.to change(Coplan::PlanVersion, :count).by(1)
 
       version = plan.reload.current_plan_version
       expect(version.content_markdown).to eq(new_content)
@@ -122,14 +122,14 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
       expect(result[:no_op]).to be true
       expect(result[:version]).to be_nil
       expect(plan.reload.current_revision).to eq(1)
-      expect(CoPlan::PlanVersion.where(plan: plan).count).to eq(1)
+      expect(Coplan::PlanVersion.where(plan: plan).count).to eq(1)
     end
   end
 
   describe "stale revision" do
     it "raises StaleRevisionError when base_revision lags current_revision" do
       # Bump current_revision by adding a version
-      v2 = CoPlan::PlanVersion.create!(
+      v2 = Coplan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: initial_content + "\nappended\n",
         actor_type: "human", actor_id: user.id,
@@ -145,13 +145,13 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
           actor_type: "local_agent",
           actor_id: user.id
         )
-      }.to raise_error(CoPlan::Plans::ReplaceContent::StaleRevisionError) do |err|
+      }.to raise_error(Coplan::Plans::ReplaceContent::StaleRevisionError) do |err|
         expect(err.current_revision).to eq(2)
       end
     end
 
     it "does not create a version when stale" do
-      v2 = CoPlan::PlanVersion.create!(
+      v2 = Coplan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: initial_content + "\nappended\n",
         actor_type: "human", actor_id: user.id,
@@ -165,10 +165,10 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
             plan: plan, new_content: "ignored", base_revision: 1,
             actor_type: "local_agent", actor_id: user.id
           )
-        rescue CoPlan::Plans::ReplaceContent::StaleRevisionError
+        rescue Coplan::Plans::ReplaceContent::StaleRevisionError
           # expected
         end
-      }.not_to change(CoPlan::PlanVersion, :count)
+      }.not_to change(Coplan::PlanVersion, :count)
     end
   end
 
@@ -210,7 +210,7 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
   describe "roundtrip safety" do
     it "raises RoundtripFailureError if ApplyOperations doesn't reproduce new_content" do
       # Force a failure by stubbing DiffToOperations to return ops that don't match.
-      allow(CoPlan::Plans::DiffToOperations).to receive(:call).and_return([])
+      allow(Coplan::Plans::DiffToOperations).to receive(:call).and_return([])
 
       new_content = initial_content + "\nappended\n"
       expect {
@@ -218,16 +218,16 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
           plan: plan, new_content: new_content, base_revision: 1,
           actor_type: "local_agent", actor_id: user.id
         )
-      }.to raise_error(CoPlan::Plans::ReplaceContent::RoundtripFailureError, /roundtrip failure/)
+      }.to raise_error(Coplan::Plans::ReplaceContent::RoundtripFailureError, /roundtrip failure/)
 
       expect(plan.reload.current_revision).to eq(1)
-      expect(CoPlan::PlanVersion.where(plan: plan).count).to eq(1)
+      expect(Coplan::PlanVersion.where(plan: plan).count).to eq(1)
     end
   end
 
   describe "comment thread anchor preservation" do
     let!(:thread_before) do
-      CoPlan::CommentThread.create!(
+      Coplan::CommentThread.create!(
         plan: plan,
         plan_version: plan.current_plan_version,
         created_by_user: user,
@@ -240,7 +240,7 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
     end
 
     let!(:thread_inside_change) do
-      CoPlan::CommentThread.create!(
+      Coplan::CommentThread.create!(
         plan: plan,
         plan_version: plan.current_plan_version,
         created_by_user: user,
@@ -253,7 +253,7 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
     end
 
     let!(:thread_after_change) do
-      CoPlan::CommentThread.create!(
+      Coplan::CommentThread.create!(
         plan: plan,
         plan_version: plan.current_plan_version,
         created_by_user: user,

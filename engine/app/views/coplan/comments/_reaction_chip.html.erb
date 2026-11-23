@@ -4,13 +4,13 @@
 <% kind = local_assigns[:kind] %>
 <% users = local_assigns.fetch(:users, []) %>
 <%= tag.button type: "button", class: "comment-reaction",
-      aria: { pressed: "false", label: (kind && "#{users.map(&:name).join(", ")} reacted with #{CoPlan::CommentReaction.label_for(kind)}") },
+      aria: { pressed: "false", label: (kind && "#{users.map(&:name).join(", ")} reacted with #{Coplan::CommentReaction.label_for(kind)}") },
       data: {
         kind: kind,
         reactors: users.map { |user| { id: user.id, name: user.name } },
         coplan__comment_reactions_target: "chip",
         action: "coplan--comment-reactions#toggle mouseenter->coplan--comment-reactions#showTooltip mouseleave->coplan--comment-reactions#hideTooltip focus->coplan--comment-reactions#showTooltip blur->coplan--comment-reactions#hideTooltip"
       } do %>
-  <span class="comment-reaction__emoji" aria-hidden="true"><%= CoPlan::CommentReaction.emoji_for(kind) if kind %></span>
+  <span class="comment-reaction__emoji" aria-hidden="true"><%= Coplan::CommentReaction.emoji_for(kind) if kind %></span>
   <span class="comment-reaction__count" aria-hidden="true"><%= users.size if kind %></span>
 <% end %>

@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Comments::RewriteMentions do
+RSpec.describe Coplan::Comments::RewriteMentions do
   let!(:hampton) { create(:coplan_user, username: "hampton") }
   let!(:casey) { create(:coplan_user, username: "casey") }
 
@@ -74,6 +74,6 @@ RSpec.describe "Comment#rewrite_plain_mentions integration" do
         author_id: author.id,
         body_markdown: "Plain @hampton mention"
       )
-    }.to change(CoPlan::Notification.where(reason: "mention"), :count).by(1)
+    }.to change(Coplan::Notification.where(reason: "mention"), :count).by(1)
   end
 end

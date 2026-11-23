@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Slack::WebClient do
+RSpec.describe Coplan::Slack::WebClient do
   let(:delegate) { double("Slack client") }
   subject(:client) { described_class.new(token: "token", client: delegate) }
 

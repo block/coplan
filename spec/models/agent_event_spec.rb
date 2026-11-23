@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::AgentEvent do
+RSpec.describe Coplan::AgentEvent do
   it "redacts a batch using one comment-state query while retaining stored bodies" do
     token = create(:api_token)
     plan = create(:plan)
@@ -18,7 +18,7 @@ RSpec.describe CoPlan::AgentEvent do
     end
     batch = described_class.uncached { described_class.as_api_json_batch(events) }
     expect(queries.size).to eq(1)
-    expect(batch.first[:payload]["comment_body"]).to eq(CoPlan::Comment::DELETED_BODY)
+    expect(batch.first[:payload]["comment_body"]).to eq(Coplan::Comment::DELETED_BODY)
     expect(batch.drop(1).map { |item| item[:payload]["comment_body"] }).to all(eq("Stored body"))
     expect(events.first.reload.payload["comment_body"]).to eq("Stored body")
   ensure

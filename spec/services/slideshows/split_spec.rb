@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Slideshows::Split do
+RSpec.describe Coplan::Slideshows::Split do
   def split(content)
     described_class.call(content)
   end

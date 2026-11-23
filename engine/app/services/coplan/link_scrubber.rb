@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Permit application deep links on anchors without broadening image sources
   # or allowing browser-executable URLs. All other HTML uses Rails' sanitizer.
   class LinkScrubber < Rails::HTML::PermitScrubber

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A task, independent of both inbox read state and collaborator permissions.
   class ReviewRequest < ApplicationRecord
     REQUIREMENTS = %w[required optional].freeze
@@ -6,13 +6,13 @@ module CoPlan
     STATUSES = %w[pending approved changes_requested withdrawn removed].freeze
 
     belongs_to :plan
-    belongs_to :reviewer, class_name: "CoPlan::User"
-    belongs_to :requested_by_user, class_name: "CoPlan::User"
+    belongs_to :reviewer, class_name: "Coplan::User"
+    belongs_to :requested_by_user, class_name: "Coplan::User"
     # Historical context of when the request was sent, never a review target.
     # Pending requests follow the plan; only responses bind to a version.
-    belongs_to :requested_plan_version, class_name: "CoPlan::PlanVersion"
+    belongs_to :requested_plan_version, class_name: "Coplan::PlanVersion"
     has_many :review_responses, -> { order(Arel.sql("CASE WHEN decision_sequence IS NULL THEN 0 ELSE 1 END DESC"), decision_sequence: :desc, created_at: :desc, id: :desc) }, dependent: :delete_all
-    belongs_to :current_response, class_name: "CoPlan::ReviewResponse", optional: true
+    belongs_to :current_response, class_name: "Coplan::ReviewResponse", optional: true
     has_many :notifications, dependent: :destroy
 
     # A nullable unique slot allows many ended assignments for one reviewer.

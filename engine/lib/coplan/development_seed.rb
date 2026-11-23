@@ -1,6 +1,6 @@
 require "uri"
 
-module CoPlan
+module Coplan
   # A deterministic, idempotent dataset for exercising Coplan's development UI.
   # Existing seed documents keep local content edits; missing records are restored
   # on the next run and seed-owned metadata remains consistent.
@@ -326,7 +326,7 @@ module CoPlan
 
       puts "Seeding reusable development data..."
       catalog = ActiveRecord::Base.transaction do
-        CoPlan::Engine.load_seed
+        Coplan::Engine.load_seed
         users = seed_users
         plan_types = seed_plan_types
         # Before the documents: this rename has to land on an empty folder,
@@ -347,7 +347,7 @@ module CoPlan
         seed_review_requests(users, plans)
         seed_review_reassignment(users, plans)
         seed_agent_access(users)
-        seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
+        seed_agent_connections(users) if Coplan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
         seed_discussion_margins(users, plans)
         seed_nested_outline(users, plans)
@@ -1163,7 +1163,7 @@ module CoPlan
     end
 
     def connection_demo_links(base_url)
-      return "" unless CoPlan.configuration.agent_connection_enabled?
+      return "" unless Coplan.configuration.agent_connection_enabled?
       prefix = URI.parse(base_url).path
       <<~MARKDOWN
         The **agent-connection** scenario previews browser approval. These requests

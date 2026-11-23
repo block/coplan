@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # "What did I just say, and what was I looking at?" — asked by the voice
   # control after recording, before it posts the comment.
   #

@@ -24,12 +24,12 @@ RSpec.describe "Math rendering", type: :system do
     MARKDOWN
   end
   let(:plan) do
-    CoPlan::Plans::Create.call(title: "Math plan", content: content, user: author,
+    Coplan::Plans::Create.call(title: "Math plan", content: content, user: author,
       visibility: "published", actor_type: "human")
   end
 
   before do
-    allow(CoPlan::Ai).to receive(:available?).and_return(false)
+    allow(Coplan::Ai).to receive(:available?).and_return(false)
     visit sign_in_path
     fill_in "Email address", with: author.email
     click_button "Sign In"
@@ -95,7 +95,7 @@ RSpec.describe "Math rendering", type: :system do
   end
 
   it "does not load KaTeX on a page without math" do
-    plain = CoPlan::Plans::Create.call(title: "Plain plan", content: "# Plain\n\nNo formulas; lunch costs $5 and $10.\n",
+    plain = Coplan::Plans::Create.call(title: "Plain plan", content: "# Plain\n\nNo formulas; lunch costs $5 and $10.\n",
       user: author, visibility: "published", actor_type: "human")
     visit plan_page_path(plain)
 
@@ -122,7 +122,7 @@ RSpec.describe "Math rendering", type: :system do
   end
 
   it "does not let TeX create trusted links, images, or authored classes" do
-    untrusted = CoPlan::Plans::Create.call(title: "Untrusted math", user: author,
+    untrusted = Coplan::Plans::Create.call(title: "Untrusted math", user: author,
       visibility: "published", actor_type: "human", content: <<~'MARKDOWN')
         $\href{javascript:alert(1)}{click}$
 
@@ -138,7 +138,7 @@ RSpec.describe "Math rendering", type: :system do
   end
 
   it "reads math as TeX source in the outline and section previews" do
-    sections = CoPlan::Plans::Create.call(title: "Scan costs", user: author, visibility: "published", actor_type: "human",
+    sections = Coplan::Plans::Create.call(title: "Scan costs", user: author, visibility: "published", actor_type: "human",
       content: "## 1 Intro\n\nSee [§2](#section-2).\n\n## 2 Cost of $O(n)$ scans\n\nA scan of $n$ rows costs $O(n)$ time.\n")
     visit plan_page_path(sections)
     expect(page).to have_css("h2 span[data-math-style].is-math-rendered .katex", wait: 20)
@@ -152,7 +152,7 @@ RSpec.describe "Math rendering", type: :system do
   end
 
   it "previews a section that is only a math fence as its TeX source" do
-    sections = CoPlan::Plans::Create.call(title: "Fence preview", user: author, visibility: "published", actor_type: "human",
+    sections = Coplan::Plans::Create.call(title: "Fence preview", user: author, visibility: "published", actor_type: "human",
       content: "## 1 Intro\n\nSee [§2](#section-2).\n\n## 2 Bound\n\n```math\n\\sum_{k=1}^{n} k\n```\n")
     visit plan_page_path(sections)
     expect(page).to have_css("pre[data-math-style].is-math-rendered .katex-display", wait: 20)
@@ -166,7 +166,7 @@ RSpec.describe "Math rendering", type: :system do
 
   it "anchors a comment across authored HTML that imitates math" do
     source = "Before <span data-math-style=\"inline\">x</span> after the imitation.\n\nReal $y$ stays math.\n"
-    imitation = CoPlan::Plans::Create.call(title: "Imitation", content: source, user: author,
+    imitation = Coplan::Plans::Create.call(title: "Imitation", content: source, user: author,
       visibility: "published", actor_type: "human")
     visit plan_page_path(imitation)
     expect(page).to have_css("span[data-math-style].is-math-rendered .katex", count: 1, wait: 20)
@@ -175,7 +175,7 @@ RSpec.describe "Math rendering", type: :system do
     select_across("Before", 0, " after", 6)
     comment_on_selection("Not actually math")
 
-    thread = CoPlan::CommentThread.order(:created_at).last
+    thread = Coplan::CommentThread.order(:created_at).last
     expect(thread.anchor_text).to eq("Before x after")
     expect(imitation.reload.current_content[thread.anchor_start...thread.anchor_end]).to eq("Before <span data-math-style=\"inline\">x</span> after")
     expect(page).to have_css("mark.anchor-highlight", text: "x")
@@ -200,7 +200,7 @@ RSpec.describe "Math rendering", type: :system do
     select_across("relation", 0, " links", 6)
     comment_on_selection("Is the relation exact?")
 
-    thread = CoPlan::CommentThread.order(:created_at).last
+    thread = Coplan::CommentThread.order(:created_at).last
     expect(thread.anchor_text).to eq("relation links")
     expect(content[thread.anchor_start...thread.anchor_end]).to eq("relation $E = mc^2$ links")
     # Retry the whole collection read if another live update replaces its marks.
@@ -223,7 +223,7 @@ RSpec.describe "Math rendering", type: :system do
     select_across(nil, 0, " links mass", 11)
     comment_on_selection("Starts in math")
 
-    thread = CoPlan::CommentThread.order(:created_at).last
+    thread = Coplan::CommentThread.order(:created_at).last
     expect(thread.anchor_text).to eq("links mass")
     expect(content[thread.anchor_start...thread.anchor_end]).to eq("links mass")
   end
@@ -241,6 +241,6 @@ RSpec.describe "Math rendering", type: :system do
     page.driver.browser.action.send_keys("c").perform
 
     expect(page).to have_no_css(".comment-window:popover-open")
-    expect(CoPlan::CommentThread.count).to eq(0)
+    expect(Coplan::CommentThread.count).to eq(0)
   end
 end

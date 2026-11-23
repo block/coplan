@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::LinkScrubber do
+RSpec.describe Coplan::LinkScrubber do
   it "allows application anchors without allowing executable schemes, handlers, or image sources" do
     scrubber = described_class.new
     scrubber.tags = %w[a img]

@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::PlanEvent, as: "PlanEvent" do
+ActiveAdmin.register Coplan::PlanEvent, as: "PlanEvent" do
   actions :index, :show
 
   index do
@@ -16,8 +16,8 @@ ActiveAdmin.register CoPlan::PlanEvent, as: "PlanEvent" do
   end
 
   filter :plan
-  filter :event_type, as: :select, collection: CoPlan::PlanEvent::EVENT_TYPES
-  filter :actor_type, as: :select, collection: CoPlan::PlanEvent::ACTOR_TYPES
+  filter :event_type, as: :select, collection: Coplan::PlanEvent::EVENT_TYPES
+  filter :actor_type, as: :select, collection: Coplan::PlanEvent::ACTOR_TYPES
   filter :created_at
 
   show do

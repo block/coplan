@@ -3,7 +3,7 @@ require "tmpdir"
 require "stringio"
 load File.expand_path("../../engine/agent_tools/coplan-connect", __dir__)
 
-RSpec.describe CoPlanConnect::Client do
+RSpec.describe CoplanConnect::Client do
   let(:base) { "https://coplan.example.com/mounted" }
   let(:secret) { "a" * 64 }
   let(:token) { "b" * 64 }
@@ -55,7 +55,7 @@ RSpec.describe CoPlanConnect::Client do
     FileUtils.mkdir_p(File.dirname(@credentials))
     content = JSON.generate(base_url: "https://other.example.com", token: token)
     File.write(@credentials, content)
-    expect { client(replace: true).run }.to raise_error(CoPlanConnect::Error, /another host/)
+    expect { client(replace: true).run }.to raise_error(CoplanConnect::Error, /another host/)
     expect(File.read(@credentials)).to eq(content)
   end
 
@@ -65,7 +65,7 @@ RSpec.describe CoPlanConnect::Client do
       allow(helper).to receive(:sleep)
       allow(helper).to receive(:post).with("/api/v1/agent_connections", anything).and_return([ start, 201 ])
       allow(helper).to receive(:post).with("/api/v1/agent_connections/token", anything).and_return([ { "error" => error }, 400 ])
-      expect { helper.run }.to raise_error(CoPlanConnect::Error)
+      expect { helper.run }.to raise_error(CoplanConnect::Error)
       expect(File.exist?(@credentials)).to be false
     end
   end
@@ -84,13 +84,13 @@ RSpec.describe CoPlanConnect::Client do
   it "rejects approval links to another origin" do
     helper = client
     allow(helper).to receive(:post).and_return([ start.merge("verification_uri_complete" => "https://other.example.com"), 201 ])
-    expect { helper.run }.to raise_error(CoPlanConnect::Error, /approval URL/)
+    expect { helper.run }.to raise_error(CoplanConnect::Error, /approval URL/)
     expect(File.exist?(@credentials)).to be false
   end
 
   it "rejects insecure URLs except loopback and rejects URLs with embedded credentials" do
     %w[http://coplan.example.com https://user:password@coplan.example.com https://coplan.example.com?token=secret].each do |url|
-      expect { described_class.new(base: url, name: "Laptop", credentials: @credentials) }.to raise_error(CoPlanConnect::Error)
+      expect { described_class.new(base: url, name: "Laptop", credentials: @credentials) }.to raise_error(CoplanConnect::Error)
     end
     expect { described_class.new(base: "http://localhost:3116", name: "Laptop", credentials: @credentials) }.not_to raise_error
   end
@@ -100,14 +100,14 @@ RSpec.describe CoPlanConnect::Client do
     File.write(target, "preserve")
     FileUtils.mkdir_p(File.dirname(@credentials))
     File.symlink(target, @credentials)
-    expect { client.run }.to raise_error(CoPlanConnect::Error, /symbolic link/)
+    expect { client.run }.to raise_error(CoplanConnect::Error, /symbolic link/)
     expect(File.read(target)).to eq("preserve")
   end
 end
 
-RSpec.describe CoPlanConnect do
+RSpec.describe CoplanConnect do
   it "does not expose response contents through JSON parse errors" do
-    allow(CoPlanConnect::Client).to receive(:new).and_raise(JSON::ParserError, "sensitive-response-value")
+    allow(CoplanConnect::Client).to receive(:new).and_raise(JSON::ParserError, "sensitive-response-value")
     expect { expect(described_class.run([ "--base", "https://example.com" ])).to eq(1) }
       .to output("Connection setup failed (JSON::ParserError). No credential was printed.\n").to_stderr
   end

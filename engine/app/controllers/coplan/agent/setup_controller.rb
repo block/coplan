@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Agent
     class SetupController < ApplicationController
       skip_before_action :authenticate_coplan_user!
@@ -6,14 +6,14 @@ module CoPlan
       def show
         @setup_url = coplan.agent_setup_url(format: :md)
         @instructions_url = coplan.agent_instructions_url
-        @connection_enabled = CoPlan.configuration.agent_connection_enabled?
+        @connection_enabled = Coplan.configuration.agent_connection_enabled?
         @connect_tool_url = coplan.agent_tool_url(tool: "coplan-connect")
         @base = "#{request.base_url}#{coplan.root_path.chomp("/")}"
-        @install_command = CoPlan.configuration.agent_setup_install_command
+        @install_command = Coplan.configuration.agent_setup_install_command
 
         if prefers_html?
-          @current_coplan_user = CoPlan::Authentication.user_from_request(request)
-          CoPlan::Current.user = current_user
+          @current_coplan_user = Coplan::Authentication.user_from_request(request)
+          Coplan::Current.user = current_user
           render :show, formats: [ :html ]
         else
           render layout: false, content_type: "text/markdown", formats: [ :text ]

@@ -30,8 +30,8 @@ RSpec.describe "Comment anchors and Mermaid diagrams", type: :system do
   end
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Diagram Plan", created_by_user: user)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Diagram Plan", created_by_user: user)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: plan_content, actor_type: "human", actor_id: user.id
     )

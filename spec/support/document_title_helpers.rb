@@ -2,7 +2,7 @@ module DocumentTitleHelpers
   # Exact-source imports for tests of historical provenance. They intentionally
   # bypass current-write normalization, just as an immutable history import does.
   def create_historical_plan(title:, content:, user:, actor_type: "human", **attributes)
-    plan = CoPlan::Plan.create!(title: title, created_by_user: user)
+    plan = Coplan::Plan.create!(title: title, created_by_user: user)
     append_historical_content(plan: plan, new_content: content, actor_type: actor_type,
       actor_id: user.id, **attributes)
     plan
@@ -10,11 +10,11 @@ module DocumentTitleHelpers
 
   def append_historical_content(plan:, new_content:, actor_type:, actor_id:, base_revision: nil, **attributes)
     return { no_op: true, version: nil } if plan.current_content == new_content
-    CoPlan::Plan.transaction do
+    Coplan::Plan.transaction do
       previous = plan.current_content.to_s
-      operations = CoPlan::Plans::DiffToOperations.call(old_content: previous, new_content: new_content)
-      applied = CoPlan::Plans::ApplyOperations.call(content: previous, operations: operations)
-      version = CoPlan::PlanVersion.create!(plan: plan, content_markdown: new_content,
+      operations = Coplan::Plans::DiffToOperations.call(old_content: previous, new_content: new_content)
+      applied = Coplan::Plans::ApplyOperations.call(content: previous, operations: operations)
+      version = Coplan::PlanVersion.create!(plan: plan, content_markdown: new_content,
         actor_type: actor_type, actor_id: actor_id, revision: plan.current_revision + 1,
         base_revision: base_revision || plan.current_revision, operations_json: applied[:applied], **attributes)
       plan.update!(current_plan_version: version, current_revision: version.revision)
@@ -63,8 +63,8 @@ module DocumentTitleHelpers
   end
 
   def retitle_plan(plan, title)
-    CoPlan::Plans::ReplaceContent.call(plan: plan,
-      new_content: CoPlan::MarkdownDocumentTitle.normalize(plan.current_content, fallback: title, override: true),
+    Coplan::Plans::ReplaceContent.call(plan: plan,
+      new_content: Coplan::MarkdownDocumentTitle.normalize(plan.current_content, fallback: title, override: true),
       base_revision: plan.current_revision, actor_type: "local_agent", actor_id: plan.created_by_user_id)
     plan.reload
   end

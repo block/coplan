@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::EditSession, as: "EditSession" do
+ActiveAdmin.register Coplan::EditSession, as: "EditSession" do
   menu parent: "Plans"
 
   filter :plan_id

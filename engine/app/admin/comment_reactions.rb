@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::CommentReaction, as: "CommentReaction" do
+ActiveAdmin.register Coplan::CommentReaction, as: "CommentReaction" do
   includes :comment, :user
 
   # Read-only: removing a reaction here would leave open pages showing it.
@@ -8,14 +8,14 @@ ActiveAdmin.register CoPlan::CommentReaction, as: "CommentReaction" do
 
   filter :comment_id
   filter :user
-  filter :kind, as: :select, collection: CoPlan::CommentReaction::KINDS.keys
+  filter :kind, as: :select, collection: Coplan::CommentReaction::KINDS.keys
   filter :created_at
 
   index do
     id_column
     column :comment
     column :user
-    column(:kind) { |reaction| "#{CoPlan::CommentReaction.emoji_for(reaction.kind)} #{reaction.kind}" }
+    column(:kind) { |reaction| "#{Coplan::CommentReaction.emoji_for(reaction.kind)} #{reaction.kind}" }
     column :created_at
     actions
   end
@@ -25,7 +25,7 @@ ActiveAdmin.register CoPlan::CommentReaction, as: "CommentReaction" do
       row :id
       row :comment
       row :user
-      row(:kind) { |reaction| "#{CoPlan::CommentReaction.emoji_for(reaction.kind)} #{reaction.kind}" }
+      row(:kind) { |reaction| "#{Coplan::CommentReaction.emoji_for(reaction.kind)} #{reaction.kind}" }
       row :created_at
       row :updated_at
     end

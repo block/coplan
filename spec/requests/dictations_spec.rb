@@ -17,16 +17,16 @@ RSpec.describe "Dictations", type: :request do
   before { sign_in_as(alice) }
 
   it "returns draft dictation verbatim without interpreting or posting it" do
-    expect(CoPlan::Comments::InterpretDictation).not_to receive(:call)
+    expect(Coplan::Comments::InterpretDictation).not_to receive(:call)
     expect {
       post plan_dictations_path(plan), params: { transcript: "Um, keep these exact words.", mode: "draft" }, as: :json
-    }.not_to change(CoPlan::Comment, :count)
+    }.not_to change(Coplan::Comment, :count)
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body).to eq("transcript" => "Um, keep these exact words.")
   end
 
   it "returns the cleaned body and the span" do
-    allow(CoPlan::Ai).to receive(:call)
+    allow(Coplan::Ai).to receive(:call)
       .and_return({ "text" => "This is too grand.", "span" => "world domination" }.to_json)
 
     post plan_dictations_path(plan),
@@ -41,7 +41,7 @@ RSpec.describe "Dictations", type: :request do
   end
 
   it "returns every comment when the remark was about several places" do
-    allow(CoPlan::Ai).to receive(:call).and_return({ "comments" => [
+    allow(Coplan::Ai).to receive(:call).and_return({ "comments" => [
       { "text" => "Too grand.", "span" => "world domination" },
       { "text" => "Q3 is optimistic.", "span" => "by Q3" }
     ] }.to_json)
@@ -56,7 +56,7 @@ RSpec.describe "Dictations", type: :request do
   end
 
   it "returns a locally tidied transcript rather than an error when the AI can't help" do
-    allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "not configured")
+    allow(Coplan::Ai).to receive(:call).and_raise(Coplan::Ai::Error, "not configured")
 
     post plan_dictations_path(plan),
       params: { transcript: "um too formal", excerpt: "Our goal is world domination by Q3." },
@@ -70,7 +70,7 @@ RSpec.describe "Dictations", type: :request do
   # Only what was on screen goes to the model — narrower is more accurate,
   # cheaper, and sends less of the document off the box.
   it "sends the visible excerpt, not the whole document" do
-    expect(CoPlan::Ai).to receive(:call) do |system_prompt:, user_content:, intensity:|
+    expect(Coplan::Ai).to receive(:call) do |system_prompt:, user_content:, intensity:|
       expect(user_content).to include("only this paragraph was visible")
       expect(user_content).not_to include(plan.current_content)
       expect(system_prompt).to include("filler words")
@@ -88,16 +88,16 @@ RSpec.describe "Dictations", type: :request do
   # "Oh, I meant both of them" is a follow-up; without the comment it
   # follows there is no "them". The model gets the conversation so far.
   it "gives the model the recent comments as conversational context" do
-    thread = CoPlan::CommentThread.create!(
+    thread = Coplan::CommentThread.create!(
       plan: plan, plan_version: plan.current_plan_version, created_by_user: alice,
       anchor_text: "world domination"
     )
-    CoPlan::Comment.create!(
+    Coplan::Comment.create!(
       comment_thread: thread, author_type: "human", author_id: alice.id,
       body_markdown: "🎙️ It should be main."
     )
 
-    expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+    expect(Coplan::Ai).to receive(:call) do |user_content:, **|
       expect(user_content).to include("Recent comments")
       expect(user_content).to include("It should be main.")
       expect(user_content).to include(%(on "world domination"))
@@ -115,15 +115,15 @@ RSpec.describe "Dictations", type: :request do
   # an external provider — the author's retracted words must not ride
   # along.
   it "leaves deleted comments out of the context" do
-    thread = CoPlan::CommentThread.create!(
+    thread = Coplan::CommentThread.create!(
       plan: plan, plan_version: plan.current_plan_version, created_by_user: alice
     )
-    CoPlan::Comment.create!(
+    Coplan::Comment.create!(
       comment_thread: thread, author_type: "human", author_id: alice.id,
       body_markdown: "I regret saying this.", deleted_at: Time.current
     )
 
-    expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+    expect(Coplan::Ai).to receive(:call) do |user_content:, **|
       expect(user_content).not_to include("I regret saying this.")
       { "text" => "Too grand.", "span" => nil }.to_json
     end
@@ -136,7 +136,7 @@ RSpec.describe "Dictations", type: :request do
   end
 
   it "forwards what was mid-screen so the model favors it for the span" do
-    expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+    expect(Coplan::Ai).to receive(:call) do |user_content:, **|
       expect(user_content).to include("They were reading this part")
       expect(user_content).to match(/reading this part.*world domination/m)
       { "text" => "Too grand.", "span" => nil }.to_json
@@ -154,7 +154,7 @@ RSpec.describe "Dictations", type: :request do
   end
 
   it "falls back to the plan content when the client sends no excerpt" do
-    expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+    expect(Coplan::Ai).to receive(:call) do |user_content:, **|
       expect(user_content).to include(plan.current_content.truncate(50, omission: ""))
       { "text" => "Tighten this.", "span" => nil }.to_json
     end
@@ -173,17 +173,17 @@ RSpec.describe "Dictations", type: :request do
     end
 
     it "transcribes draft audio without interpreting or posting comments" do
-      expect(CoPlan::Ai).to receive(:transcribe).and_return("Spoken words for my draft.")
-      expect(CoPlan::Comments::InterpretDictation).not_to receive(:call)
+      expect(Coplan::Ai).to receive(:transcribe).and_return("Spoken words for my draft.")
+      expect(Coplan::Comments::InterpretDictation).not_to receive(:call)
       expect {
         post plan_dictations_path(plan), params: { audio: audio_upload, mode: "draft", duration_ms: 3000 }
-      }.not_to change(CoPlan::Comment, :count)
+      }.not_to change(Coplan::Comment, :count)
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to eq("transcript" => "Spoken words for my draft.")
     end
 
     it "transcribes the recording and interprets what it heard" do
-      expect(CoPlan::Ai).to receive(:transcribe) do |file:, context:|
+      expect(Coplan::Ai).to receive(:transcribe) do |file:, context:|
         # OpenAI reads the format off the filename, so the extension has
         # to survive the round trip from the browser's blob.
         expect(File.extname(file.path)).to eq(".webm")
@@ -191,7 +191,7 @@ RSpec.describe "Dictations", type: :request do
         expect(context).to include("world domination")
         "this is like um too grand"
       end
-      allow(CoPlan::Ai).to receive(:call)
+      allow(Coplan::Ai).to receive(:call)
         .and_return({ "text" => "This is too grand.", "span" => "world domination" }.to_json)
 
       post plan_dictations_path(plan),
@@ -205,11 +205,11 @@ RSpec.describe "Dictations", type: :request do
     end
 
     it "keeps Safari's MP4 recording as an MP4" do
-      expect(CoPlan::Ai).to receive(:transcribe) do |file:, **|
+      expect(Coplan::Ai).to receive(:transcribe) do |file:, **|
         expect(File.extname(file.path)).to eq(".mp4")
         "too grand"
       end
-      allow(CoPlan::Ai).to receive(:call)
+      allow(Coplan::Ai).to receive(:call)
         .and_return({ "text" => "Too grand.", "span" => nil }.to_json)
 
       post plan_dictations_path(plan),
@@ -221,8 +221,8 @@ RSpec.describe "Dictations", type: :request do
     # There is nothing to fall back to — no words were captured anywhere
     # else — so the client needs to hear that rather than post silence.
     it "reports failure rather than posting an empty comment" do
-      allow(CoPlan::Ai).to receive(:transcribe).and_raise(CoPlan::Ai::Error, "unavailable")
-      expect(CoPlan::Ai).not_to receive(:call)
+      allow(Coplan::Ai).to receive(:transcribe).and_raise(Coplan::Ai::Error, "unavailable")
+      expect(Coplan::Ai).not_to receive(:call)
 
       post plan_dictations_path(plan), params: { audio: audio_upload }
 
@@ -231,8 +231,8 @@ RSpec.describe "Dictations", type: :request do
     end
 
     it "refuses a recording too large to be a spoken remark" do
-      stub_const("CoPlan::DictationsController::MAX_AUDIO_BYTES", 4)
-      expect(CoPlan::Ai).not_to receive(:transcribe)
+      stub_const("Coplan::DictationsController::MAX_AUDIO_BYTES", 4)
+      expect(Coplan::Ai).not_to receive(:transcribe)
 
       post plan_dictations_path(plan), params: { audio: audio_upload("far too many bytes") }
 
@@ -245,8 +245,8 @@ RSpec.describe "Dictations", type: :request do
     # pinned, plausible, and entirely invented.
     describe "when the transcriber echoes the prompt back" do
       it "reports hearing nothing rather than posting the page back" do
-        allow(CoPlan::Ai).to receive(:transcribe).and_return("Our goal is world domination")
-        expect(CoPlan::Ai).not_to receive(:call)
+        allow(Coplan::Ai).to receive(:transcribe).and_return("Our goal is world domination")
+        expect(Coplan::Ai).not_to receive(:call)
 
         post plan_dictations_path(plan),
           params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3." }
@@ -256,7 +256,7 @@ RSpec.describe "Dictations", type: :request do
       end
 
       it "ignores case and line breaks, which the echo doesn't preserve" do
-        allow(CoPlan::Ai).to receive(:transcribe).and_return("our goal is\nWORLD DOMINATION")
+        allow(Coplan::Ai).to receive(:transcribe).and_return("our goal is\nWORLD DOMINATION")
 
         post plan_dictations_path(plan),
           params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3." }
@@ -265,7 +265,7 @@ RSpec.describe "Dictations", type: :request do
       end
 
       it "treats an empty transcript the same way" do
-        allow(CoPlan::Ai).to receive(:transcribe).and_return("")
+        allow(Coplan::Ai).to receive(:transcribe).and_return("")
 
         post plan_dictations_path(plan), params: { audio: audio_upload, excerpt: "Anything." }
 
@@ -275,8 +275,8 @@ RSpec.describe "Dictations", type: :request do
       # A remark that merely mentions words from the page is the normal
       # case — it's what commenting on a document sounds like.
       it "lets through a remark that quotes only part of the page" do
-        allow(CoPlan::Ai).to receive(:transcribe).and_return("is world domination really the goal here")
-        allow(CoPlan::Ai).to receive(:call)
+        allow(Coplan::Ai).to receive(:transcribe).and_return("is world domination really the goal here")
+        allow(Coplan::Ai).to receive(:call)
           .and_return({ "text" => "Is world domination really the goal?", "span" => nil }.to_json)
 
         post plan_dictations_path(plan),
@@ -300,11 +300,11 @@ RSpec.describe "Dictations", type: :request do
 
       it "retries without the prompt, which leaves it nothing to answer from" do
         contexts = []
-        allow(CoPlan::Ai).to receive(:transcribe) do |file:, context: nil|
+        allow(Coplan::Ai).to receive(:transcribe) do |file:, context: nil|
           contexts << context
           context ? essay : "add some content about how editing works"
         end
-        allow(CoPlan::Ai).to receive(:call)
+        allow(Coplan::Ai).to receive(:call)
           .and_return({ "text" => "Add some content about how editing works.", "span" => nil }.to_json)
 
         post plan_dictations_path(plan),
@@ -316,8 +316,8 @@ RSpec.describe "Dictations", type: :request do
       end
 
       it "refuses when even the promptless retry outruns the clock" do
-        allow(CoPlan::Ai).to receive(:transcribe).and_return(essay)
-        expect(CoPlan::Ai).not_to receive(:call)
+        allow(Coplan::Ai).to receive(:transcribe).and_return(essay)
+        expect(Coplan::Ai).not_to receive(:call)
 
         post plan_dictations_path(plan),
           params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3.", duration_ms: 4000 }
@@ -327,8 +327,8 @@ RSpec.describe "Dictations", type: :request do
       end
 
       it "does not second-guess a transcript the recording had time for" do
-        expect(CoPlan::Ai).to receive(:transcribe).once.and_return("too grand")
-        allow(CoPlan::Ai).to receive(:call)
+        expect(Coplan::Ai).to receive(:transcribe).once.and_return("too grand")
+        allow(Coplan::Ai).to receive(:call)
           .and_return({ "text" => "Too grand.", "span" => nil }.to_json)
 
         post plan_dictations_path(plan),
@@ -340,8 +340,8 @@ RSpec.describe "Dictations", type: :request do
       # A client that doesn't say how long the take was gets the old
       # behavior — there is no clock to check against.
       it "takes the transcript at its word without a duration" do
-        expect(CoPlan::Ai).to receive(:transcribe).once.and_return(essay)
-        allow(CoPlan::Ai).to receive(:call)
+        expect(Coplan::Ai).to receive(:transcribe).once.and_return(essay)
+        allow(Coplan::Ai).to receive(:call)
           .and_return({ "text" => "An essay.", "span" => nil }.to_json)
 
         post plan_dictations_path(plan),
@@ -353,8 +353,8 @@ RSpec.describe "Dictations", type: :request do
 
     # A browser that transcribed for itself has already done the work.
     it "prefers a transcript the browser supplies" do
-      expect(CoPlan::Ai).not_to receive(:transcribe)
-      allow(CoPlan::Ai).to receive(:call)
+      expect(Coplan::Ai).not_to receive(:transcribe)
+      allow(Coplan::Ai).to receive(:call)
         .and_return({ "text" => "Too grand.", "span" => nil }.to_json)
 
       post plan_dictations_path(plan),
@@ -370,7 +370,7 @@ RSpec.describe "Dictations", type: :request do
   it "does not run for a signed-out visitor" do
     reset! # drops the signed-in session established above
 
-    expect(CoPlan::Ai).not_to receive(:call)
+    expect(Coplan::Ai).not_to receive(:call)
     post plan_dictations_path(plan), params: { transcript: "hi" }, as: :json
 
     expect(response).not_to have_http_status(:ok)

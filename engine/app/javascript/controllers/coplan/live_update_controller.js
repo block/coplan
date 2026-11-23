@@ -140,7 +140,11 @@ function applyContent(target, fragment, incomingRevision, changedKeys, sectionUp
     bubbles: true, detail: { keys: sectionUpdate?.keys || changedKeys, update: sectionUpdate }
   }))
   restoreViewport(target, viewport)
-  requestAnimationFrame(() => restoreViewport(target, viewport))
+  const restoredScrollY = window.scrollY
+  requestAnimationFrame(() => {
+    // A scroll since the initial restore takes precedence over the old anchor.
+    if (window.scrollY === restoredScrollY) restoreViewport(target, viewport)
+  })
   clearStaleBanner()
   if (changedKeys.length > 0) {
     const offscreenKeys = flashChangedSections(target, changedKeys, oldSections)

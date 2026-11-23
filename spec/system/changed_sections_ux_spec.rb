@@ -44,7 +44,7 @@ RSpec.describe "Updated section signposts", type: :system do
   let(:plan) do
     p = create(:plan, :published, created_by_user: author)
     set_version_fixture(p.current_plan_version, content_markdown: content, created_at: 2.hours.ago)
-    CoPlan::PlanViewer.create!(plan: p, user: viewer, last_seen_at: 1.hour.ago)
+    Coplan::PlanViewer.create!(plan: p, user: viewer, last_seen_at: 1.hour.ago)
     version = create(:plan_version, plan: p, revision: 2, actor_id: author.id,
       content_markdown: content.sub("easy to read", "comfortable to read").sub("same heading", "same heading, now updated"))
     p.update!(current_plan_version: version, current_revision: 2)
@@ -101,7 +101,7 @@ RSpec.describe "Updated section signposts", type: :system do
     [ [ 1400, 900 ], [ 390, 844 ] ].each do |size|
       %w[light dark].each do |theme|
         window.resize_to(*size)
-        CoPlan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: Time.current)
+        Coplan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: Time.current)
         visit plan_page_path(plan)
         page.execute_script("document.documentElement.dataset.theme = '#{theme}'; window.scrollTo(0, 0)")
         expect(page).to have_no_css(".changed-sections-note")
@@ -201,7 +201,7 @@ RSpec.describe "Updated section signposts", type: :system do
     rewritten = content.scan(/^## (.+)$/).map { |heading| "## #{heading.first}\n\nEntirely new section body.\n" }.join("\n")
     version = create(:plan_version, plan: plan, revision: 3, actor_id: author.id, content_markdown: rewritten)
     plan.update!(current_plan_version: version, current_revision: 3)
-    CoPlan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: 1.hour.ago)
+    Coplan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: 1.hour.ago)
     visit plan_page_path(plan)
     expect(page).to have_no_css(".changed-sections-note", visible: :all)
     expect(page).to have_no_css(".section-updated")
@@ -216,7 +216,7 @@ RSpec.describe "Updated section signposts", type: :system do
       viewer.update!(app_theme: app_theme)
       %w[light dark].each do |theme|
         window.resize_to(width, 853)
-        CoPlan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: 1.hour.ago)
+        Coplan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: 1.hour.ago)
         visit plan_page_path(plan)
         page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
         find("#design .section-update-marker").hover

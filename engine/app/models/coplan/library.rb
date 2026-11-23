@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A library is the owner-shaped container for a folder tree and the
   # placements filed into it. Directory-only users may not have one yet;
   # `Library.for(owner)` creates it when the app first needs it.
@@ -36,11 +36,11 @@ module CoPlan
     HANDLE_MAX_LENGTH = 60
 
     belongs_to :owner, polymorphic: true
-    has_many :folders, class_name: "CoPlan::Folder", dependent: :destroy
-    has_many :placements, class_name: "CoPlan::PlanPlacement", dependent: :destroy
+    has_many :folders, class_name: "Coplan::Folder", dependent: :destroy
+    has_many :placements, class_name: "Coplan::PlanPlacement", dependent: :destroy
     # Append-only audit rows; delete_all (not destroy) — no callbacks to run,
     # and the FK would otherwise block destroying the library.
-    has_many :library_events, class_name: "CoPlan::LibraryEvent", dependent: :delete_all
+    has_many :library_events, class_name: "Coplan::LibraryEvent", dependent: :delete_all
 
     # Assigned before validation so callers never have to supply one —
     # `Library.for(owner)` keeps its one-argument shape.
@@ -66,7 +66,7 @@ module CoPlan
       end
 
       def reserved_handles
-        RESERVED_HANDLES + Array(CoPlan.configuration.reserved_handles).map { |h| h.to_s.downcase }
+        RESERVED_HANDLES + Array(Coplan.configuration.reserved_handles).map { |h| h.to_s.downcase }
       end
 
       # Case-insensitive so a pasted /Orders link still lands.
@@ -79,7 +79,7 @@ module CoPlan
       # First unclaimed handle at or after `base`, so handle assignment
       # never fails on a collision.
       def unclaimed_handle(base)
-        candidate = CoPlan::Slug.handle(base).presence || "library"
+        candidate = Coplan::Slug.handle(base).presence || "library"
         return candidate unless handle_claimed?(candidate)
 
         suffix = 2
@@ -111,7 +111,7 @@ module CoPlan
     # Callers add their own visibility filter; this answers location, not
     # who may see it.
     def unfiled_plans
-      return Plan.none unless owner_type == "CoPlan::User"
+      return Plan.none unless owner_type == "Coplan::User"
 
       Plan.where(created_by_user_id: owner_id)
         .where.not(id: PlanPlacement.select(:plan_id))
@@ -122,7 +122,7 @@ module CoPlan
     def writable_by?(user)
       return false unless user
 
-      owner_type == "CoPlan::User" && owner_id == user.id
+      owner_type == "Coplan::User" && owner_id == user.id
     end
 
     # Takes the library's namespace lock: every URL segment under this
@@ -165,7 +165,7 @@ module CoPlan
     end
 
     def handle_source
-      if owner.is_a?(CoPlan::User)
+      if owner.is_a?(Coplan::User)
         owner.username.presence || owner.email.to_s.split("@").first.presence || owner.name
       else
         name

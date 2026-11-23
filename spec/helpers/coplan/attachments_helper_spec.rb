@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::AttachmentsHelper, type: :helper do
+RSpec.describe Coplan::AttachmentsHelper, type: :helper do
   def build_blob(filename:, content_type:, metadata: {})
     ActiveStorage::Blob.create_and_upload!(
       io: StringIO.new("data"),

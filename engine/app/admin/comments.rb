@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
+ActiveAdmin.register Coplan::Comment, as: "PlanComment" do
   # Inspect retained content here; permanent deletion is a separate action.
   actions :index, :show
   config.batch_actions = false
@@ -13,9 +13,9 @@ ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
       return render json: { error: "Type DELETE to confirm permanent deletion." }, status: :unprocessable_content
     end
 
-    CoPlan::Comments::PermanentlyDelete.call(comment: resource, actor: current_coplan_admin_user)
+    Coplan::Comments::PermanentlyDelete.call(comment: resource, actor: current_coplan_admin_user)
     render json: { html: render_to_string(partial: "coplan/admin/comment_permanently_deleted", formats: [ :html ]) }
-  rescue CoPlan::Comments::PermanentlyDelete::NotAllowed => error
+  rescue Coplan::Comments::PermanentlyDelete::NotAllowed => error
     render json: { error: error.message }, status: :unprocessable_content
   end
 
