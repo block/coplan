@@ -113,7 +113,6 @@
           <% end %>
         </div>
       <% end %>
-      <%# Creates inside the folder you're looking at (changeable). %>
       <%= render layout: "coplan/shared/add_modal", locals: { id: "new-folder-modal", title: "New folder" } do %>
         <%# model: a fresh record — a bare scope: :folder would silently bind
             the @folder being viewed and prefill its name. %>
@@ -225,8 +224,6 @@
         </div>
       <% end %>
     <% else %>
-      <%# Flat results: narrowed by filter/tag/type/date, scoped to the
-          current folder's subtree. %>
       <% if @plans.any? %>
         <div class="plans-list">
           <%= render "coplan/plans/plan_page", plans: @plans,

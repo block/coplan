@@ -2,14 +2,8 @@
 <% can_add = current_user && policy.contribute? %>
 <% can_remove = current_user && policy.update? %>
 <div class="attachments-section" id="plan-attachments">
-  <%# The visible "+" lives in the footnote-section header; only the modal
-      is rendered here. %>
   <% if can_add %>
     <%= render layout: "coplan/shared/add_modal", locals: { id: "add-attachment-modal", title: "Add files" } do %>
-        <%# One designed dropzone instead of the native file input: click to
-            browse or drag files on; choosing files uploads immediately with
-            a live progress bar, then the server's Turbo Stream re-renders
-            this whole section in place — no reload, no scroll jump. %>
         <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true,
               class: "attachments-upload", data: { controller: "coplan--dropzone" } do |f| %>
           <button type="button" class="dropzone" data-coplan--dropzone-target="zone"

@@ -87,7 +87,6 @@ module CoPlan
           "Deleted comment"
         end
       else
-        # Fallback for unknown / future event types — still useful, never blank.
         "#{event.event_type}: #{event.before_value || "—"} → #{event.after_value || "—"}"
       end
     end
