@@ -12,10 +12,10 @@ RSpec.describe RenameCoplanClassNames do
 
   it "migrates persisted class names, leaves host records alone, and supports rollback" do
     user = create(:coplan_user)
+    plan = create(:plan, created_by_user: user)
     library = user.library
     library.update_column(:owner_type, "CoPlan::User")
 
-    plan = create(:plan, created_by_user: user)
     blob = ActiveStorage::Blob.create_before_direct_upload!(
       filename: "notes.txt", byte_size: 5, checksum: "0pmlW+cQLmt3P6q6Rgz+xA=="
     )
