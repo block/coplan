@@ -119,6 +119,29 @@ RSpec.describe "Human document editor", type: :request do
     expect(response.parsed_body["revision"]).to eq(1)
   end
 
+  it "saves stale distant edits without moving a repeated quote or the other writer's edit" do
+    prefix = "# #{plan.title}\n\n"
+    middle = (1..100).map { |i| "Unchanged line #{i}.\n" }.join
+    base = prefix + "repeat\nrepeat\nrepeat\n" + middle + "c\nb\n"
+    set_version_fixture(plan.current_plan_version, content_markdown: base)
+    thread = create(:comment_thread, plan: plan, anchor_text: "repeat", anchor_revision: 1,
+      anchor_start: prefix.length, anchor_end: prefix.length + 6)
+    remote = prefix + "repeat?\nrepeat\nrepeat\n" + middle + "c\nb\n"
+    local = prefix + "Xrepeat\nrepeat\nrepeat\n" + middle + "ac\nb\n"
+
+    patch update_content_plan_path(plan), params: { content: remote, base_revision: 1 }, as: :json
+    expect(response).to have_http_status(:ok)
+    remote_version = plan.reload.current_plan_version
+
+    patch update_content_plan_path(plan), params: { content: local, base_revision: 1 }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(plan.reload.current_content).to eq(prefix + "Xrepeat?\nrepeat\nrepeat\n" + middle + "ac\nb\n")
+    expect(plan.current_plan_version.actor_type).to eq("human")
+    expect(remote_version.reload.content_markdown).to eq(remote)
+    expect(thread.reload).not_to be_out_of_date
+    expect([ thread.anchor_start, thread.anchor_end ]).to eq([ prefix.length + 1, prefix.length + 7 ])
+  end
+
   it "retires a legacy human lease without acquiring a replacement" do
     Coplan::EditLease.acquire!(plan: plan, holder_type: "human", holder_id: author.id, lease_token: token)
     delete editor_lease_plan_path(plan), as: :json
