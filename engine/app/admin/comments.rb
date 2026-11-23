@@ -44,7 +44,9 @@ ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
         row :deleted_at
       end
       if resource.deleted?
-        render "coplan/admin/comment_deletion", comment: resource
+        panel "Permanently delete comment" do
+          render "coplan/admin/comment_deletion", comment: resource
+        end
       else
         para "This comment is active. Its author must soft-delete it before an admin can permanently delete it."
       end

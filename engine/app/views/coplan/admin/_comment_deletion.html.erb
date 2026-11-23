@@ -1,10 +1,11 @@
-<h2>Permanently delete comment</h2>
 <p>This comment is soft-deleted. Its original text is retained above for admins.</p>
 <p>Permanent deletion removes the comment, reactions, notification records, queued agent events, and retained deletion-history previews. This cannot be undone.</p>
-<%= form_with url: permanently_delete_admin_plan_comment_path(comment), method: :delete,
+<%= form_with url: permanently_delete_admin_plan_comment_path(comment), method: :delete, class: "formtastic",
       data: { action: "submit->coplan--admin-comment-deletion#submit", coplan__admin_comment_deletion_target: "form", turbo: false } do |form| %>
-  <%= form.label :confirmation, "Type DELETE to confirm permanent deletion" %>
+  <%= form.label :confirmation, "Type DELETE to confirm permanent deletion", class: "label" %>
   <%= form.text_field :confirmation, required: true, autocomplete: "off", pattern: "DELETE" %>
-  <%= form.button "Permanently delete comment", disabled: true, data: { coplan__admin_comment_deletion_target: "button" } %>
+  <div class="actions">
+    <%= form.button "Permanently delete comment", disabled: true, data: { coplan__admin_comment_deletion_target: "button" } %>
+  </div>
   <p role="alert" data-coplan--admin-comment-deletion-target="error"></p>
 <% end %>
