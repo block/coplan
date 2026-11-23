@@ -29,8 +29,6 @@ export default class extends Controller {
     if (this.hasTitleTarget && trigger.dataset.planTitle) {
       this.titleTarget.textContent = trigger.dataset.planTitle
     }
-    // Mark where the plan currently sits so the tree reads as state, not
-    // just a menu.
     this.modalTarget.querySelectorAll(".folder-picker__option").forEach(option => {
       option.classList.toggle("folder-picker__option--current",
         (option.dataset.folderId || "") === this._currentFolderId && this._currentFolderId !== "")
@@ -42,7 +40,6 @@ export default class extends Controller {
   choose(event) {
     const folderId = event.currentTarget.dataset.folderId || ""
     if (!this._moveUrl) return
-    // Filing it where it already is: quietly close instead of a no-op PATCH.
     if (folderId === this._currentFolderId) {
       try { this.modalTarget.hidePopover() } catch {}
       return

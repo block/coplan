@@ -111,13 +111,11 @@ export default class extends Controller {
   dismiss(event) {
     // Let native Escape dismiss the topmost microphone or reaction menu first.
     if (event?.key === "Escape" && document.querySelector(".microphone-settings__panel:popover-open, .comment-reactions__picker:popover-open")) return
-    // Close the comment form if it's visible
     if (this.hasFormTarget && this.formTarget.matches(":popover-open")) {
       event.preventDefault()
       this.hideAndResetForm()
       return
     }
-    // Close the selection popover if it's visible
     if (this.hasPopoverTarget && this.popoverTarget.style.display === "block") {
       event.preventDefault()
       this.clearSelection()
@@ -125,7 +123,6 @@ export default class extends Controller {
   }
 
   handleDocumentMouseDown(event) {
-    // Hide popover if clicking outside it
     if (this.hasPopoverTarget && !this.popoverTarget.contains(event.target)) {
       this.clearSelection()
     }
@@ -203,7 +200,6 @@ export default class extends Controller {
       }
     }
 
-    // Position popover near the selection
     const rect = range.getBoundingClientRect()
     const contentRect = this.element.querySelector(".plan-layout__content").getBoundingClientRect()
 
@@ -248,7 +244,6 @@ export default class extends Controller {
       if (!editor || !await editor.flush(true) || !this.selectedText) return
     }
 
-    // Set the anchor text, surrounding context, and occurrence index
     this.anchorInputTarget.value = this.selectedText
     this.contextInputTarget.value = this.selectedContext || ""
     this.occurrenceInputTarget.value = this.selectedOccurrence != null ? this.selectedOccurrence : ""
@@ -289,10 +284,8 @@ export default class extends Controller {
     }
     this.popoverTarget.style.display = "none"
 
-    // Clear browser selection
     window.getSelection().removeAllRanges()
 
-    // Focus textarea without scrolling the page
     const textarea = this.formTarget.querySelector("textarea")
     if (textarea) {
       textarea.focus({ preventScroll: true })
@@ -356,12 +349,10 @@ export default class extends Controller {
 
     const occurrence = event.currentTarget.dataset.anchorOccurrence
 
-    // Remove existing highlights first
     this.contentTarget.querySelectorAll(".anchor-highlight--active").forEach(el => {
       el.classList.remove("anchor-highlight--active")
     })
 
-    // Build full text for position lookups
     this.fullText = this._renderedText()
     this._normalizedFullText = this._buildNormalizedMap(this.fullText)
 
@@ -757,7 +748,6 @@ export default class extends Controller {
   highlightAnchors() {
     const activeThreadId = this._activeMark?.dataset.threadId
 
-    // Remove existing anchor highlights before re-highlighting
     this.contentTarget.querySelectorAll("mark.anchor-highlight").forEach(mark => {
       const parent = mark.parentNode
       while (mark.firstChild) parent.insertBefore(mark.firstChild, mark)

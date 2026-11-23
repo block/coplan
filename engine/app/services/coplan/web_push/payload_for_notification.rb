@@ -55,7 +55,7 @@ module CoPlan
 
       def body
         return "Discussion is welcome. Approve only when you are satisfied with the version you reviewed." if @notification.reason == "review_requested"
-        return "" unless @comment&.body_markdown
+        return "" if @comment.nil? || @comment.deleted? || @comment.body_markdown.blank?
 
         # Strip mention chips and the markdown emphasis/quote/code characters
         # that don't render usefully as plain text in an OS notification.

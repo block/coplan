@@ -79,6 +79,16 @@ RSpec.describe CoPlan::Slack::NotificationDeliveryJob, type: :job do
     expect(notification.notification_deliveries.first.reload.status).to eq("skipped")
   end
 
+  it "skips a comment deleted before the DM goes out" do
+    notification = notify("Ignore this, wrong plan")
+    notification.comment.soft_delete!
+
+    described_class.new.perform_batch(key: key, batch_start: notification.created_at)
+
+    expect(client).not_to have_received(:chat_post_message)
+    expect(notification.notification_deliveries.first.reload.status).to eq("skipped")
+  end
+
   it "includes an older notification when dispatch runs out of order" do
     older = record_notification("Older comment")
     newer = record_notification("Newer comment")

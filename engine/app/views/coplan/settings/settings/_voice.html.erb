@@ -14,16 +14,12 @@
       <p class="settings-row__hint">
         Hold this key on a plan to dictate a comment, and release to post it.
         The mic button works whichever you pick.
-        <%# Shown only while Ctrl+Space is the choice, and toggled live by the
-            controller so picking it here explains itself immediately. %>
         <span data-coplan--voice-hotkey-target="macNote"
               <%= "hidden" unless current_user.voice_hotkey == "ctrl_space" %>>
           macOS uses Ctrl+Space to switch input sources — if nothing happens when
           you hold it, turn that off in System Settings or choose another key here.
         </span>
       </p>
-      <%# Only ever filled in when a save didn't land — the successful case
-          is the segment lighting up, which already happened. %>
       <p class="settings-row__hint settings-row__hint--error" role="status"
          data-coplan--voice-hotkey-target="error" hidden></p>
     </div>

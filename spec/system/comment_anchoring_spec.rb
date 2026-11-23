@@ -57,10 +57,8 @@ RSpec.describe "Comment anchoring", type: :system do
         click_button "Comment"
       end
 
-      # Wait for the form to process
       expect(page).not_to have_css("#new-comment-form", visible: true)
 
-      # Verify the thread was created with anchor positions resolved to the first occurrence
       thread = plan.comment_threads.reload.last
       expect(thread).to be_present
       expect(thread.anchor_text).to eq("Complete")

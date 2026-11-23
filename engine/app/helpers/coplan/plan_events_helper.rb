@@ -80,14 +80,8 @@ module CoPlan
       when "review_withdrawn"
         safe_join([ "Withdrew the review request for ", content_tag(:strong, event.metadata["reviewer_name"]) ])
       when "comment_deleted"
-        preview = event.metadata.is_a?(Hash) ? event.metadata["body_preview"].to_s.presence : nil
-        if preview
-          safe_join([ "Deleted comment: ", content_tag(:em, preview) ])
-        else
-          "Deleted comment"
-        end
+        "Deleted comment"
       else
-        # Fallback for unknown / future event types — still useful, never blank.
         "#{event.event_type}: #{event.before_value || "—"} → #{event.after_value || "—"}"
       end
     end

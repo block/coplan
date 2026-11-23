@@ -81,7 +81,6 @@ RSpec.describe "Interactive checkboxes", type: :system do
     # The saved version can replace the body; assert against the current field.
     expect(page).to have_checked_field("Task: Write documentation", type: "checkbox", enable_aria_label: true)
 
-    # Wait for the server response by checking the version was created
     wait_for_version(plan, 2)
 
     plan.reload

@@ -80,6 +80,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_23_143952) do
     t.string "plan_id", limit: 36, null: false
     t.index [ "api_token_id", "acked_at" ], name: "index_coplan_agent_events_on_api_token_id_and_acked_at"
     t.index [ "api_token_id", "id" ], name: "index_coplan_agent_events_on_api_token_id_and_id"
+    t.index [ "comment_id" ], name: "index_coplan_agent_events_on_comment_id"
     t.index [ "plan_id" ], name: "index_coplan_agent_events_on_plan_id"
   end
 

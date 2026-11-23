@@ -1,10 +1,4 @@
 
-/* Plan document + footnotes: one page, no tabs. The document is the main
-   glass card; references and attachments follow like back matter — same
-   page, quieter surface. */
-/* Back matter lives inside the content column, closing out the document
-   after a rule — no card-within-card, no space below the sidebar. Empty
-   sections are a single quiet line. */
 .plan-footnotes {
   margin-top: var(--space-2xl);
   padding-top: var(--space-lg);

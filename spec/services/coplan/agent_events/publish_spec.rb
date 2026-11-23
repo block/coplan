@@ -14,6 +14,27 @@ RSpec.describe CoPlan::AgentEvents::Publish do
     described_class.call(plan: plan, event_type: "session.commit_failed", payload: { "reason" => "conflict" }, **options)
   end
 
+  describe "with a comment" do
+    let(:thread) { create(:comment_thread, plan: plan, created_by_user: user) }
+    let(:comment) { create(:comment, comment_thread: thread, author_type: "human", author_id: user.id, body_markdown: "Wrong plan, ignore") }
+
+    def publish_comment(loaded)
+      described_class.call(plan: plan, event_type: "comment.created", comment_thread: thread, comment: loaded, payload: {})
+    end
+
+    it "queues the comment's body" do
+      publish_comment(comment)
+      expect(CoPlan::AgentEvent.sole.payload["comment_body"]).to eq("Wrong plan, ignore")
+    end
+
+    it "queues nothing when the comment was deleted after the caller loaded it" do
+      loaded = CoPlan::Comment.find(comment.id)
+      CoPlan::Comments::SoftDelete.call(comment: comment, actor: user)
+
+      expect { publish_comment(loaded) }.not_to change(CoPlan::AgentEvent, :count)
+    end
+  end
+
   describe "with recipient_token_id" do
     it "delivers to a token with no session on the plan, and to no one else" do
       allow(CoPlan::AgentEventBus).to receive(:signal)
