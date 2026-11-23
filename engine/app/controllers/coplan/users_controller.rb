@@ -1,6 +1,4 @@
 module CoPlan
-  # Session-authenticated user typeahead for in-app pickers (the @-mention
-  # picker in the comment textarea today; future pickers welcome).
   class UsersController < ApplicationController
     ALLOWED_FIELDS = %i[id name email username avatar_url title team].freeze
 

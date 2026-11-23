@@ -16,7 +16,6 @@ module CoPlan
 
         found_urls = extract_urls(content)
 
-        # Remove extracted references for URLs no longer in content
         @plan.references.extracted.where.not(url: found_urls.keys).delete_all
 
         # Release changed keys before assigning new ones, so label swaps do not
@@ -34,7 +33,6 @@ module CoPlan
         # the stronger test anyway.
         links = found_urls.keys.index_with { |url| Reference.resolve_link(url, excluding: @plan.id) }
 
-        # Create or update references for found URLs
         found_urls.each do |url, meta|
           ref_type, target_plan_id = links[url]
 
