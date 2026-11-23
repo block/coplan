@@ -50,6 +50,7 @@ export default class extends Controller {
   annotate(event) {
     if (!this.selectionTarget.hidden) return this.cancel()
     this.commentButton = event.currentTarget
+    if (!this.commentButton.dispatchEvent(new CustomEvent("coplan:resume-annotation", {bubbles: true, cancelable: true}))) return
     this.commentButton.setAttribute("aria-pressed", "true")
     this.selectionTarget.hidden = false
     this.selectionTarget.focus({preventScroll: true})

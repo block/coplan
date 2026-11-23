@@ -99,6 +99,16 @@ RSpec.describe "Document components", type: :request do
       expect(response).to have_http_status(:not_found)
     end
 
+    it "keeps a failed image upload from posting a partial discussion" do
+      allow(ActiveStorage::Blob.service).to receive(:upload).and_raise(IOError, "storage unavailable")
+      expect {
+        post plan_comment_threads_path(plan, format: :turbo_stream), params: { comment_thread: form.merge(component_snapshot: fixture_file_upload("sample.png", "image/png")) }
+      }.to have_enqueued_job(ActiveStorage::PurgeJob)
+      expect(response).to have_http_status(:service_unavailable)
+      expect(plan.comment_threads).to be_empty
+      expect(plan.comments).to be_empty
+    end
+
     it "keeps the selection when the frame cannot supply an image" do
       post plan_comment_threads_path(plan), params: { comment_thread: form }
       comment = plan.comments.sole

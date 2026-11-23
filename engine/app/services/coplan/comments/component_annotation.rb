@@ -4,8 +4,11 @@ module CoPlan
       PNG_HEADER = "\x89PNG\r\n\x1a\n".b.freeze
       PNG_END = "\x00\x00\x00\x00IEND\xaeB\x60\x82".b.freeze
 
-      def self.call(comment:, selection:, file:)
-        new(comment, selection, file).call
+      class UploadError < StandardError; end
+
+      def self.call(comment:, selection:, file:, &block)
+        return yield unless selection || file
+        new(comment, selection, file).call(&block)
       end
 
       def initialize(comment, selection, file)
@@ -13,7 +16,9 @@ module CoPlan
       end
 
       def call
-        invalid! unless @comment.comment_thread.anchor_kind == "component" && @selection.is_a?(String) && @selection.bytesize <= 2048
+        thread = @comment.comment_thread
+        raise ActiveRecord::RecordInvalid, thread unless thread.valid?
+        invalid! unless thread.anchor_kind == "component" && @selection.is_a?(String) && @selection.bytesize <= 2048
         data = JSON.parse(@selection)
         invalid! unless data.is_a?(Hash)
         region = data.slice("width", "height", "x", "y", "w", "h")
@@ -25,8 +30,11 @@ module CoPlan
 
         attach_png if @file
         @comment.component_selection = region.merge("label" => label, "image" => @file.present?, "revision" => @comment.comment_thread.plan_version.revision)
+        yield
       rescue JSON::ParserError
         invalid!
+      ensure
+        @blob&.purge_later unless @comment.persisted?
       end
 
       private
@@ -65,8 +73,16 @@ module CoPlan
             invalid! unless kind.match?(/\A[a-z][a-zA-Z]{3}\z/)
           end
         end
-        @comment.component_snapshot.attach(io: StringIO.new(bytes << PNG_END), filename: "component.png", content_type: "image/png",
+        io = StringIO.new(bytes << PNG_END)
+        @blob = ActiveStorage::Blob.create_after_unfurling!(io:, filename: "component.png", content_type: "image/png",
           identify: false, metadata: { analyzed: true, width:, height: })
+        begin
+          @blob.upload_without_unfurling(io)
+        rescue StandardError => error
+          Rails.error.report(error, handled: true)
+          raise UploadError, "Could not save the component image. Your draft is still here. Try again."
+        end
+        @comment.component_snapshot.attach(@blob)
       rescue Zlib::Error
         invalid!
       ensure

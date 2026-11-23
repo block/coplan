@@ -13,6 +13,7 @@
     </div>
     <input type="hidden" disabled name="comment_thread[component_selection]" data-coplan--source-comments-target="region">
     <input type="file" disabled hidden name="comment_thread[component_snapshot]" data-coplan--source-comments-target="file">
+    <button type="button" hidden class="comment-window__action" data-coplan--source-comments-target="discard" data-action="coplan--source-comments#discardAnnotation">Discard annotation</button>
     <img class="component-snapshot" hidden alt="Selected area of the component" data-coplan--source-comments-target="preview">
     <%= render "coplan/comment_threads/composer_fields",
           plan: plan, field_id: "source-comment-body", error_id: "source-comment-error",

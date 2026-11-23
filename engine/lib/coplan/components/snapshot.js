@@ -21,6 +21,7 @@ async function captureSnapshot(root, point) {
     surface.setAttribute("width", width)
     surface.setAttribute("height", height)
     svg.append(surface)
+    const localReference = location.href.split("#")[0] + "#"
     let count = 0
     function copy(node) {
       if (++count > 6000) throw Error("Component is too large to capture")
@@ -29,7 +30,13 @@ async function captureSnapshot(root, point) {
       if (node.shadowRoot || node.matches("video, iframe, object")) throw Error("Unsupported surface")
       const style = getComputedStyle(node)
       if (style.display === "none") return null
+      if (node !== document.scrollingElement && (node.scrollTop || node.scrollLeft)) throw Error("Scrolled content")
       const clone = node instanceof HTMLCanvasElement ? doc.createElementNS(root.namespaceURI, "img") : doc.importNode(node, false)
+      if (node instanceof SVGElement) {
+        for (const attr of clone.attributes) {
+          if (attr.value.includes(localReference)) attr.value = attr.value.replaceAll(localReference, "#")
+        }
+      }
       if (node instanceof HTMLCanvasElement) clone.setAttribute("src", node.toDataURL())
       if (node instanceof HTMLInputElement) {
         clone.setAttribute("value", node.value)
@@ -37,7 +44,8 @@ async function captureSnapshot(root, point) {
       }
       if (node instanceof HTMLOptionElement) clone.toggleAttribute("selected", node.selected)
       // Computed values capture the active theme and the current animation frame.
-      clone.style.cssText = style.cssText || Array.from(style, key => key + ":" + style.getPropertyValue(key)).join(";")
+      const css = style.cssText || Array.from(style, key => key + ":" + style.getPropertyValue(key)).join(";")
+      clone.style.cssText = css.replaceAll(localReference, "#")
       clone.style.animation = "none"
       clone.style.transition = "none"
       if (node instanceof HTMLTextAreaElement) clone.textContent = node.value

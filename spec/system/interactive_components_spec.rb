@@ -55,10 +55,13 @@ RSpec.describe "Interactive components", type: :system do
     simulator.find(".document-component__selection").click
     expect(page).to have_css(".source-comments textarea:focus", visible: true)
     expect(page).to have_css(".source-comments img[src^='blob:']", visible: true)
-    within(".source-comments") do
-      fill_in "comment_thread[body_markdown]", with: "Explain this retry delay."
-      click_button "Comment"
-    end
+    find("#source-comment-body").set("Explain this retry delay.")
+    find("#source-comment-body").send_keys(:escape)
+    simulator.hover
+    tab.find("button[data-source-target]").click
+    expect(find("#source-comment-body").value).to eq("Explain this retry delay.")
+    expect(page).to have_css(".source-comments img[src^='blob:']", visible: true)
+    within(".source-comments") { click_button "Comment" }
     posted_image = find(".source-comments .comment__body img.component-snapshot", visible: true)
     expect(page.evaluate_async_script("arguments[0].decode().then(() => arguments[1](arguments[0].naturalWidth), () => arguments[1](0))", posted_image)).to be_positive
     comment = plan.comments.reload.sole
@@ -75,6 +78,49 @@ RSpec.describe "Interactive components", type: :system do
     simulator.find("button[data-source-target]").click
     simulator.find(".document-component__selection").click
     expect(page).to have_css(".source-comments textarea:focus", visible: true)
+  end
+
+  it "captures SVG fills and flags a scrolled panel whose visible contents cannot be copied" do
+    markdown = <<~'MD'
+      ::: {.component title="Gradient"}
+
+      root.innerHTML = '<svg width="100%" height="80"><defs><linearGradient id="fill"><stop stop-color="#119955"/></linearGradient></defs><rect width="100%" height="80"/></svg>';
+      root.querySelector("rect").setAttribute("fill", "url(" + location.href.split("#")[0] + "#fill)");
+
+      :::
+
+      ::: {.component title="Scrolled"}
+
+      root.innerHTML = '<div style="height:50px;overflow:auto"><div style="height:200px">Row one</div>Row two</div>';
+      root.firstElementChild.scrollTop = 100;
+
+      :::
+    MD
+    plan = CoPlan::Plans::Create.call(title: "Snapshot coverage", content: markdown, user: author, actor_type: "human")
+    visit plan_page_path(plan)
+    expect(page).to have_css(".document-component[data-render-ms]", count: 2)
+    gradient = find("figure:has(iframe[title='Gradient'])")
+    gradient.hover
+    gradient.find("button[data-source-target]").click
+    gradient.find(".document-component__selection").send_keys(:enter)
+    preview = find(".source-comments img.component-snapshot")
+    rgb = page.evaluate_async_script(<<~JS, preview)
+      const [image, done] = arguments
+      image.decode().then(() => {
+        const canvas = document.createElement("canvas")
+        const ctx = canvas.getContext("2d")
+        ctx.drawImage(image, Math.floor(image.naturalWidth / 2), Math.floor(image.naturalHeight / 2), 1, 1, 0, 0, 1, 1)
+        done(Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3))
+      }, () => done([]))
+    JS
+    expect(rgb).to eq([ 17, 153, 85 ])
+    click_button "Discard annotation"
+    scrolled = find("figure:has(iframe[title='Scrolled'])")
+    scrolled.hover
+    scrolled.find("button[data-source-target]").click
+    scrolled.find(".document-component__selection").click
+    expect(page).to have_css(".source-comments blockquote", text: "Image unavailable")
+    expect(page).to have_no_css(".source-comments img.component-snapshot")
   end
 
   it "loads a host library independently and keeps markup-looking strings inside the component" do

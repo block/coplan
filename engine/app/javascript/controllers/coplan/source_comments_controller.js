@@ -7,10 +7,11 @@ import { revealSections } from "coplan/collapsed_sections"
 // Only signed source ranges cross the wire; SVG ids are render-time lookup
 // keys, and never become comment identities.
 export default class extends Controller {
-  static targets = ["panel", "quote", "discussions", "token", "body", "outdated", "composer", "threadTools", "preview", "region", "file"]
+  static targets = ["panel", "quote", "discussions", "token", "body", "outdated", "composer", "threadTools", "preview", "region", "file", "discard"]
 
   connect() {
     this.drafts = new Map()
+    this.annotationDrafts = new Map()
     this.replyDrafts = new Map()
     this.panelHome = document.createComment("element comment panel")
     this.panelTarget.before(this.panelHome)
@@ -117,7 +118,7 @@ export default class extends Controller {
     this.openThreadIds = new Set()
     this.clearBrowse()
     this.saveReplyDrafts()
-    if (this.selection && this.regionTarget.disabled) this.drafts.set(this.selection.token, this.bodyTarget.value)
+    this.saveDraft()
     this.clearAnnotation()
     const target = JSON.parse(element.dataset.sourceTarget)
     this.selection = target
@@ -129,6 +130,8 @@ export default class extends Controller {
     this.quoteTarget.textContent = target.kind === "table_cell" ? "" : target.kind === "mermaid_diagram" ? target.label :
       preview.textContent.trim() || target.label
     if (annotation) {
+      this.annotation = annotation
+      this.discardTarget.hidden = false
       const {region, png} = annotation
       this.regionTarget.value = JSON.stringify(region)
       this.regionTarget.disabled = false
@@ -145,7 +148,7 @@ export default class extends Controller {
       }
     }
     this.tokenTarget.value = target.token
-    this.bodyTarget.value = annotation ? "" : this.drafts.get(target.token) || ""
+    this.bodyTarget.value = annotation ? annotation.body || "" : this.drafts.get(target.token) || ""
     this.element.querySelector("#source-comment-error").textContent = ""
 
     const panel = this.panelTarget
@@ -179,6 +182,26 @@ export default class extends Controller {
     if (cell) this.show(cell)
   }
 
+  saveDraft() {
+    if (!this.selection) return
+    const token = this.selection.token
+    if (!this.annotation) this.drafts.set(token, this.bodyTarget.value)
+    else if (this.bodyTarget.value.trim()) this.annotationDrafts.set(token, {...this.annotation, body: this.bodyTarget.value})
+    else this.annotationDrafts.delete(token)
+  }
+
+  resumeAnnotation(event) {
+    const draft = this.annotationDrafts.get(JSON.parse(event.target.dataset.sourceTarget).token)
+    if (!draft) return
+    event.preventDefault()
+    this.show(event.target, this.showResolved, true, draft)
+  }
+
+  discardAnnotation() {
+    this.bodyTarget.value = ""
+    this.dismiss()
+  }
+
   componentAnnotation(event) {
     this.show(event.target, this.showResolved, true, event.detail)
   }
@@ -190,7 +213,9 @@ export default class extends Controller {
   clearAnnotation() {
     if (this.previewURL) URL.revokeObjectURL(this.previewURL)
     this.previewURL = null
+    this.annotation = null
     if (!this.hasRegionTarget) return
+    this.discardTarget.hidden = true
     this.regionTarget.disabled = this.fileTarget.disabled = this.previewTarget.hidden = true
     this.fileTarget.value = this.regionTarget.value = ""
     this.previewTarget.removeAttribute("src")
@@ -229,7 +254,7 @@ export default class extends Controller {
     if (event && !this.panelTarget.matches(":popover-open")) return
     event?.preventDefault()
     event?.stopPropagation()
-    if (this.selection && this.regionTarget.disabled) this.drafts.set(this.selection.token, this.bodyTarget.value)
+    this.saveDraft()
     this.saveReplyDrafts()
     this.clearBrowse()
     try { this.panelTarget.hidePopover() } catch {}
@@ -260,6 +285,7 @@ export default class extends Controller {
       this.clearAnnotation()
       this.bodyTarget.value = ""
       this.drafts.delete(this.selection?.token)
+      this.annotationDrafts.delete(this.selection?.token)
     } else {
       event.target.querySelectorAll("textarea").forEach(textarea => { textarea.value = "" })
       this.replyDrafts.delete(event.target.closest("[data-thread-id]")?.dataset.threadId)

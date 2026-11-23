@@ -26,24 +26,19 @@ module CoPlan
 
       # Atomic: a thread without its first comment is an empty orphan whose
       # anchor still highlights.
-      comment = nil
+      comment = Comment.new(comment_thread: thread, author_type: "human", author_id: current_user.id, body_markdown: thread_params[:body_markdown])
       begin
-        ActiveRecord::Base.transaction do
-          # Serialize source validation with plan edits. Reload the version
-          # after taking the lock, including when this request waited on one.
-          @plan.lock!
-          thread.plan_version = @plan.current_plan_version
-          thread.save!
-          comment = thread.comments.build(
-            author_type: "human",
-            author_id: current_user.id,
-            body_markdown: thread_params[:body_markdown]
-          )
-          if thread_params[:component_selection] || thread_params[:component_snapshot]
-            Comments::ComponentAnnotation.call(comment:, selection: thread_params[:component_selection], file: thread_params[:component_snapshot])
+        Comments::ComponentAnnotation.call(comment:, selection: thread_params[:component_selection], file: thread_params[:component_snapshot]) do
+          ActiveRecord::Base.transaction do
+            # Validate the signed selection again under the edit lock after any upload.
+            @plan.lock!
+            thread.plan_version = @plan.current_plan_version
+            thread.save!
+            comment.save!
           end
-          comment.save!
         end
+      rescue Comments::ComponentAnnotation::UploadError => e
+        return render_comment_error(e.message, status: :service_unavailable)
       rescue ActiveRecord::RecordInvalid => e
         # Most likely an anchor that doesn't resolve — a thread that would
         # render nowhere. Refused here rather than created invisible. The
@@ -89,11 +84,11 @@ module CoPlan
 
     private
 
-    def render_comment_error(message)
+    def render_comment_error(message, status: :unprocessable_content)
       respond_to do |format|
         format.turbo_stream do
           render turbo_stream: [ turbo_stream.update("new-comment-form-error", message), turbo_stream.update("source-comment-error", message), turbo_stream.update("document-comment-error", message) ],
-            status: :unprocessable_content
+            status: status
         end
         format.html { redirect_to helpers.plan_browse_path(@plan), alert: message }
       end
