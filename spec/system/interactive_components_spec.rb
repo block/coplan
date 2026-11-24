@@ -106,9 +106,9 @@ RSpec.describe "Interactive components", type: :system do
     visit plan_page_path(plan)
     figure = find("figure:has(iframe[title='Diagram'])")
     frame = figure.find("iframe")
-    select_label = lambda do
+    select_label = lambda do |label = "Checkout"|
       within_frame(frame) do
-        node = find("svg text", exact_text: "Checkout")
+        node = find("svg text", exact_text: label)
         node.click
         page.execute_script(<<~JS, node)
           const range = document.createRange(); range.selectNodeContents(arguments[0]);
@@ -125,12 +125,15 @@ RSpec.describe "Interactive components", type: :system do
     expect(page).to have_css(".source-comments img[src^='blob:']")
     find("#source-comment-body").set("Which checkout?")
     find("#source-comment-body").send_keys(:escape)
-    select_label.call
+    expect(page).to have_no_css(".source-comments:popover-open")
+    select_label.call("Retry queue")
     within_frame(frame) { find("body").send_keys("c") }
+    expect(page).to have_css(".source-comments:popover-open textarea:focus")
     expect(find("#source-comment-body").value).to eq("Which checkout?")
     within(".source-comments") { click_button "Comment" }
     expect(page).to have_css(".source-comments .comment__body img.component-snapshot")
-    expect(plan.comments.reload.sole.component_selection).to include("quote" => "Checkout", "image" => true)
+    expect(plan.comments.reload.sole.body_markdown).to eq("Which checkout?")
+    expect(plan.comments.sole.component_selection).to include("quote" => "Checkout", "image" => true)
     find("body").send_keys(:escape)
     select_label.call
     within_frame(frame) { find("body").send_keys("c") }
