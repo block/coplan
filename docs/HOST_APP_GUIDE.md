@@ -33,9 +33,12 @@ Coplan.configure do |config|
     source: "export const delay = n => 2 ** n", example: 'const { delay } = await import("backoff")')
   config.component_catalog.type("retry", uses: [ "backoff@1" ], bindings: [ "delay" ],
     source: 'import { delay } from "backoff"; export function setup() { return { delay }; }',
+    guide: "Use delay(attempt) to calculate the backoff in seconds.",
     example: 'root.textContent = delay(3)')
 end
 ```
+
+The visual editor lists registered types under **+ → Component**. Supply a runnable author script in `example:` to seed new blocks. Optional plain-text `guide:` explains the type in the editor’s quick guide and the agent reference.
 
 Install the engine migration when upgrading. Each new revision that contains components saves its selected modules, their digests, and any type wrappers. Old revisions without a catalog display source. Disabling execution also disables the frame endpoint.
 

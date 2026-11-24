@@ -5,7 +5,7 @@ import { commandFor } from "coplan/shortcuts"
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice", "uploadMessage", "uploadDismiss"]
+  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "componentChoiceButton", "componentChoices", "componentGuide", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice", "uploadMessage", "uploadDismiss"]
   static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, attachmentsUrl: String, inline: Boolean, embedDomains: Array, componentCatalog: Object }
 
   revisionValueChanged(revision) {
@@ -840,6 +840,8 @@ export default class extends Controller {
   }
   prepareContentPicker(event) {
     if (event.newState !== "open") return
+    this.componentChoicesTarget.hidden = true
+    this.componentChoiceButtonTarget.setAttribute("aria-expanded", "false")
     this.richEditor.captureSelection()
     this.positionContentPicker(true)
   }
@@ -861,8 +863,36 @@ export default class extends Controller {
   insertPresentation() {
     this.insertContentBlock("::: {.presentation}\n\n# Slide title\n\nSlide content.\n\n:::\n", '[aria-label="Presentation Markdown"]')
   }
-  insertComponent() {
-    this.insertContentBlock('::: {.component}\n\nroot.textContent = "Hello!";\n\n:::\n', '[data-component-view="edit"]')
+  toggleComponentChoices() {
+    const choices = this.componentChoicesTarget
+    choices.hidden = !choices.hidden
+    this.componentChoiceButtonTarget.setAttribute("aria-expanded", String(!choices.hidden))
+    this.positionContentPicker()
+    if (!choices.hidden) choices.querySelector("button")?.focus({ preventScroll: true })
+  }
+  insertComponent(event) {
+    const name = event.currentTarget.dataset.componentType
+    const type = this.componentCatalogValue.types[name]
+    const attribute = name ? ` type="${name}"` : ""
+    const block = this.insertContentBlock(`::: {.component${attribute}}\n\n${type.example}\n\n:::\n`)
+    block?.coplanComponentView("edit")
+  }
+  openComponentGuide(event) {
+    const name = event.currentTarget.dataset.componentType
+    const type = this.componentCatalogValue.types[name]
+    const dialog = this.componentGuideTarget
+    dialog.querySelector("h2").textContent = `${type.label} quick guide`
+    const description = dialog.querySelector("[data-guide-description]")
+    description.textContent = type.guide || ""
+    description.hidden = !type.guide
+    dialog.querySelector("[data-guide-example]").textContent = type.example
+    const bindings = dialog.querySelector("[data-guide-bindings]")
+    bindings.textContent = `Available here: ${["root", ...type.bindings].join(", ")}`
+    bindings.hidden = !type.bindings.length
+    dialog.showModal()
+  }
+  closeComponentGuide() {
+    this.componentGuideTarget.close()
   }
   insertEmbed() {
     const source = this.richModule.iframeSource({ src: "https://", title: "Embedded content", width: "100%", height: "480" })
@@ -880,7 +910,9 @@ export default class extends Controller {
     let position
     transaction.doc.descendants((candidate, pos) => { if (candidate === node) position = pos })
     view.dispatch(transaction)
-    view.nodeDOM(position)?.querySelector(focusSelector)?.focus({ preventScroll: true })
+    const block = view.nodeDOM(position)
+    if (focusSelector) block?.querySelector(focusSelector)?.focus({ preventScroll: true })
+    return block
   }
   openCitation(event) {
     event.preventDefault(); event.stopPropagation()

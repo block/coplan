@@ -49,10 +49,11 @@ RSpec.describe "Agent Instructions", type: :request do
     it "lists registered types, their bindings, and importable modules after the plain JavaScript example" do
       catalog = Coplan::ComponentCatalog.new
       catalog.library("plot@2", source: "export const scale = 2", example: "scale")
-      catalog.type("chart", source: "", bindings: [ "plot" ], uses: [ "plot@2" ], example: "plot.draw()")
+      catalog.type("chart", source: "", bindings: [ "plot" ], uses: [ "plot@2" ], example: "plot.draw()", guide: "Draw a series with plot.draw().")
       allow(Coplan.configuration).to receive(:component_catalog).and_return(catalog)
       get agent_instructions_guide_path(guide: "components")
       body = response.body
+      expect(body).to include("Chart quick guide", "Draw a series with plot.draw().", Coplan::ComponentCatalog::BASE_EXAMPLE)
       expect(body.index("::: {.component}")).to be < body.index('::: {.component type="diagram"}')
       expect(body).to include("| `chart` | `root`, `plot` | `plot@2` |", '| `plot@2` | `"plot"` |')
     end

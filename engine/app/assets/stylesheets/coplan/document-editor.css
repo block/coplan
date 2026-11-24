@@ -245,6 +245,8 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 .document-editor__component-settings select, .document-editor__module-button { padding: 3px 7px; border: 1px solid var(--color-border); border-radius: 5px; font: inherit; color: var(--color-text); background: var(--color-surface); }
 .document-editor__module-button { cursor: pointer; }
 .document-editor__module-button::after { content: ""; display: inline-block; width: .4em; height: .4em; margin: 0 2px .2em 7px; border: solid currentColor; border-width: 0 1px 1px 0; transform: rotate(45deg); }
+.document-editor__block-header .document-editor__component-help { border: 0; background: transparent; color: var(--color-text-muted); font: inherit; cursor: pointer; }
+.document-editor__block-header .document-editor__component-help:hover { color: var(--color-primary); text-decoration: underline; }
 .document-editor__component-settings[hidden] { display: none; }
 .document-editor__component-settings select { max-width: min(45vw, 18rem); font-weight: 600; }
 .document-editor__module-picker { box-sizing: border-box; width: max-content; max-width: min(330px, calc(100vw - 16px)); max-height: 16rem; overflow: auto; padding: 4px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); }

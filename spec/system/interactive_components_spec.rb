@@ -375,8 +375,12 @@ RSpec.describe "Interactive components", type: :system do
     expect(page.evaluate_script("arguments[0].textContent", raw)).to include(markdown.strip)
     click_button "Editor", exact: true
 
-    block.select("receipt", from: "Type")
-    block.select("Plain JavaScript", from: "Type")
+    block.select("Receipt", from: "Type")
+    block.click_button("Quick guide")
+    expect(page).to have_css("dialog[open] h2", text: "Receipt quick guide")
+    click_button "Close quick guide", enable_aria_label: true
+    expect(block.find(script_field).value).to eq("diagram.node('a', 'Original');")
+    block.select("Base", from: "Type")
     block.click_button("Modules")
     expect(block).to have_unchecked_field("diagram@1")
     block.check("amount@1")
@@ -415,16 +419,38 @@ RSpec.describe "Interactive components", type: :system do
     expect(input.value).to eq(large)
   end
 
-  it "inserts a plain JavaScript component without a title or type" do
-    plan = Coplan::Plans::Create.call(title: "Scratchpad", content: "# Scratchpad\n\nTry it here.", user: author, actor_type: "human")
-    visit plan_edit_page_path(plan)
-    find(".document-editor__body .ProseMirror p", text: "Try it here.").click
-    click_button "Insert content", enable_aria_label: true
-    click_button "Component", exact: true
-    block = find(".document-editor__component")
-    within_frame(block.find("iframe")) { expect(page).to have_text("Hello!") }
-    click_button "Raw", exact: true
-    raw = find('[aria-label="Markdown source"]')
-    expect(page.evaluate_script("arguments[0].textContent", raw)).to include(%(::: {.component}\n\nroot.textContent = "Hello!";\n\n:::))
+  { "Base" => nil, "Diagram" => "diagram" }.each do |label, type|
+    it "inserts #{label} with focused starter code and an in-place guide" do
+      plan = Coplan::Plans::Create.call(title: "Scratchpad", content: "# Scratchpad\n\nTry it here.", user: author, actor_type: "human")
+      visit plan_edit_page_path(plan)
+      find(".document-editor__body .ProseMirror p", text: "Try it here.").click
+      click_button "Insert content", enable_aria_label: true
+      click_button "Component", exact: true
+      within("[aria-label='Component types']") { click_button label, exact: true }
+      block = find(".document-editor__component")
+      starter = block.find("textarea:focus").value
+      expect(block).to have_no_css("iframe", visible: :all)
+      block.click_button("Quick guide")
+      within("dialog[open]") do
+        expect(page).to have_text("#{label} quick guide")
+        expect(page).to have_text("root is the <main> element")
+        expect(find("code").text).to eq(starter)
+        click_button "Close quick guide", enable_aria_label: true
+      end
+      expect(block.find("textarea").value).to eq(starter)
+      block.click_button("Preview", exact: true)
+      within_frame(block.find("iframe")) do
+        if type
+          expect(page).to have_css("svg text", text: "Payment")
+          expect(page).to have_css("svg text", text: "approved")
+        else
+          expect(find("main")).to have_text("Hello!")
+        end
+      end
+      click_button "Raw", exact: true
+      raw = find('[aria-label="Markdown source"]')
+      marker = type ? %(::: {.component type="#{type}"}) : "::: {.component}"
+      expect(raw.evaluate_script("this.textContent")).to include("#{marker}\n\n#{starter}\n\n:::")
+    end
   end
 end

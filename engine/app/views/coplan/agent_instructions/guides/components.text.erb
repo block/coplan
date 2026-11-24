@@ -22,28 +22,31 @@ Text comments are on by default. A host type can set `text_comments: false` when
 
 ## Available component types
 
-A **type** gives the script named objects and can render the result after the script finishes. Set at most one `type`. Plain JavaScript receives `root` and needs no attributes. Add an optional ID such as `#retry-path` if you need a deep link.
+A **type** gives the script named objects and can render the result after the script finishes. Base uses plain JavaScript and omits the type attribute. Add an optional ID such as `#retry-path` for a deep link. In the visual editor, choose + → Component → a type. The new block opens in Edit with its starter code. Open Quick guide beside the type selector for the examples below.
+
+<%= raw Coplan::ComponentCatalog::ROOT_GUIDE.sub("<main>", "`<main>`") %>
 
 <% catalog = Coplan.configuration.component_catalog -%>
 | Type | Available in the script | Included modules |
 |---|---|---|
-| Plain JavaScript (omit `type`) | `root` | — |
+| Base (omit `type`) | `root` | — |
 <% catalog.types.each do |name, entry| -%>
 | `<%= name %>` | <%= (["root"] + entry.fetch("bindings")).map { |key| "`#{key}`" }.join(", ") %> | <%= entry.fetch("uses").map { |key| "`#{key}`" }.join(", ").presence || "—" %> |
 <% end -%>
 
-<% if catalog.types.key?("diagram") -%>
-For example, the diagram type supplies `diagram` and draws the graph when your script returns.
+<% catalog.authoring_types.each do |name, type| -%>
+### <%= type.fetch("label") %> quick guide
 
-````markdown
-::: {.component type="diagram"}
+<%= raw type["guide"] %>
 
-diagram.node("checkout", "Checkout");
-diagram.node("retry", "Retry queue");
-diagram.edge("checkout", "retry", "on failure");
+<% fence = "`" * [ 4, (type.fetch("example").scan(/`+/).map(&:length).max || 0) + 1 ].max -%>
+<%= fence %>markdown
+::: {.component<%= raw %( type="#{name}") unless name.empty? %>}
+
+<%= raw type.fetch("example") %>
 
 :::
-````
+<%= fence %>
 
 <% end -%>
 ## JavaScript modules
@@ -63,12 +66,14 @@ A **module** is bundled JavaScript that your script can import. The Markdown att
 ### <%= kind %> `<%= name %>`
 
 <% fence = "`" * [ 3, (entry.values_at("source", "example").join.scan(/`+/).map(&:length).max || 0) + 1 ].max -%>
+<% if kind == "Module" -%>
 Example
 
 <%= fence %>javascript
 <%= raw entry.fetch("example").rstrip %>
 <%= fence %>
 
+<% end -%>
 Implementation
 
 <%= fence %>javascript

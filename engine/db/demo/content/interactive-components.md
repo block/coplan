@@ -1,6 +1,6 @@
 ## Payment path
 
-Checkout submits the first attempt. A failed attempt enters the retry queue. In the document editor, choose Edit on the diagram, change a node label, then choose Preview.
+Checkout submits the first attempt. A failed attempt enters the retry queue. In the document editor, choose Edit on the diagram, change a node label, then choose Preview. To build another graph, choose **+ → Component → Diagram**. Its starter opens in Edit. Open **Quick guide** for node and edge examples.
 
 ::: {.component type="diagram"}
 

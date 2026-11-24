@@ -66,7 +66,13 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
   libraries.setAttribute("role", "group")
   libraries.setAttribute("aria-label", "JavaScript modules")
   moduleButton.popoverTargetElement = libraries
-  settings.append(typeLabel, moduleButton, libraries)
+  const help = document.createElement("button")
+  help.type = "button"
+  help.textContent = "Quick guide"
+  help.className = "document-editor__component-help"
+  help.dataset.action = "coplan--editor#openComponentGuide"
+  help.setAttribute("aria-haspopup", "dialog")
+  settings.append(typeLabel, help, moduleButton, libraries)
   header.prepend(settings)
   const script = document.createElement("textarea")
   script.className = "document-editor__block-source"
@@ -132,13 +138,15 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
 
   let parts = componentParts(node.attrs.source)
   function syncSettings() {
-    const types = new Set(["", ...(catalog.types || []), parts.type])
+    const types = new Set(["", ...Object.keys(catalog.types || {}), parts.type])
     for (const name of types) {
-      if (![...type.options].some(option => option.value === name)) type.add(new Option(name || "Plain JavaScript", name))
+      if (![...type.options].some(option => option.value === name)) type.add(new Option(catalog.types?.[name]?.label || name || "Base", name))
     }
     type.value = parts.type
+    help.hidden = !Object.hasOwn(catalog.types || {}, parts.type)
+    help.dataset.componentType = parts.type
     const choices = new Set([...(catalog.libraries || []), ...parts.libraries])
-    const typeModules = catalog.typeModules?.[parts.type]
+    const typeModules = catalog.types?.[parts.type]?.uses
     if (Array.isArray(typeModules)) typeModules.forEach(name => choices.delete(name))
     moduleButton.hidden = choices.size === 0
     const selectedCount = parts.libraries.filter(name => choices.has(name)).length
@@ -196,7 +204,12 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
       generation++
       openHighlighting()
       script.focus({ preventScroll: true })
-    } else { clearTimeout(timer); render() }
+    } else {
+      clearTimeout(timer)
+      // An insertion switches to Edit in the same transaction. Only request
+      // a preview if the reader will actually see it.
+      queueMicrotask(() => { if (!disposed && !output.hidden) render() })
+    }
   }
   script.value = parts.body
   syncSettings()
