@@ -31,6 +31,7 @@ export default class extends Controller {
     this.schemeChanged = () => this.syncTheme()
     this.scheme.addEventListener("change", this.schemeChanged)
     this.captureSequence = 0
+    this.pendingCaptures = new Map()
     this.started = performance.now()
     this.challenge = Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16).padStart(8, "0")).join("")
     this.frameTarget.src = this.urlValue + "#" + this.challenge
@@ -48,7 +49,7 @@ export default class extends Controller {
       }
       if (data?.hovered === true) setHoveredFrame(this.element)
       else if (data?.hovered === false && hoveredFrame === this.element) setHoveredFrame(null)
-      if (data?.captureId && data.captureId === this.pending?.id) this.pending.resolve(data)
+      this.pendingCaptures.get(data?.captureId)?.(data)
       if (Number.isFinite(data?.height)) {
         this.frameTarget.style.height = Math.min(1200, Math.max(48, data.height)) + "px"
       }
@@ -131,13 +132,13 @@ export default class extends Controller {
     const snapshot = new Promise(resolve => {
       const finish = value => {
         clearTimeout(timer)
-        if (this.pending?.id === id) this.pending = null
+        this.pendingCaptures.delete(id)
         resolve(value)
       }
       const timer = setTimeout(() => finish({}), CAPTURE_TIMEOUT_MS)
-      this.pending = {id, resolve: finish}
+      this.pendingCaptures.set(id, finish)
     })
-    this.gesture = {point, pointerId, snapshot}
+    this.gesture = {id, point, pointerId, snapshot}
     this.port?.postMessage({capture: {id, x: point.x, y: point.y}})
   }
 
@@ -229,7 +230,7 @@ export default class extends Controller {
   }
 
   cancel() {
-    if (this.gesture) this.pending?.resolve({})
+    this.pendingCaptures.get(this.gesture?.id)?.({})
     this.gesture = null
     this.hideSelection()
   }
@@ -280,7 +281,7 @@ export default class extends Controller {
     if (hoveredFrame === this.element) setHoveredFrame(null)
     this.collapse()
     this.scheme.removeEventListener("change", this.schemeChanged)
-    this.pending?.resolve({})
+    for (const finish of this.pendingCaptures.values()) finish({})
     this.port?.close()
     this.port = null
     this.measured = false
