@@ -124,17 +124,29 @@ RSpec.describe Coplan::AgentEvents::Publish do
       end
     end
 
-    it "preserves an acknowledgement committed before the deferred wake" do
-      Coplan::AgentEvent.transaction do
-        ActiveRecord.after_all_transactions_commit do
-          # A polling agent can see the event as soon as the commit completes.
-          session.transition!("active", detail: "reviewing")
+    %w[active awaiting_input].each do |state|
+      it "preserves an #{state} response committed before the deferred wake" do
+        Coplan::AgentEvent.transaction do
+          ActiveRecord.after_all_transactions_commit do
+            # A polling agent can see the event as soon as the commit completes.
+            session.transition!(state, detail: "reviewing")
+          end
+          publish
         end
-        publish
-      end
 
-      expect(session.reload).to have_attributes(state: "active", state_detail: "reviewing")
-      expect(Coplan::AgentEvent.count).to eq(1)
+        expect(session.reload).to have_attributes(state: state, state_detail: "reviewing")
+        expect(Coplan::AgentEvent.count).to eq(1)
+        expect(Coplan::WakeWebhookJob).to have_received(:perform_later).once
+        expect(Coplan::AgentEventBus).to have_received(:signal).with(watcher_token.id).once
+      end
+    end
+
+    it "still wakes an agent whose question predates the event" do
+      session.transition!("awaiting_input", detail: "Which option?")
+
+      publish
+
+      expect(session.reload).to have_attributes(state: "pending", state_detail: nil)
       expect(Coplan::WakeWebhookJob).to have_received(:perform_later).once
       expect(Coplan::AgentEventBus).to have_received(:signal).with(watcher_token.id).once
     end
