@@ -18,11 +18,10 @@ export function textHunks(before, after) {
   if (pending) result.push(pending)
   return result
 }
+// Like Coplan::Plans::MergeText: edits that touch conflict too, so "twice
+// daily" and "weekly" made from "daily" never become "twice weekly".
 function overlaps(a, b) {
-  if (a.from === a.to && b.from === b.to) return a.from === b.from
-  if (a.from === a.to) return a.from > b.from && a.from < b.to
-  if (b.from === b.to) return b.from > a.from && b.from < a.to
-  return a.from < b.to && b.from < a.to
+  return a.from <= b.to && b.from <= a.to
 }
 export function mergeText(base, local, remote) {
   if (local === base || local === remote) return remote

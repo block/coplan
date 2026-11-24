@@ -59,14 +59,21 @@ RSpec.describe Coplan::Plans::MergeText do
     expect(described_class.call(base: "abc", local: "abc", remote: "ab")).to eq("ab")
   end
 
-  it "combines adjacent replacements and boundary insertions" do
-    expect(described_class.call(base: "abc", local: "aBc", remote: "abC")).to eq("aBC")
-    expect(described_class.call(base: "abc", local: "aXbc", remote: "aBc")).to eq("aXBc")
+  it "combines edits separated by unchanged text" do
+    expect(described_class.call(base: "abcd", local: "aBcd", remote: "abcD")).to eq("aBcD")
+    expect(described_class.call(base: "abc", local: "Xabc", remote: "abcY")).to eq("XabcY")
   end
 
-  [ [ "abc", "aBc", "aQc" ], [ "abc", "ac", "aBc" ], [ "abc", "aXbc", "aYbc" ], [ "abcd", "ad", "abXcd" ] ].each do |base, local, remote|
-    it "rejects overlapping replacement, deletion or insertion #{local.inspect} / #{remote.inspect}" do
+  [
+    [ "abc", "aBc", "aQc" ], [ "abc", "ac", "aBc" ], [ "abc", "aXbc", "aYbc" ], [ "abcd", "ad", "abXcd" ],
+    # Edits that touch: neither author wrote the spliced result.
+    [ "Run the backfill daily.", "Run the backfill twice daily.", "Run the backfill weekly." ],
+    [ "Ship in Q4.", "Ship in Q4 2027.", "Ship in Q3." ],
+    [ "abc", "aBc", "abC" ], [ "abc", "aXbc", "aBc" ], [ "abc", "ac", "abXc" ]
+  ].each do |base, local, remote|
+    it "rejects overlapping or touching edits #{local.inspect} / #{remote.inspect}" do
       expect { described_class.call(base: base, local: local, remote: remote) }.to raise_error(described_class::Conflict)
+      expect { described_class.call(base: base, local: remote, remote: local) }.to raise_error(described_class::Conflict)
     end
   end
 end

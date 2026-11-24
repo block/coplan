@@ -1,7 +1,10 @@
 module Coplan
   module Plans
     # A three-way, character-range merge. Both sides are compared with the
-    # same immutable base. Only disjoint edits (or identical edits) combine.
+    # same immutable base. Only edits separated by unchanged text (or
+    # identical edits) combine: like diff3, edits that touch conflict, since
+    # "twice daily" and "weekly" made from "daily" must not become
+    # "twice weekly".
     class MergeText
       class Conflict < StandardError; end
 
@@ -9,16 +12,9 @@ module Coplan
         TextDiff.hunks(before, after)
       end
 
+      # Ranges are half-open, so a shared endpoint means the edits touch.
       def self.overlap?(left, right)
-        if left[:from] == left[:to] && right[:from] == right[:to]
-          left[:from] == right[:from]
-        elsif left[:from] == left[:to]
-          left[:from] > right[:from] && left[:from] < right[:to]
-        elsif right[:from] == right[:to]
-          right[:from] > left[:from] && right[:from] < left[:to]
-        else
-          left[:from] < right[:to] && right[:from] < left[:to]
-        end
+        left[:from] <= right[:to] && right[:from] <= left[:to]
       end
 
       def self.call(base:, local:, remote:)
