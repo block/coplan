@@ -93,6 +93,7 @@ Or stream with Server-Sent Events. The server sends a heartbeat every 15 seconds
 - The response has `events` and a `cursor` (the last event ID).
 - If the response has `"throttled": true`, the server has too many open connections. Wait a few seconds, then poll again.
 - Without a cursor, you get all events that you did not acknowledge. Coplan never sends you your own comments or edits.
+- Inbox events commit before Coplan attempts a session wake. A failed session wake does not remove the events or stop webhook and inbox signals for other agents. If a wake is missed, poll your inbox.
 
 ## Events
 

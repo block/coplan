@@ -75,7 +75,25 @@ module Coplan
         # that further to sessions with a real path for the wake — a
         # parked connection or a wake URL. Without one, flipping to
         # pending would start a 30-second countdown nothing can answer.
-        session.wake! if session&.live? && session.wakeable?
+        # After commit: waking broadcasts the session pill, and a Cable
+        # failure there must not roll back inbox rows already written.
+        if session&.live? && session.wakeable?
+          activity_at = session.last_activity_at
+          ActiveRecord.after_all_transactions_commit do
+            # A polling agent can acknowledge the committed event before
+            # this callback runs. Reload under the lock so its latest
+            # response is not overwritten by the old watching snapshot.
+            session.with_lock do
+              next if session.state.in?(AgentSession::PROOF_STATES) && session.last_activity_at != activity_at
+
+              session.wake! if session.live? && session.wakeable?
+            end
+          rescue StandardError => error
+            # A pill failure must not skip other recipients, their wake
+            # webhooks, inbox signals, or the caller's notifications.
+            Rails.error.report(error)
+          end
+        end
 
         # A wake URL is a standing subscription: it fires even when the
         # session looks finished (`complete`), because a hosted agent
