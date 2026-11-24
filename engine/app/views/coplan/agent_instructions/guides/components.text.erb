@@ -37,9 +37,13 @@ A **type** gives the script named objects and can render the result after the sc
 <% catalog.authoring_types.each do |name, type| -%>
 ### <%= type.fetch("label") %> quick guide
 
+<% fence = "`" * [ 4, (type.values_at("guide", "example").join.scan(/`+/).map(&:length).max || 0) + 1 ].max -%>
+<% if type["guide"].present? -%>
+<%= fence %>text
 <%= raw type["guide"] %>
+<%= fence %>
 
-<% fence = "`" * [ 4, (type.fetch("example").scan(/`+/).map(&:length).max || 0) + 1 ].max -%>
+<% end -%>
 <%= fence %>markdown
 ::: {.component<%= raw %( type="#{name}") unless name.empty? %>}
 
