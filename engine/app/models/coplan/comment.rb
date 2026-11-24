@@ -58,7 +58,7 @@ module Coplan
       point = "(#{component_selection["x"]}, #{component_selection["y"]})"
       w, h = component_selection.values_at("w", "h")
       area = w.zero? && h.zero? ? "Point #{point}" : "#{w} × #{h} at #{point}"
-      [ component_selection["label"].presence, area ].compact.join(" · ")
+      [ component_selection["quote"].presence || component_selection["label"].presence, area ].compact.join(" · ")
     end
 
     def soft_delete!

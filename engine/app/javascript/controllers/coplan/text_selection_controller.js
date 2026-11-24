@@ -61,7 +61,7 @@ export default class extends Controller {
   }
 
   disconnect() {
-    clearTimeout(this._selectionTimer)
+    this.clearSelection()
     this.contentTarget.removeEventListener("mouseup", this._boundHandleMouseUp)
     document.removeEventListener("mousedown", this._boundHandleDocumentMouseDown)
     document.removeEventListener("turbo:before-cache", this._boundBeforeCache)
@@ -91,7 +91,7 @@ export default class extends Controller {
   }
 
   selectionChanged() {
-    if (!this.hasPopoverTarget || this.popoverTarget.style.display !== "block") return
+    if (this.componentSelection || !this.hasPopoverTarget || this.popoverTarget.style.display !== "block") return
     const selection = window.getSelection()
     const root = this.selectionInEditor ? this.element.querySelector(".inline-editor .ProseMirror") : this.contentTarget
     if (!selection?.rangeCount || selection.isCollapsed || !root?.contains(selection.getRangeAt(0).startContainer)) this.clearSelection()
@@ -101,7 +101,8 @@ export default class extends Controller {
     // Editing can leave a selection in place (formatting, for example), but
     // its old quote and position are no longer a valid comment action.
     clearTimeout(this._selectionTimer)
-    if (this.hasPopoverTarget) this.popoverTarget.style.display = "none"
+    this.hideSelectionAction()
+    this.componentSelection = null
     this.selectedText = null
     this.selectedContext = null
     this.selectedOccurrence = null
@@ -200,13 +201,63 @@ export default class extends Controller {
       }
     }
 
-    const rect = range.getBoundingClientRect()
-    const contentRect = this.element.querySelector(".plan-layout__content").getBoundingClientRect()
-
-    this.popoverTarget.style.display = "block"
-    this.popoverTarget.style.top = `${rect.bottom - contentRect.top + 8}px`
-    this.popoverTarget.style.left = `${rect.left - contentRect.left}px`
+    this.componentSelection = null
+    this.showSelectionAction(() => range.getBoundingClientRect(), root)
   }
+
+  componentTextSelected(event) {
+    const {source, selection, start} = event.detail
+    if (!selection) {
+      if (this.componentSelection?.source === source) this.clearSelection()
+      return
+    }
+    if (!this.hasPopoverTarget) return
+    if (this.componentSelection?.source !== source) this.clearSelection()
+    this.componentSelection = selection
+    if (start) this.openCommentForm(event)
+    else this.showSelectionAction(selection.rect, source)
+  }
+
+  showSelectionAction(rect, source) {
+    this.selectionRect = rect
+    const popover = this.popoverTarget
+    // Native light-dismiss uses DOM ancestry. A click on a sibling action
+    // would close the expanded component before it can capture the selection.
+    const expanded = source.closest(".document-component:popover-open")
+    if (expanded && !expanded.contains(popover)) {
+      this.actionHome = document.createComment("selection action")
+      popover.before(this.actionHome)
+      expanded.append(popover)
+      this.borrowedAction = popover
+    }
+    popover.style.display = "block"
+    if (!popover.matches(":popover-open")) popover.showPopover({source})
+    this.positionSelectionAction()
+  }
+
+  positionSelectionAction() {
+    if (!this.selectionRect) return
+    const rect = this.selectionRect()
+    const popover = this.popoverTarget
+    if (rect.bottom < 0 || rect.top > innerHeight) return this.clearSelection()
+    const top = rect.bottom + 8 + popover.offsetHeight <= innerHeight ? rect.bottom + 8 : rect.top - popover.offsetHeight - 8
+    popover.style.top = Math.max(0, top) + "px"
+    popover.style.left = Math.max(0, Math.min(rect.left, innerWidth - popover.offsetWidth)) + "px"
+  }
+
+  hideSelectionAction() {
+    this.selectionRect = null
+    const popover = this.borrowedAction || (this.hasPopoverTarget && this.popoverTarget)
+    if (!popover) return
+    if (popover.matches(":popover-open")) popover.hidePopover()
+    popover.style.display = "none"
+    if (this.borrowedAction) {
+      this.actionHome.replaceWith(popover)
+      this.borrowedAction = this.actionHome = null
+    }
+  }
+
+  preserveSelection(event) { event.preventDefault() }
 
   selectionKey(event) {
     if (event.ctrlKey || event.metaKey || event.altKey || event.target.closest("input, textarea, select, [contenteditable]")) return
@@ -236,6 +287,12 @@ export default class extends Controller {
 
   async openCommentForm(event) {
     event.preventDefault()
+    if (this.componentSelection) {
+      const selection = this.componentSelection
+      this.clearSelection()
+      selection.comment()
+      return
+    }
     if (!this.selectedText) return
 
     if (this.selectionInEditor) {
@@ -282,7 +339,7 @@ export default class extends Controller {
       this.formTarget.style.left = `${Math.max(12, Math.min(anchor.left, innerWidth - this.formTarget.offsetWidth - 12))}px`
       this.formTarget.style.top = `${Math.max(12, Math.min(anchor.bottom + 8, innerHeight - this.formTarget.offsetHeight - 12))}px`
     }
-    this.popoverTarget.style.display = "none"
+    this.hideSelectionAction()
 
     window.getSelection().removeAllRanges()
 
@@ -591,6 +648,7 @@ export default class extends Controller {
   reposition() { this._handleScroll() }
 
   _handleScroll() {
+    this.positionSelectionAction()
     if (!this._activeMark || !this._activePopover) return
     try {
       if (!this._activePopover.matches(":popover-open")) {

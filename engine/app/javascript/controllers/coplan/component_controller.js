@@ -39,8 +39,12 @@ export default class extends Controller {
     if (!this.challenge || event.source !== this.frameTarget.contentWindow || event.origin !== "null" ||
         event.data?.component !== this.challenge || event.ports.length !== 1) return
     this.challenge = null
+    const program = this.programValue
     this.port = event.ports[0]
     this.port.onmessage = ({data}) => {
+      if (data && Object.hasOwn(data, "textSelection") && this.hasSelectionTarget && program.textComments) {
+        this.textSelection(data.textSelection, data.startComment === true)
+      }
       if (data?.hovered === true) setHoveredFrame(this.element)
       else if (data?.hovered === false && hoveredFrame === this.element) setHoveredFrame(null)
       if (data?.captureId && data.captureId === this.pending?.id) this.pending.resolve(data)
@@ -53,7 +57,33 @@ export default class extends Controller {
         this.element.dataset.startupMs = Math.round(performance.now() - this.started)
       }
     }
-    this.port.postMessage({...this.programValue, theme: this.theme()})
+    this.port.postMessage({...program, theme: this.theme()})
+  }
+
+  textSelection(region, start) {
+    const frame = this.frameTarget
+    const button = this.element.querySelector(".document-component__actions button[data-source-target]")
+    const active = button && document.activeElement === frame && this.selectionTarget.hidden && !this.gesture
+    const valid = active && region && typeof region.quote === "string" && region.quote.length > 0 && region.quote.length <= 4096 &&
+      ["x", "y", "w", "h", "width", "height"].every(key => Number.isInteger(region[key]) && region[key] >= 0 && region[key] <= 32768) &&
+      region.w > 0 && region.h > 0 && region.x + region.w <= region.width && region.y + region.h <= region.height &&
+      Math.abs(region.width - frame.clientWidth) <= 1 && Math.abs(region.height - frame.clientHeight) <= 1
+    const selection = valid ? {
+      source: frame,
+      rect: () => {
+        const box = frame.getBoundingClientRect()
+        return new DOMRect(box.left + region.x, box.top + region.y, region.w, region.h)
+      },
+      comment: () => {
+        if (this.gesture || !button.isConnected) return
+        this.commentButton = button
+        const {x, y, w, h, width, height, quote} = region
+        const area = {x, y, w, h, width, height, quote}
+        this.beginCapture(area, null)
+        this.compose(area)
+      }
+    } : null
+    this.dispatch("text-selection", {detail: {source: frame, selection, start}})
   }
 
   theme() {
@@ -179,9 +209,10 @@ export default class extends Controller {
     this.pending?.resolve({})
     this.pending = null
     this.gesture = null
-    if (!this.hasSelectionTarget || this.selectionTarget.hidden) return
-    this.selectionTarget.hidden = true
+    if (!this.hasSelectionTarget) return
     this.selectionTarget.style.cursor = ""
+    if (this.selectionTarget.hidden) return
+    this.selectionTarget.hidden = true
     this.selectionTarget.firstElementChild.style.display = "none"
     this.commentButton.setAttribute("aria-pressed", "false")
     this.commentButton.focus({preventScroll: true})

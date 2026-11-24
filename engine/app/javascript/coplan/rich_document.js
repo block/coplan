@@ -378,7 +378,7 @@ const defaultMarkdownSerializer = new MarkdownSerializer({
   math: { open: "", close: "", escape: false } })
 
 const presentationOpen = /^::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme="(coplan|graphite)")?\}$/
-const componentOpen = /^::: \{\.component(?: #[a-zA-Z][\w-]*)?(?: (?:title|type|uses)="[^"]*")*\}$/
+const componentOpen = /^::: \{\.component(?: #[a-zA-Z][\w-]*)?(?: (?:title|type|uses|text-comments)="[^"]*")*\}$/
 
 // Match the reader's top-level region grammar. Verify candidate markers in
 // growing Markdown windows, then resume after each confirmed closing marker.
@@ -400,7 +400,7 @@ function regionRanges(lines, offsets, markdown) {
     const line = lines[i].replace(/\r$/, "")
     const component = componentOpen.test(line)
     if ((!component && !presentationOpen.test(line)) || !standalone(i)) continue
-    const keys = Array.from(line.matchAll(/ (title|type|uses)="[^"]*"/g), match => match[1])
+    const keys = Array.from(line.matchAll(/ (title|type|uses|text-comments)="[^"]*"/g), match => match[1])
     if (new Set(keys).size !== keys.length) continue
     let closing = i + 1
     while (closing < lines.length && !(lines[closing].replace(/\r$/, "") === ":::" && (component || standalone(closing)))) closing++

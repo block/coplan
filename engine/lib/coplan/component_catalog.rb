@@ -21,11 +21,12 @@ module Coplan
       libraries[name] = entry(source, example)
     end
 
-    def type(name, source:, bindings:, example:, uses: [])
+    def type(name, source:, bindings:, example:, uses: [], text_comments: true)
       raise ArgumentError, "Invalid component type" unless NAME.match?(name)
       raise ArgumentError, "Invalid type bindings" unless bindings.uniq == bindings && bindings.all? { |key| key.match?(/\A[a-zA-Z_$][\w$]*\z/) && key != "root" }
       raise ArgumentError, "Invalid type dependencies" unless uses.all? { |key| VERSIONED.match?(key) }
-      types[name] = entry(source, example).merge("bindings" => bindings, "uses" => uses)
+      raise ArgumentError, "Expected a boolean for text_comments" unless [ true, false ].include?(text_comments)
+      types[name] = entry(source, example).merge("bindings" => bindings, "uses" => uses, "text_comments" => text_comments)
     end
 
     # Store only entries used by this revision. A missing entry stays missing

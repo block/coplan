@@ -6,10 +6,12 @@ module Coplan
       modules = ComponentCatalog.resolve(region.attributes, catalog) if catalog
       issue = modules&.fetch(:error, nil)
       enabled = Coplan.configuration.components_enabled && modules && !issue
+      type = catalog&.dig("types", region.attributes["type"])
+      text_comments = region.attributes.fetch("text-comments") { type&.fetch("text_comments", true) == false ? "off" : "on" }
       frame_data = if enabled
         { controller: "coplan--component", action: "message@window->coplan--component#ready coplan:theme-changed@window->coplan--component#syncTheme toggle->coplan--component#toggled turbo:before-cache@document->coplan--component#collapse",
           "coplan--component-url-value": coplan.component_frame_path,
-          "coplan--component-program-value": modules.merge(source: region.source, title:, startLine: region.start_line).to_json }
+          "coplan--component-program-value": modules.merge(source: region.source, title:, textComments: interactive && text_comments == "on", startLine: region.start_line).to_json }
       end
       render partial: "coplan/components/region", formats: [ :html ],
         locals: { region:, title:, enabled:, interactive:, issue:, frame_data: }

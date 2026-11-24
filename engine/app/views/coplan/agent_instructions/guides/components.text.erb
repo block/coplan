@@ -16,6 +16,10 @@ root.append(button);
 
 Each reader starts with fresh state. A component can respond to input and animate inside its frame. The frame isolates the script from the surrounding document and its session. Its policy blocks fetch requests, remote scripts and images, form submissions, and parent navigation. Complete network isolation depends on the reader’s browser and the site’s frame policy. Include the data your program needs in its source and use only data intended for its readers. The appearance follows the reader's theme. Use `--coplan-text`, `--coplan-text-muted`, `--coplan-surface`, `--coplan-surface-muted`, `--coplan-border`, and `--coplan-primary` for custom colors.
 
+Select rendered HTML or SVG text and choose Comment or press C. The discussion records the selected words (up to 4,096 characters), their visible bounds, and a PNG when capture is available. The thread belongs to the component in the document. Inputs and editable text keep their own keyboard behavior. Use the corner Comment control for a picture, a canvas, or an area.
+
+Text comments are on by default. A host type can set `text_comments: false` when registered. Use `text-comments="on"` or `text-comments="off"` on a component marker to override its type for that block.
+
 ## Available component types
 
 A **type** gives the script named objects and can render the result after the script finishes. Set at most one `type`. Plain JavaScript receives `root` and needs no attributes. Add an optional ID such as `#retry-path` if you need a deep link.

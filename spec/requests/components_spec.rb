@@ -64,6 +64,19 @@ RSpec.describe "Document components", type: :request do
     expect(first.reload.component_catalog.dig("libraries", "maths@1", "source")).to include("* 10")
   end
 
+  it "uses the saved type's text comment preference with per-block overrides" do
+    sign_in_as(user)
+    catalog.type("custom", source: "", bindings: [], example: "", text_comments: false)
+    markers = [ "", ' type="custom"', ' type="custom" text-comments="on"', ' text-comments="off"' ]
+    markdown = markers.map { |attrs| "::: {.component#{attrs}}\n\nroot.textContent = 'Content'\n\n:::" }.join("\n\n")
+    plan = Coplan::Plans::Create.call(content: "# Preferences\n\n#{markdown}", user:, actor_type: "human")
+    get plan_page_path(plan)
+    flags = Nokogiri::HTML.fragment(response.body).css("figure.document-component").map do |block|
+      JSON.parse(block["data-coplan--component-program-value"]).fetch("textComments")
+    end
+    expect(flags).to eq([ true, false, true, false ])
+  end
+
   describe "component annotations" do
     let(:plan) { Coplan::Plans::Create.call(title: "Demo", content:, user:, actor_type: "human") }
     let(:selection) { { width: 500, height: 200, x: 30, y: 15, w: 60, h: 20, label: "Retry" } }

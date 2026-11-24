@@ -15,7 +15,7 @@ module Coplan
       def call
         thread = @comment.comment_thread
         raise ActiveRecord::RecordInvalid, thread unless thread.valid?
-        invalid! unless thread.anchor_kind == "component" && @selection.is_a?(String) && @selection.bytesize <= 2048
+        invalid! unless thread.anchor_kind == "component" && @selection.is_a?(String) && @selection.bytesize <= 32.kilobytes
         @comment.component_selection = parse_selection.merge("image" => @file.present?, "revision" => thread.plan_version.revision)
         attach_png if @file
         yield
@@ -34,6 +34,9 @@ module Coplan
           region["x"] + region["w"] > region["width"] || region["y"] + region["h"] > region["height"]
         label = data["label"]
         invalid! unless label.nil? || (label.is_a?(String) && label.size <= 160)
+        quote = data["quote"]
+        invalid! unless quote.nil? || (quote.is_a?(String) && quote.size.between?(1, 4096))
+        region["quote"] = quote if quote
         region.merge("label" => label)
       rescue JSON::ParserError
         invalid!

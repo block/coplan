@@ -101,6 +101,38 @@ RSpec.describe "Interactive components", type: :system do
     expect(page).to have_css(".source-comments textarea:focus", visible: true)
   end
 
+  it "opens the shared comment action on selected component text and keeps the quote on the posted annotation" do
+    plan = Coplan::Plans::Create.call(content: source, user: author, actor_type: "human")
+    visit plan_page_path(plan)
+    figure = find("figure:has(iframe[title='Diagram'])")
+    frame = figure.find("iframe")
+    select_label = lambda do
+      within_frame(frame) do
+        node = find("svg text", exact_text: "Checkout")
+        node.click
+        page.execute_script(<<~JS, node)
+          const range = document.createRange(); range.selectNodeContents(arguments[0]);
+          const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range);
+        JS
+      end
+    end
+    figure.hover
+    figure.find('button[aria-label="Expand component"]').click
+    select_label.call
+    find(".comment-popover__action").click
+    expect(figure).to match_css(":popover-open")
+    expect(page).to have_css(".source-comments textarea:focus")
+    expect(page).to have_css(".source-comments img[src^='blob:']")
+    find("#source-comment-body").set("Which checkout?")
+    within(".source-comments") { click_button "Comment" }
+    expect(page).to have_css(".source-comments .comment__body img.component-snapshot")
+    expect(plan.comments.reload.sole.component_selection).to include("quote" => "Checkout", "image" => true)
+    find("body").send_keys(:escape)
+    select_label.call
+    within_frame(frame) { find("body").send_keys("c") }
+    expect(page).to have_css(".source-comments textarea:focus")
+  end
+
   it "captures SVG fills and flags a scrolled panel whose visible contents cannot be copied" do
     markdown = <<~'MD'
       ::: {.component title="Gradient"}
@@ -208,7 +240,8 @@ RSpec.describe "Interactive components", type: :system do
     script_field = 'textarea[aria-label="Component JavaScript"]'
     expect(block).to have_no_css(script_field)
     block.click_button("Edit", exact: true)
-    expect(block).to have_link("Component guide", href: agent_instructions_guide_path(guide: "components", format: :html), exact: false)
+    expect(block).to have_css(".document-editor__block-header select")
+    expect(block).to have_no_link("Component guide", exact: false)
     block.click_button("Modules")
     expect(block).to have_unchecked_field("amount@1")
     expect(block).to have_no_field("diagram@1")

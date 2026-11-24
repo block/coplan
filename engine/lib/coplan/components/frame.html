@@ -41,6 +41,46 @@
     for (const type of ["pointerenter", "pointerleave"]) {
       document.documentElement.addEventListener(type, () => port.postMessage({hovered: type === "pointerenter"}))
     }
+    if (data.textComments) {
+      function readSelection() {
+        const selection = getSelection()
+        if (!selection?.rangeCount || selection.isCollapsed ||
+            document.activeElement?.closest("input, textarea, select, [contenteditable=true]")) return null
+        const range = selection.getRangeAt(0)
+        if (!root.contains(range.commonAncestorContainer)) return null
+        const rect = range.getBoundingClientRect()
+        const x = Math.max(0, Math.floor(rect.left)), y = Math.max(0, Math.floor(rect.top))
+        const w = Math.min(innerWidth, Math.ceil(rect.right)) - x
+        const h = Math.min(innerHeight, Math.ceil(rect.bottom)) - y
+        if (w <= 0 || h <= 0) return null
+        const text = selection.toString().trim()
+        if (!text) return null
+        return {x, y, w, h, width: innerWidth, height: innerHeight,
+          quote: text.length > 4096 ? text.slice(0, 4094).replace(/[\uD800-\uDBFF]$/, "") + "…" : text}
+      }
+      let scheduled = false
+      function updateSelection() {
+        if (scheduled) return
+        scheduled = true
+        requestAnimationFrame(() => {
+          scheduled = false
+          port.postMessage({textSelection: readSelection()})
+        })
+      }
+      document.addEventListener("selectionchange", updateSelection)
+      document.addEventListener("scroll", updateSelection, true)
+      window.addEventListener("resize", updateSelection)
+      window.addEventListener("blur", () => port.postMessage({textSelection: null}))
+      document.addEventListener("keydown", event => {
+        if (!event.isTrusted || event.isComposing || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
+        if (event.key === "Escape") { port.postMessage({textSelection: null}); return }
+        if (event.key.toLowerCase() !== "c") return
+        const region = readSelection()
+        if (!region) return
+        event.preventDefault()
+        port.postMessage({textSelection: region, startComment: true})
+      })
+    }
     const started = performance.now()
     const {source, title, libraries, wrapper, startLine} = data
     let authorURL

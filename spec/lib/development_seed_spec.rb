@@ -415,6 +415,16 @@ RSpec.describe Coplan::DevelopmentSeed do
       expect(plan.reload.current_revision).to eq(revision)
     end
 
+    it "files the stress workloads in the demo index and preserves their revision on re-seed" do
+      described_class.call
+      plan = seeded_plan("component-stress-lab")
+      expect(plan.current_content).to include("#service-map", "#queue-saturation", "Run simulation")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+    end
+
     it "seeds the callout gallery once with every callout type and preserves a person's edits" do
       described_class.call
       plan = seeded_plan("callout-gallery")

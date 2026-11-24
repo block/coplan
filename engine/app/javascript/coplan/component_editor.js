@@ -67,14 +67,7 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
   libraries.setAttribute("aria-label", "JavaScript modules")
   moduleButton.popoverTargetElement = libraries
   settings.append(typeLabel, moduleButton, libraries)
-  if (catalog.guide) {
-    const help = document.createElement("a")
-    help.href = catalog.guide
-    help.target = "_blank"
-    help.rel = "noopener"
-    help.textContent = "Component guide ↗"
-    settings.append(help)
-  }
+  header.prepend(settings)
   const script = document.createElement("textarea")
   script.className = "document-editor__block-source"
   script.spellcheck = false
@@ -87,7 +80,7 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
   colors.setAttribute("aria-hidden", "true")
   script.dataset.action += " scroll->coplan--editor#syncComponentColors compositionstart->coplan--editor#componentComposition compositionend->coplan--editor#componentComposition"
   sourceBox.append(colors, script)
-  editor.append(settings, sourceBox)
+  editor.append(sourceBox)
   dom.append(header, editor, output)
 
   // The textarea owns the caret, input method, selection, history and sizing.
@@ -195,6 +188,7 @@ export function componentNodeView(node, getPos, preview, settled, catalog) {
   }
   dom.coplanComponentView = mode => {
     const editing = mode === "edit"
+    settings.hidden = !editing
     editor.hidden = !editing
     output.hidden = editing
     for (const button of buttons) button.setAttribute("aria-pressed", String(button.dataset.componentView === mode))

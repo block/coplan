@@ -7,7 +7,7 @@ module Coplan
       Result = Struct.new(:regions, :canonical_source, :component_mask, keyword_init: true)
       OPEN = /\A::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme="(coplan|graphite)")?\}\z/
       COMPONENT_PREFIX = "::: {.component"
-      COMPONENT = /\A::: \{\.component(?: #([a-zA-Z][\w-]*))?((?: (?:title|type|uses)="[^"\n]*")*)\}\z/
+      COMPONENT = /\A::: \{\.component(?: #([a-zA-Z][\w-]*))?((?: (?:title|type|uses|text-comments)="[^"\n]*")*)\}\z/
       CLOSE = ":::"
 
       def self.region_source?(source)
@@ -106,7 +106,7 @@ module Coplan
         if (match = OPEN.match(line))
           Region.new(kind: :presentation, id: match[1], theme: match[2] || "coplan")
         elsif (match = COMPONENT.match(line))
-          pairs = match[2].scan(/ (title|type|uses)="([^"]*)"/)
+          pairs = match[2].scan(/ (title|type|uses|text-comments)="([^"]*)"/)
           Region.new(kind: :component, id: match[1], attributes: pairs.to_h) if pairs.to_h.size == pairs.size
         end
       end

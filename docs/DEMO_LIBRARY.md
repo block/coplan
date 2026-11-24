@@ -69,6 +69,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | file-uploads | Drop the same image or file again: one attachment and stored copy, multiple embeds; renamed copies, Dual, and Undo |
 | nested-outline | Ten numbered sections with sub-sections. The outline starts folded except where you are reading; chevrons and Left/Right toggle it; clicking a heading toggles its branch and remembers the choice; scrolling or a `#section` link unfolds temporarily, then closes when you leave; manually opened sections stay open; folded sections total their discussions; toggles survive reload |
 | callout-gallery | `> [!SUMMARY]`, `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]` callouts, a custom label, nested list and code, plain and escaped quotes, and both deck themes; comment inside a callout, or edit one in Editor and check Raw |
+| component-stress-lab | An adjustable SVG dependency map and a deterministic canvas queue simulation |
 | interactive-components | A typed checkout diagram and an interactive retry simulator, with point and area comments on the live view |
 | math-gallery | KaTeX math: inline, display, and fenced formulas, math in lists and tables, a six-row slide equation, dollar amounts that stay text, and invalid math shown as source; comment on the text around a formula |
 

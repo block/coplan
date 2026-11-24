@@ -136,7 +136,7 @@ export default class extends Controller {
       this.regionTarget.value = JSON.stringify(region)
       this.regionTarget.disabled = false
       const area = region.w || region.h ? `${region.w} × ${region.h} at (${region.x}, ${region.y})` : `Point (${region.x}, ${region.y})`
-      this.quoteTarget.textContent = [target.label, region.label, area, !png && "Image unavailable"].filter(Boolean).join(" · ")
+      this.quoteTarget.textContent = [target.label, region.quote || region.label, area, !png && "Image unavailable"].filter(Boolean).join(" · ")
       if (png) {
         const transfer = new DataTransfer()
         transfer.items.add(new File([png], "component.png", {type: "image/png"}))
