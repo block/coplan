@@ -572,7 +572,7 @@ RSpec.describe Coplan::DevelopmentSeed do
       thread = seeded_plan("collab-showcase").comment_threads.find_by!(status: "open")
       thread.resolve!(seeded_plan("collab-showcase").created_by_user)
       edited_content = edited.current_content + "\nA local follow-up after comparing revisions.\n"
-      CoPlan::Plans::ReplaceContent.call(plan: edited, new_content: edited_content,
+      Coplan::Plans::ReplaceContent.call(plan: edited, new_content: edited_content,
         base_revision: edited.current_revision, actor_type: "human", actor_id: edited.created_by_user_id)
       described_class.call
       expect(requested.reload.latest_approval).to eq(response)

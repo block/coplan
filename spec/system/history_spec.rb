@@ -216,7 +216,7 @@ RSpec.describe "Plan history page", type: :system do
       expect(page).to have_no_button("Retry comparison", visible: true)
     end
 
-    it "keeps the newest selection when an older request completes later" do
+    it "keeps the newest selection when an older request completes later", browser_sync: :manual do
       visit plan_history_page_path(plan)
       page.execute_script <<~JS
         const original = window.fetch
@@ -273,7 +273,7 @@ RSpec.describe "Plan history page", type: :system do
   end
 
   def add_revision(revision)
-    CoPlan::Plans::ReplaceContent.call(
+    Coplan::Plans::ReplaceContent.call(
       plan: plan.reload, new_content: "# History Plan\n\nRevision #{revision} content.\n",
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id,
       change_summary: "Edit #{revision}"
