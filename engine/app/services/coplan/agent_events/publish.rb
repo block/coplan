@@ -78,7 +78,16 @@ module Coplan
         # After commit: waking broadcasts the session pill, and a Cable
         # failure there must not roll back inbox rows already written.
         if session&.live? && session.wakeable?
-          ActiveRecord.after_all_transactions_commit { session.wake! }
+          ActiveRecord.after_all_transactions_commit do
+            # A polling agent can acknowledge the committed event before
+            # this callback runs. Reload under the lock so its active
+            # state is not overwritten by the old watching snapshot.
+            session.with_lock { session.wake! if session.live? && session.wakeable? }
+          rescue StandardError => error
+            # A pill failure must not skip other recipients, their wake
+            # webhooks, inbox signals, or the caller's notifications.
+            Rails.error.report(error)
+          end
         end
 
         # A wake URL is a standing subscription: it fires even when the

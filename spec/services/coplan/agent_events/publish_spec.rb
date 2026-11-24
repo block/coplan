@@ -41,10 +41,102 @@ RSpec.describe Coplan::AgentEvents::Publish do
           .update!(wake_url: "https://agents.example.com/hooks/wake", wake_secret: "s3cret")
       end
       allow(Coplan::WakeWebhookJob).to receive(:perform_later)
+      allow(Coplan::AgentEventBus).to receive(:signal)
+      allow(Rails.error).to receive(:report)
       allow_any_instance_of(Coplan::AgentSession).to receive(:broadcast_pill).and_raise(RuntimeError, "cable down")
 
-      expect { publish_comment(comment) }.to raise_error(RuntimeError, "cable down")
-      expect(Coplan::AgentEvent.where(comment_id: comment.id).pluck(:api_token_id)).to contain_exactly(watcher_token.id, second.id)
+      expect { publish_comment(comment) }.not_to raise_error
+      events = Coplan::AgentEvent.where(comment_id: comment.id)
+      expect(events.pluck(:api_token_id)).to contain_exactly(watcher_token.id, second.id)
+      events.each do |event|
+        session = Coplan::AgentSession.find_by!(plan: plan, api_token_id: event.api_token_id)
+        expect(Coplan::WakeWebhookJob).to have_received(:perform_later)
+          .with(agent_session_id: session.id, agent_event_id: event.id).once
+        expect(Coplan::AgentEventBus).to have_received(:signal).with(event.api_token_id).once
+      end
+      expect(Rails.error).to have_received(:report).with(instance_of(RuntimeError)).twice
+    end
+  end
+
+  describe "committed delivery" do
+    self.use_transactional_tests = false
+    after { truncate_tables(*(ActiveRecord::Base.connection.tables - %w[schema_migrations ar_internal_metadata])) }
+
+    let(:session) { Coplan::AgentSession.find_by!(plan: plan, api_token: watcher_token) }
+
+    before do
+      session.update!(wake_url: "https://agents.example.com/hooks/wake", wake_secret: "secret")
+      allow(Coplan::WakeWebhookJob).to receive(:perform_later)
+      allow(Coplan::AgentEventBus).to receive(:signal)
+    end
+
+    it "defers all wake effects until the outer transaction commits" do
+      Coplan::AgentEvent.transaction do
+        Coplan::AgentEvent.transaction(requires_new: true) { publish }
+        expect(session.reload.state).to eq("watching")
+        expect(Coplan::WakeWebhookJob).not_to have_received(:perform_later)
+        expect(Coplan::AgentEventBus).not_to have_received(:signal)
+        expect(Thread.new { ActiveRecord::Base.connection_pool.with_connection { Coplan::AgentEvent.count } }.value).to eq(0)
+      end
+
+      expect(Thread.new { ActiveRecord::Base.connection_pool.with_connection { Coplan::AgentEvent.count } }.value).to eq(1)
+      expect(session.reload.state).to eq("pending")
+      expect(Coplan::WakeWebhookJob).to have_received(:perform_later).once
+      expect(Coplan::AgentEventBus).to have_received(:signal).with(watcher_token.id).once
+    end
+
+    it "discards all wake effects when the outer transaction rolls back" do
+      Coplan::AgentEvent.transaction do
+        Coplan::AgentEvent.transaction(requires_new: true) { publish }
+        raise ActiveRecord::Rollback
+      end
+
+      expect(Coplan::AgentEvent.count).to eq(0)
+      expect(session.reload.state).to eq("watching")
+      expect(Coplan::WakeWebhookJob).not_to have_received(:perform_later)
+      expect(Coplan::AgentEventBus).not_to have_received(:signal)
+    end
+
+    it "keeps every recipient committed and signaled when a wake fails" do
+      second = create(:api_token, user: user, agent_name: "Claude")
+      Coplan::AgentSession.create!(plan: plan, api_token: second, state: "watching", agent_name: "Claude",
+        wake_url: "https://agents.example.com/hooks/wake", wake_secret: "secret")
+      thread = create(:comment_thread, plan: plan, created_by_user: user)
+      comment = create(:comment, comment_thread: thread, author_type: "human", author_id: user.id)
+      allow(Rails.error).to receive(:report)
+      visible_counts = []
+      allow_any_instance_of(Coplan::AgentSession).to receive(:broadcast_pill) do
+        visible_counts << Thread.new {
+          ActiveRecord::Base.connection_pool.with_connection { Coplan::AgentEvent.count }
+        }.value
+        raise "cable down"
+      end
+
+      expect {
+        described_class.call(plan: plan, event_type: "comment.created", comment_thread: thread, comment: comment)
+      }.not_to raise_error
+
+      expect(visible_counts).to eq([ 2, 2 ])
+      expect(Coplan::AgentEvent.pluck(:api_token_id)).to contain_exactly(watcher_token.id, second.id)
+      expect(Coplan::WakeWebhookJob).to have_received(:perform_later).twice
+      [ watcher_token, second ].each do |token|
+        expect(Coplan::AgentEventBus).to have_received(:signal).with(token.id).once
+      end
+    end
+
+    it "preserves an acknowledgement committed before the deferred wake" do
+      Coplan::AgentEvent.transaction do
+        ActiveRecord.after_all_transactions_commit do
+          # A polling agent can see the event as soon as the commit completes.
+          session.transition!("active", detail: "reviewing")
+        end
+        publish
+      end
+
+      expect(session.reload).to have_attributes(state: "active", state_detail: "reviewing")
+      expect(Coplan::AgentEvent.count).to eq(1)
+      expect(Coplan::WakeWebhookJob).to have_received(:perform_later).once
+      expect(Coplan::AgentEventBus).to have_received(:signal).with(watcher_token.id).once
     end
   end
 
