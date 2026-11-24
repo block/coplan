@@ -536,7 +536,7 @@ RSpec.describe Coplan::DevelopmentSeed do
       expect(agent_edits.count).to eq(7)
       expect(agent_edits.pluck(:api_token_id)).to all(be_present)
       expect(agent_edits.pluck(:operations_json)).to all(have_attributes(size: 1))
-      expect(seeded_plan("demo-library").current_content).to include("check v3 through v5 to compare v2 → v5")
+      expect(seeded_plan("demo-library").current_content).to include("check v2 while v8 is selected to compare v1 → v8")
 
       changed = seeded_plan("changed-review")
       expect(changed.current_revision).to eq(2)
