@@ -24,7 +24,7 @@ Text comments are on by default. A host type can set `text_comments: false` when
 
 A **type** gives the script named objects and can render the result after the script finishes. Base uses plain JavaScript and omits the type attribute. Add an optional ID such as `#retry-path` for a deep link. In the visual editor, choose + → Component → a type. The new block opens in Edit with its starter code. Open Quick guide beside the type selector for the examples below.
 
-<%= raw Coplan::ComponentCatalog::ROOT_GUIDE.sub("<main>", "`<main>`") %>
+<%= raw Coplan::ComponentCatalog::ROOT_GUIDE.sub("<main>", "`<main>`") %> [DOM basics on MDN](<%= Coplan::ComponentCatalog::DOM_REFERENCE_URL %>)
 
 <% catalog = Coplan.configuration.component_catalog -%>
 | Type | Available in the script | Included modules |

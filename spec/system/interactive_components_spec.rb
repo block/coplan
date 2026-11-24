@@ -433,7 +433,9 @@ RSpec.describe "Interactive components", type: :system do
       block.click_button("Quick guide")
       within("dialog[open]") do
         expect(page).to have_text("#{label} quick guide")
+        expect(page).to have_text("regular browser JavaScript")
         expect(page).to have_text("root is the <main> element")
+        expect(page).to have_link("DOM basics on MDN", href: Coplan::ComponentCatalog::DOM_REFERENCE_URL)
         expect(find("code").text).to eq(starter)
         click_button "Close quick guide", enable_aria_label: true
       end

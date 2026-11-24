@@ -148,7 +148,8 @@
       <h2 id="coplan-component-guide-title"></h2>
       <button type="button" aria-label="Close quick guide" data-action="coplan--editor#closeComponentGuide">×</button>
     </div>
-    <p><%= Coplan::ComponentCatalog::ROOT_GUIDE %></p>
+    <p><%= Coplan::ComponentCatalog::ROOT_GUIDE %>
+      <%= link_to "DOM basics on MDN", Coplan::ComponentCatalog::DOM_REFERENCE_URL, target: "_blank", rel: "noopener noreferrer" %></p>
     <p data-guide-description></p>
     <pre><code data-guide-example></code></pre>
     <p data-guide-bindings></p>

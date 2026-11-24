@@ -2,7 +2,8 @@ module Coplan
   # Browser-ready ES modules. Registered source is intentionally discoverable
   # in the host's authoring guide. Keep secrets and server code out of it.
   class ComponentCatalog
-    ROOT_GUIDE = "root is the <main> element inside this component’s frame. Use root.style to change its appearance and root.append(element) to add a child.".freeze
+    ROOT_GUIDE = "You write regular browser JavaScript here. root is the <main> element inside this component’s frame. Use root.style to change its appearance and root.append(element) to add a child.".freeze
+    DOM_REFERENCE_URL = "https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model/Introduction".freeze
     BASE_EXAMPLE = <<~JS.chomp.freeze
       root.style.backgroundColor = "var(--coplan-surface-muted)";
       root.textContent = "Hello!";
@@ -18,7 +19,7 @@ module Coplan
       library("diagram@1", source: File.read(File.join(dir, "diagram.js")), example: 'const { Diagram } = await import("diagram")')
       type("diagram", source: File.read(File.join(dir, "diagram_type.js")), uses: [ "diagram@1" ],
         bindings: [ "diagram" ],
-        guide: "Declare nodes in display order. Connect their IDs with edges. Edge labels are optional. CoPlan draws the graph when your script finishes.",
+        guide: "This starter draws a vertical flow. Its two authoring methods are diagram.node(id, label) and diagram.edge(from, to, label). Nodes appear in declaration order. The edge label is optional.",
         example: <<~JS.chomp)
         diagram.node("checkout", "Checkout");
         diagram.node("payment", "Payment");
