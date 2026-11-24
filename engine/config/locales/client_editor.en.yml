@@ -49,6 +49,7 @@ en:
         invalid_code_language: Use a language without backticks or line breaks.
         invalid_fence: Use a language or fence info string without backticks or line breaks.
         link_url: Link URL (https://…)
+        list: List
         loading_preview: Loading preview…
         markdown_block: Markdown block
         markdown_source: Markdown source
@@ -62,6 +63,7 @@ en:
         older_draft_review: An older draft needs review before syncing.
         opening: Opening document
         plain_text: Plain text
+        presentation: Presentation
         presentation_markdown: Presentation Markdown
         presentation_unavailable: Presentation unavailable
         preserved_block: Preserved Markdown block
@@ -73,6 +75,7 @@ en:
         ready_to_save: Changes ready to save
         recovered_draft_review: Recovered draft needs review before syncing.
         reference_label: 'Reference: %{label}'
+        references: References
         refresh_comments_failed: Could not refresh comments. Try Done again
         refresh_preview_failed: Could not refresh preview. Toggle Preview to retry.
         refresh_reader_failed: Could not refresh the reading view. Check your connection or sign in again
@@ -116,6 +119,7 @@ en:
         start_writing: Start writing to create this plan
         storage_unavailable: Browser storage unavailable · keep this page open until saved
         sync_failed: Could not sync. Check your connection or sign in again; your draft is retained.
+        table: Table
         table_markdown: Table Markdown
         tag_conflict: Both edits change the tags
         task_label: 'Task: %{text}'

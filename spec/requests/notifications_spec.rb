@@ -160,6 +160,16 @@ RSpec.describe "Notifications", type: :request do
       expect(response).to redirect_to(library_page_path(user))
     end
 
+    it "confirms in Spanish that the notifications are marked as read" do
+      allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
+      notification = create(:notification, user: user, plan: plan, comment_thread: thread)
+
+      post mark_plan_read_notifications_path(plan_id: plan.id), headers: { "Accept-Language" => "es" }
+
+      expect(flash[:notice]).to eq("Se marcaron las notificaciones como leídas.")
+      expect(notification.reload.read_at).to be_present
+    end
+
     it "is a no-op without a plan_id" do
       notification = create(:notification, user: user, plan: plan, comment_thread: thread)
 

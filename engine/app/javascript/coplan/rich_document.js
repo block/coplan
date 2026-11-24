@@ -1542,7 +1542,9 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
   if (["presentation", "iframe"].includes(node.attrs.kind)) {
     dom.classList.add("document-editor__content-block")
     dom.contentEditable = "false"
-    title.textContent = node.attrs.kind === "presentation" ? "Presentation" : t("coplan.client.editor.embedded_page")
+    title.textContent = node.attrs.kind === "presentation"
+      ? t("coplan.client.editor.presentation")
+      : t("coplan.client.editor.embedded_page")
     edit.remove()
     const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "×"
     remove.setAttribute("aria-label", node.attrs.kind === "presentation" ? t("coplan.client.editor.remove_presentation") : t("coplan.client.editor.remove_embed"))
@@ -1709,7 +1711,10 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     if (dom.hidden) return
     const isTable = node.attrs.kind !== "list" && /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
     const isReferences = /^\s*\[\^[^\]]+\]:/m.test(source)
-    title.textContent = node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : t("coplan.client.editor.markdown_block")
+    title.textContent = node.attrs.kind === "list" ? t("coplan.client.editor.list")
+      : isTable ? t("coplan.client.editor.table")
+      : isReferences ? t("coplan.client.editor.references")
+      : t("coplan.client.editor.markdown_block")
     body.replaceChildren()
     const fallback = document.createElement("pre"); fallback.textContent = source; body.append(fallback)
     // Rendering definitions alone drops them as unused footnotes. Keep their

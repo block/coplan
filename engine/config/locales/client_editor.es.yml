@@ -49,6 +49,7 @@ es:
         invalid_code_language: Introduce un lenguaje sin acentos graves ni saltos de línea.
         invalid_fence: Indica un lenguaje o una descripción del bloque sin acentos graves ni saltos de línea.
         link_url: URL del enlace (https://…)
+        list: Lista
         loading_preview: Cargando la vista previa…
         markdown_block: Bloque Markdown
         markdown_source: Código Markdown
@@ -62,6 +63,7 @@ es:
         older_draft_review: Revisa un borrador anterior antes de sincronizar.
         opening: Abriendo el documento
         plain_text: Texto sin formato
+        presentation: Presentación
         presentation_markdown: Markdown de la presentación
         presentation_unavailable: Presentación no disponible
         preserved_block: Bloque Markdown conservado
@@ -73,6 +75,7 @@ es:
         ready_to_save: Cambios listos para guardar
         recovered_draft_review: Revisa el borrador recuperado antes de sincronizar.
         reference_label: 'Referencia: %{label}'
+        references: Referencias
         refresh_comments_failed: No se pudieron actualizar los comentarios. Vuelve a pulsar Listo
         refresh_preview_failed: No se pudo actualizar la vista previa. Vuelve a activar Vista previa para reintentarlo.
         refresh_reader_failed: No se pudo actualizar la vista de lectura. Revisa la conexión o vuelve a iniciar sesión
@@ -116,6 +119,7 @@ es:
         start_writing: Empieza a escribir para crear este plan
         storage_unavailable: Almacenamiento del navegador no disponible · mantén la página abierta hasta guardar
         sync_failed: No se pudo sincronizar. Revisa la conexión o vuelve a iniciar sesión. Se conservó tu borrador.
+        table: Tabla
         table_markdown: Markdown de la tabla
         tag_conflict: Las dos ediciones cambian las etiquetas
         task_label: 'Tarea: %{text}'

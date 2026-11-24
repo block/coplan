@@ -10,7 +10,7 @@ es:
         mark_read: Marcar como leído
         no_notifications_yet: Todavía no hay notificaciones.
         no_unread_notifications: No hay notificaciones sin leer.
-        notifications_cleared: Se borraron las notificaciones.
+        notifications_cleared: Se marcaron las notificaciones como leídas.
         someone: Alguien
         unread: Sin leer
       no_unread_notifications: No hay notificaciones sin leer
