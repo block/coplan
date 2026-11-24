@@ -30,7 +30,7 @@ export default class extends Controller {
     this.scheme = matchMedia("(prefers-color-scheme: dark)")
     this.schemeChanged = () => this.syncTheme()
     this.scheme.addEventListener("change", this.schemeChanged)
-    this.captureSequence = 0
+    this.captureSequence ??= 0
     this.pendingCaptures = new Map()
     this.started = performance.now()
     this.challenge = Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16).padStart(8, "0")).join("")
@@ -139,7 +139,13 @@ export default class extends Controller {
       this.pendingCaptures.set(id, finish)
     })
     this.gesture = {id, point, pointerId, snapshot}
-    this.port?.postMessage({capture: {id, x: point.x, y: point.y}})
+    const capture = () => {
+      if (this.pendingCaptures.has(id)) this.port?.postMessage({capture: {id, x: point.x, y: point.y}})
+    }
+    // Dragging freezes the image at pointer-down. For a direct comment, let
+    // the composer paint before a same-process frame copies a large diagram.
+    if (pointerId === null) requestAnimationFrame(() => requestAnimationFrame(capture))
+    else capture()
   }
 
   region(end) {

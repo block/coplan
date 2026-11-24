@@ -122,7 +122,7 @@ RSpec.describe "Interactive components", type: :system do
     find(".comment-popover__action").click
     expect(figure).to match_css(":popover-open")
     expect(page).to have_css(".source-comments textarea:focus")
-    expect(page).to have_css(".source-comments img[src^='blob:']")
+    expect(page).to have_css(".source-comments img[src^='blob:']", wait: 4)
     find("#source-comment-body").set("Which checkout?")
     find("#source-comment-body").send_keys(:escape)
     expect(page).to have_no_css(".source-comments:popover-open")
