@@ -45,7 +45,7 @@
       function readSelection() {
         const selection = getSelection()
         if (!selection?.rangeCount || selection.isCollapsed ||
-            document.activeElement?.closest("input, textarea, select, [contenteditable=true]")) return null
+            document.activeElement?.isContentEditable || document.activeElement?.matches("input, textarea, select")) return null
         const range = selection.getRangeAt(0)
         if (!root.contains(range.commonAncestorContainer)) return null
         const rect = range.getBoundingClientRect()
@@ -73,7 +73,10 @@
       window.addEventListener("blur", () => port.postMessage({textSelection: null}))
       document.addEventListener("keydown", event => {
         if (!event.isTrusted || event.isComposing || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
-        if (event.key === "Escape") { port.postMessage({textSelection: null}); return }
+        if (event.key === "Escape") {
+          port.postMessage({textSelection: null, cancelTextCapture: true})
+          return
+        }
         if (event.key.toLowerCase() !== "c") return
         const region = readSelection()
         if (!region) return

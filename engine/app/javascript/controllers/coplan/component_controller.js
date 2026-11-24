@@ -42,6 +42,7 @@ export default class extends Controller {
     const program = this.programValue
     this.port = event.ports[0]
     this.port.onmessage = ({data}) => {
+      if (data?.cancelTextCapture && this.gesture?.point.quote) this.cancel()
       if (data && Object.hasOwn(data, "textSelection") && this.hasSelectionTarget && program.textComments) {
         this.textSelection(data.textSelection, data.startComment === true)
       }
@@ -76,7 +77,7 @@ export default class extends Controller {
       },
       comment: () => {
         if (this.gesture || !button.isConnected) return
-        this.commentButton = button
+        if (this.resumeAnnotation(button)) return
         const {x, y, w, h, width, height, quote} = region
         const area = {x, y, w, h, width, height, quote}
         this.beginCapture(area, null)
@@ -97,10 +98,14 @@ export default class extends Controller {
     if (this.port) this.port.postMessage({theme: this.theme()})
   }
 
+  resumeAnnotation(button) {
+    this.commentButton = button
+    return !button.dispatchEvent(new CustomEvent("coplan:resume-annotation", {bubbles: true, cancelable: true}))
+  }
+
   annotate(event) {
     if (!this.selectionTarget.hidden) return this.cancel()
-    this.commentButton = event.currentTarget
-    if (!this.commentButton.dispatchEvent(new CustomEvent("coplan:resume-annotation", {bubbles: true, cancelable: true}))) return
+    if (this.resumeAnnotation(event.currentTarget)) return
     this.commentButton.setAttribute("aria-pressed", "true")
     this.selectionTarget.hidden = false
     this.selectionTarget.focus({preventScroll: true})

@@ -235,6 +235,11 @@ export default class extends Controller {
     this.positionSelectionAction()
   }
 
+  popoverTargetDisconnected(popover) {
+    // A live edit can replace the expanded figure while it holds the action.
+    if (popover === this.borrowedAction && !popover.isConnected && this.actionHome?.isConnected) this.clearSelection()
+  }
+
   positionSelectionAction() {
     if (!this.selectionRect) return
     const rect = this.selectionRect()

@@ -124,6 +124,10 @@ RSpec.describe "Interactive components", type: :system do
     expect(page).to have_css(".source-comments textarea:focus")
     expect(page).to have_css(".source-comments img[src^='blob:']")
     find("#source-comment-body").set("Which checkout?")
+    find("#source-comment-body").send_keys(:escape)
+    select_label.call
+    within_frame(frame) { find("body").send_keys("c") }
+    expect(find("#source-comment-body").value).to eq("Which checkout?")
     within(".source-comments") { click_button "Comment" }
     expect(page).to have_css(".source-comments .comment__body img.component-snapshot")
     expect(plan.comments.reload.sole.component_selection).to include("quote" => "Checkout", "image" => true)
@@ -131,6 +135,68 @@ RSpec.describe "Interactive components", type: :system do
     select_label.call
     within_frame(frame) { find("body").send_keys("c") }
     expect(page).to have_css(".source-comments textarea:focus")
+  end
+
+  it "restores the shared action when a live update removes an expanded component" do
+    plan = Coplan::Plans::Create.call(content: source, user: author, actor_type: "human")
+    visit plan_page_path(plan)
+    figure = find("figure:has(iframe[title='Diagram'])")
+    figure.hover
+    figure.find('button[aria-label="Expand component"]').click
+    within_frame(figure.find("iframe")) do
+      find("svg text", exact_text: "Checkout").double_click
+    end
+    expect(figure).to have_css(".comment-popover__action")
+    page.execute_script("arguments[0].remove()", figure)
+    expect(page).to have_css(".comment-popover", visible: :hidden)
+    find("#plan-content-body h2", match: :first).double_click
+    find(".comment-popover__action").click
+    expect(page).to have_css("#new-comment-form textarea:focus")
+  end
+
+  it "cancels text commenting while the PNG is being decoded" do
+    plan = Coplan::Plans::Create.call(content: source, user: author, actor_type: "human")
+    visit plan_page_path(plan)
+    page.execute_script(<<~JS)
+      const decode = window.createImageBitmap.bind(window);
+      window.createImageBitmap = async blob => {
+        const bitmap = await decode(blob);
+        return new Promise(resolve => { window.finishDecode = () => resolve(bitmap) });
+      };
+    JS
+    frame = find("iframe[title='Diagram']")
+    within_frame(frame) do
+      find("svg text", exact_text: "Checkout").double_click
+      find("body").send_keys("c")
+    end
+    expect(page).to have_css("body") { page.evaluate_script("typeof window.finishDecode === 'function'") }
+    within_frame(frame) { find("body").send_keys(:escape) }
+    expect(page).to have_css("figure:has(iframe[title='Diagram'])") { |figure|
+      page.evaluate_script("!window.Stimulus.getControllerForElementAndIdentifier(arguments[0], 'coplan--component').gesture", figure)
+    }
+    page.execute_script("window.finishDecode()")
+    expect(page).to have_no_css(".source-comments textarea", visible: true)
+  end
+
+  it "keeps native C typing in a component's editable text" do
+    markdown = <<~'MD'
+      # Editable component
+
+      ::: {.component}
+
+      root.innerHTML = '<div contenteditable>Replace me</div>';
+
+      :::
+    MD
+    plan = Coplan::Plans::Create.call(content: markdown, user: author, actor_type: "human")
+    visit plan_page_path(plan)
+    within_frame(find("figure.document-component iframe")) do
+      field = find("[contenteditable]")
+      field.click
+      field.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "c")
+      expect(field).to have_text("c", exact: true)
+    end
+    expect(page).to have_no_css(".comment-popover__action, .source-comments textarea", visible: true)
   end
 
   it "captures SVG fills and flags a scrolled panel whose visible contents cannot be copied" do
