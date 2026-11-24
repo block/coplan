@@ -39,6 +39,7 @@ module Coplan
           ) do |n|
             n.plan_id = @comment.comment_thread.plan_id
             n.comment_thread_id = @comment.comment_thread_id
+            n.fanout_actor_id = @comment.author_id.presence || @comment.api_token_id
           end
           notified_user_ids << user.id if notification.previously_new_record?
         end

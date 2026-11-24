@@ -21,8 +21,11 @@ module Coplan
     scope :read, -> { where.not(read_at: nil) }
     scope :newest_first, -> { order(created_at: :desc) }
 
-    after_commit :enqueue_web_push_deliveries, on: :create
-    after_commit :enqueue_adapter_deliveries, on: :create
+    # Who caused this notification, for Notifications::FanoutBudget. Not
+    # stored: it only decides whether this row's deliveries go out.
+    attr_accessor :fanout_actor_id
+
+    after_commit :enqueue_deliveries, on: :create
 
     def read?
       read_at.present?
@@ -42,24 +45,21 @@ module Coplan
 
     private
 
-    def enqueue_adapter_deliveries
-      DispatchNotificationJob.perform_later(id) if Coplan.configuration.notification_delivery_handlers.any?
-    end
+    # Web push goes to at most MAX_PER_USER most recently registered devices
+    # for the recipient, including accounts already over the cap before it
+    # was introduced. Quietly skips when Web Push isn't configured (host
+    # hasn't set VAPID keys) or the recipient hasn't subscribed any browsers.
+    def enqueue_deliveries
+      subscriptions = Coplan.configuration.web_push_configured? ? user.web_push_subscriptions.for_delivery.to_a : []
+      adapters = Coplan.configuration.notification_delivery_handlers.any?
+      cost = subscriptions.size + (adapters ? 1 : 0)
+      return if cost.zero?
+      return unless Notifications::FanoutBudget.spend?(actor_id: fanout_actor_id, cost: cost)
 
-    # Fan-out to at most MAX_PER_USER most recently registered devices for
-    # the recipient. Quietly skips when Web Push isn't configured (host hasn't
-    # set VAPID keys) or the recipient hasn't subscribed any browsers yet.
-    def enqueue_web_push_deliveries
-      return unless Coplan.configuration.web_push_configured?
-
-      # Bound fan-out immediately, including accounts already over the cap
-      # before it was introduced and which haven't subscribed again yet.
-      user.web_push_subscriptions.for_delivery.each do |subscription|
-        WebPushDeliveryJob.perform_later(
-          notification_id: id,
-          subscription_id: subscription.id
-        )
+      subscriptions.each do |subscription|
+        WebPushDeliveryJob.perform_later(notification_id: id, subscription_id: subscription.id)
       end
+      DispatchNotificationJob.perform_later(id) if adapters
     end
   end
 end
