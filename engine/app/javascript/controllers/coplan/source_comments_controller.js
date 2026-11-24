@@ -211,7 +211,8 @@ export default class extends Controller {
     if (!this.annotation?.capture) return
     event.preventDefault()
     this.postAfterCapture = true
-    this.imageStatusTarget.textContent = "Preparing image before posting…"
+    this.imageStatusTarget.classList.remove("visually-hidden")
+    this.imageStatusTarget.textContent = "Posting when ready…"
   }
 
   renderAnnotation() {
@@ -220,6 +221,7 @@ export default class extends Controller {
     this.regionTarget.disabled = false
     const area = region.w || region.h ? `${region.w} × ${region.h} at (${region.x}, ${region.y})` : `Point (${region.x}, ${region.y})`
     this.quoteTarget.textContent = [this.selection.label, region.quote || region.label, area, !capture && !png && "Image unavailable"].filter(Boolean).join(" · ")
+    this.imageStatusTarget.classList.add("visually-hidden")
     this.imageStatusTarget.textContent = capture ? "Preparing image…" : ""
     this.attachmentTarget.hidden = !capture && !png
     this.attachmentTarget.style.aspectRatio = `${region.width} / ${region.height}`

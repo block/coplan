@@ -15,7 +15,9 @@
     <input type="file" disabled hidden name="comment_thread[component_snapshot]" data-coplan--source-comments-target="file">
     <button type="button" hidden class="comment-window__action" data-coplan--source-comments-target="discard" data-action="coplan--source-comments#discardAnnotation">Discard annotation</button>
     <div class="source-comments__attachment" hidden data-coplan--source-comments-target="attachment">
-      <span role="status" class="text-sm text-muted" data-coplan--source-comments-target="imageStatus"></span>
+      <span role="status" class="source-comments__capture-status text-sm text-muted">
+        <span class="visually-hidden" data-coplan--source-comments-target="imageStatus"></span>
+      </span>
       <img class="component-snapshot" hidden alt="Selected area of the component" data-coplan--source-comments-target="preview">
     </div>
     <%= render "coplan/comment_threads/composer_fields",

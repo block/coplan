@@ -173,7 +173,7 @@ RSpec.describe "Interactive components", type: :system do
       find("body").send_keys("c")
     end
     expect(page).to have_css(".source-comments textarea:focus")
-    expect(page).to have_css(".source-comments [role=status]", text: "Preparing image…")
+    expect(page).to have_css(".source-comments [role=status] .visually-hidden", text: "Preparing image…", visible: :all)
     expect(page).to have_css(".source-comments blockquote", text: "Checkout")
     expect(page).to have_css("body") { page.evaluate_script("typeof window.finishDecode === 'function'") }
     plan
@@ -182,7 +182,7 @@ RSpec.describe "Interactive components", type: :system do
   it "accepts typing during capture and posts once when the image arrives" do
     plan = comment_with_delayed_image
     find("#source-comment-body").send_keys("Why retry?", :enter)
-    expect(page).to have_css(".source-comments [role=status]", text: "Preparing image before posting…")
+    expect(page).to have_css(".source-comments [role=status]", text: "Posting when ready…")
     within(".source-comments") { click_button "Comment" }
     expect(plan.comments.reload).to be_empty
     page.execute_script("window.finishDecode()")
@@ -195,7 +195,7 @@ RSpec.describe "Interactive components", type: :system do
     plan = comment_with_delayed_image
     find("#source-comment-body").set("Which checkout?")
     within(".source-comments") { click_button "Comment" }
-    expect(page).to have_css(".source-comments [role=status]", text: "before posting")
+    expect(page).to have_css(".source-comments [role=status]", text: "Posting when ready…")
     find("#source-comment-body").send_keys(:escape)
     simulator = find("figure:has(iframe[title='Component'])")
     simulator.hover
