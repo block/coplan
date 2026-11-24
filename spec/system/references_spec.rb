@@ -71,6 +71,37 @@ RSpec.describe "Plan references", type: :system do
     JS
   end
 
+  it "previews a numbered alias on another slide and opens that slide" do
+    document = Coplan::Plans::Create.call(user: user, actor_type: "human", content: <<~MARKDOWN)
+      # Deck section links
+
+      See [the second review](#section-4-1-2).
+
+      ::: {.presentation}
+
+      <h2 id="first-review">4.1. First review</h2>
+
+      First slide details.
+
+      ---
+
+      <h2 id="later-review">4.1. Later review</h2>
+
+      Second slide details.
+
+      :::
+    MARKDOWN
+    visit plan_page_path(document)
+
+    link = find_link("the second review", href: "#section-4-1-2")
+    link.hover
+    expect(page).to have_css(".reference-preview__title", text: "4.1. Later review", visible: true)
+    expect(page).to have_css(".reference-preview__body", text: "Second slide details.", visible: true)
+    link.click
+    expect(page).to have_current_path(/#section-4-1-2\z/, url: true)
+    expect(page).to have_css(".deck-slide--current h2#later-review", visible: true)
+  end
+
   # References live under the document as a footnote section — same page as
   # the content, no tabs.
   def open_add_reference_modal

@@ -181,12 +181,15 @@ RSpec.describe Coplan::MarkdownHelper, type: :helper do
         <h3 id="31-rollout">3.1 Rollout</h3>
 
         Read the [number](#section-3-1-2) or the [slug](#31-rollout).
+
+        <span id="author-anchor" data-heading-alias></span>
       MARKDOWN
 
       expect(doc.css("#section-3-1").map(&:name)).to eq([ "h2" ])
       expect(doc.css("#section-3-1-2").size).to eq(1)
       expect(doc.at_css('h3[id="31-rollout"] > #section-3-1-2[data-heading-alias]')).to be_present
       expect(doc.css("p a.reference-anchor--section").map { |link| link["href"] }).to eq([ "#section-3-1-2", "#31-rollout" ])
+      expect(doc.at_css("#author-anchor")["data-heading-alias"]).to be_nil
     end
 
     it "enhances explicit links to numbered sections for previews" do

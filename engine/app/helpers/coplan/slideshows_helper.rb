@@ -271,6 +271,7 @@ module Coplan
 
       [
         [ "a.anchor", %w[id href], anchor_fingerprint ],
+        [ "span[data-heading-alias]", %w[id], anchor_fingerprint ],
         [ "h1, h2, h3, h4, h5, h6", %w[id], heading_fingerprint ]
       ].each do |selector, attributes, fingerprint|
         document_elements = outside_footnotes(document, selector)
@@ -368,11 +369,9 @@ module Coplan
     # they mark — so they validate by their parent's content instead of
     # their own.
     def id_owner_fingerprint(el)
-      if el.name == "a" && el.classes.include?("anchor")
-        content_fingerprint(el.parent)
-      else
-        content_fingerprint(el)
-      end
+      heading_anchor = (el.name == "a" && el.classes.include?("anchor")) ||
+        (el.name == "span" && el.key?("data-heading-alias"))
+      content_fingerprint(heading_anchor ? el.parent : el)
     end
 
     # Ids still duplicated after alignment (author-written repeats, or

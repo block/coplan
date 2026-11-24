@@ -373,6 +373,22 @@ RSpec.describe Coplan::SlideshowsHelper, type: :helper do
       expect(doc.css("h1").map { |h| h["id"] }).to eq(%w[section-1 section-1-2])
     end
 
+    it "aligns numbered aliases across slides while keeping their heading ids" do
+      doc = deck(<<~MARKDOWN)
+        See [the second section](#section-4-1-2).
+
+        <h2 id="first-review">4.1. First review</h2>
+
+        ---
+
+        <h2 id="later-review">4.1. Later review</h2>
+      MARKDOWN
+
+      expect(doc.at_css('h2#first-review > #section-4-1[data-heading-alias]')).to be_present
+      expect(doc.at_css('h2#later-review > #section-4-1-2[data-heading-alias]')).to be_present
+      expect(doc.at_css('a.reference-anchor--section[href="#section-4-1-2"]')).to be_present
+    end
+
     it "keeps slide heading ids stable when a footnote definition holds a heading" do
       # The definition's heading renders only in the References back matter,
       # so it must not shift the ids of headings the slides actually show.
@@ -482,6 +498,25 @@ RSpec.describe Coplan::SlideshowsHelper, type: :helper do
       # anchors must not offer that id on a "Foo Bar" heading.
       expect(doc.at_css("#foo-bar-1")).to be_nil
       expect(doc.at_css("#foo-bar").parent.text.squish).to eq("Foo Bar")
+    end
+
+    it "drops a numbered alias from the wrong heading when alignment is skipped" do
+      doc = deck(<<~MARKDOWN)
+        <h2 id="alpha">1. Alpha</h2>
+
+        <section data-footnotes>
+
+        ---
+
+        <h2 id="beta">1. Beta</h2>
+
+        <h2 id="gamma">1. Gamma</h2>
+
+        </section>
+      MARKDOWN
+
+      expect(doc.at_css("#section-1").parent["id"]).to eq("alpha")
+      expect(doc.at_css("#section-1-2")).to be_nil
     end
 
     it "does not swap ids between same-text headings whose link destinations differ" do

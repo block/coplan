@@ -130,6 +130,8 @@ module Coplan
     # so previews require no duplicate citation data or network request.
     def transform_reference_anchors(html, numbered_sections: true)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      # Only server-created aliases can redirect a reference to their heading.
+      doc.css("[data-heading-alias]").remove_attr("data-heading-alias")
       used_ids = doc.css("[id]").filter_map { |node| node["id"].presence }.to_set
       section_ids = Set.new
 
