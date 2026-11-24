@@ -1,0 +1,63 @@
+---
+en:
+  coplan:
+    library:
+      add_plan_or_folder: Add plan or folder
+      archiving_a_plan_hides_it: Archiving a plan hides it from lists and search without deleting it — it will show up here.
+      browse_library: Browse library
+      changed_since_you_last_looked: Changed since you last looked
+      drag_a_plan_here_from: Drag a plan here from another folder, or file one from its plan page.
+      filters: Filters
+      folder: Folder
+      folder_location: Folder location
+      folders: Folders
+      hidden: Hidden
+      libraries: Libraries
+      library_navigation: Library navigation
+      loading_more_plans_pending: Loading more plans…
+      messages:
+        active: " · Active"
+        choose_a_plan_type: Choose a plan type
+        clear: Clear
+        clear_all: Clear all
+        clear_label_filter: Clear %{label} filter
+        clear_unread_comments_for_title: Clear unread comments for %{title}
+        couldn_t_create_folder_errors: 'Couldn''t create folder: %{errors}'
+        couldn_t_create_folder_the: 'Couldn''t create folder: the parent folder no longer exists.'
+        couldn_t_delete_folder_errors: 'Couldn''t delete folder: %{errors}'
+        couldn_t_move_folder_errors: 'Couldn''t move folder: %{errors}'
+        create_folder: Create folder
+        delete_folder: Delete folder
+        delete_the_folder_name: Delete the folder “%{name}”?
+        directory: Directory ↗
+        e_g_payments: e.g. Payments
+        folder_name_created: Folder “%{name}” created.
+        folder_name_deleted: Folder “%{name}” deleted.
+        inside: Inside
+        last_30_days: Last 30 days
+        last_7_days: Last 7 days
+        new_folder: New folder
+        published: Published
+        see_notifications: see notifications
+        show_archived: Show archived
+        show_my_private_plans: Show my private plans
+        showing_archived: Showing archived
+        showing_private: Showing private
+        tag_tag: 'Tag: %{tag}'
+        type: Type
+        type_type_name: 'Type: %{type_name}'
+        undo_archive: Undo archive
+        unknown_destination_folder: Unknown destination folder
+        updated_last_d_days: 'Updated: last %{d} days'
+        view_archived: View archived
+        workspace_root_label_top_level: "%{workspace_root_label} (top level)"
+      no_plans_match_the_current: No plans match the current filters
+      nothing_in_the_archive: Nothing in the archive
+      plan: Plan
+      plans_that_need_your_attention: Plans that need your attention
+      read_only: Read only
+      since_you_last_looked: Since you last looked
+      tags: Tags
+      types: Types
+      updated: Updated
+      you_haven_t_created_any: You haven't created any plans yet. Use + to add one.

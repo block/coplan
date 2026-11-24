@@ -64,7 +64,7 @@ module Coplan
       inline_streams = [ turbo_stream.append("plan-threads", html) ]
       inline_streams << general_comments_stream if thread.anchor_kind.blank? && !thread.out_of_date?
 
-      respond_with_stream_or_redirect("Comment added.", streams: inline_streams)
+      respond_with_stream_or_redirect(I18n.t("coplan.discussions.messages.comment_added"), streams: inline_streams)
     end
 
     def resolve
@@ -72,7 +72,7 @@ module Coplan
       @thread.resolve!(current_user)
       CreateNotificationsJob.perform_later(comment_thread_id: @thread.id, actor_id: current_user.id, reason: "status_change")
       stream = broadcast_thread_replace(@thread)
-      respond_with_stream_or_redirect("Thread resolved.", streams: [ stream, *comment_list_streams(@thread) ])
+      respond_with_stream_or_redirect(I18n.t("coplan.discussions.messages.thread_resolved"), streams: [ stream, *comment_list_streams(@thread) ])
     end
 
     def reopen
@@ -80,7 +80,7 @@ module Coplan
       @thread.reopen!(current_user)
       CreateNotificationsJob.perform_later(comment_thread_id: @thread.id, actor_id: current_user.id, reason: "status_change")
       stream = broadcast_thread_replace(@thread)
-      respond_with_stream_or_redirect("Thread reopened.", streams: [ stream, *comment_list_streams(@thread) ])
+      respond_with_stream_or_redirect(I18n.t("coplan.discussions.messages.thread_reopened"), streams: [ stream, *comment_list_streams(@thread) ])
     end
 
     private

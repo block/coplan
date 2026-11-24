@@ -1,0 +1,13 @@
+---
+en:
+  coplan:
+    settings:
+      language:
+        apply: Apply language
+        browser: Browser language (%{language})
+        hint: Changes take effect immediately for this browser session.
+        label: Language
+        native_name: English
+        save_failed: Couldn’t change the language. Try again.
+        unavailable: That language is no longer available.
+      title: Settings

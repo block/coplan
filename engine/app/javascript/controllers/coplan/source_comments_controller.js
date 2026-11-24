@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { captureReactionFocus } from "coplan/reaction_focus"
 import { commentWindowTop } from "coplan/comment_window"
@@ -56,7 +57,7 @@ export default class extends Controller {
   }
 
   focusClose() {
-    Array.from(this.panelTarget.querySelectorAll('[aria-label="Close element comments"]'))
+    Array.from(this.panelTarget.querySelectorAll('[data-action~="coplan--source-comments#dismiss"]'))
       .find(button => button.getClientRects().length)?.focus({ preventScroll: true })
   }
 
@@ -403,7 +404,7 @@ export default class extends Controller {
   refresh() {
     const outdatedCount = this.outdatedThreads().length
     this.outdatedTarget.hidden = outdatedCount === 0
-    this.outdatedTarget.textContent = `Outdated element comments (${outdatedCount})`
+    this.outdatedTarget.textContent = t("coplan.client.discussions.outdated_discussions", { count: outdatedCount })
     // Badges are derived from the shared thread data on each broadcast;
     // expanded clones and document elements consequently share identity.
     this.element.querySelectorAll("[data-source-badge], .source-edge-badges").forEach(el => el.remove())
@@ -416,7 +417,7 @@ export default class extends Controller {
         element.hidden = !element.classList.contains("has-source-comments") &&
           !element.closest(".is-comment-mode")
       }
-      element.setAttribute("aria-label", `${target.label}. ${threads.length} discussions. Press C or Enter to comment.`)
+      element.setAttribute("aria-label", t("coplan.client.discussions.element_discussions", { label: target.label, count: threads.length }))
       // Measure before inserting badges so subsequent markers don't shift
       // with the growing SVG group's bounding box.
       if (element.classList.contains("source-edge-label")) return
@@ -449,7 +450,7 @@ export default class extends Controller {
     // is comment_thread_<uuid>, the same identity used by prose marks.
     badge.dataset.threadId = thread.id
     badge.classList.add("source-thread-badge", "anchor-highlight", `anchor-highlight--${thread.dataset.threadStatus}`)
-    badge.setAttribute("aria-label", `Open discussion ${index + 1}`)
+    badge.setAttribute("aria-label", t("coplan.client.discussions.open_discussion", { position: index + 1 }))
     if (svg) {
       const path = element.matches("path") ? element : null
       let point = { x: bounds.x + bounds.width + index * 18, y: bounds.y }

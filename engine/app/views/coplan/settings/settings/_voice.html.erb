@@ -10,14 +10,12 @@
      data-coplan--voice-hotkey-url-value="<%= coplan.settings_voice_hotkey_path %>">
   <div class="settings-row">
     <div class="settings-row__main">
-      <span class="settings-row__label">Hold to talk</span>
+      <span class="settings-row__label"><%= t("coplan.preferences.hold_to_talk") %></span>
       <p class="settings-row__hint">
-        Hold this key on a plan to dictate a comment, and release to post it.
-        The mic button works whichever you pick.
+        <%= t("coplan.preferences.hold_this_key_on_a") %>
         <span data-coplan--voice-hotkey-target="macNote"
               <%= "hidden" unless current_user.voice_hotkey == "ctrl_space" %>>
-          macOS uses Ctrl+Space to switch input sources — if nothing happens when
-          you hold it, turn that off in System Settings or choose another key here.
+          <%= t("coplan.preferences.macos_uses_ctrl_space_to") %>
         </span>
       </p>
       <p class="settings-row__hint settings-row__hint--error" role="status"
@@ -25,11 +23,11 @@
     </div>
     <div class="segmented">
       <% Coplan::User::VOICE_HOTKEYS.each do |hotkey| %>
-        <label class="segmented__option" title="<%= Coplan::User::VOICE_HOTKEY_LABELS[hotkey] %>">
+        <label class="segmented__option" title="<%= voice_hotkey_label(hotkey) %>">
           <input type="radio" name="voice_hotkey" value="<%= hotkey %>"
                  <%= "checked" if current_user.voice_hotkey == hotkey %>
                  data-action="coplan--voice-hotkey#select">
-          <span class="segmented__btn"><%= Coplan::User::VOICE_HOTKEY_LABELS[hotkey] %></span>
+          <span class="segmented__btn"><%= voice_hotkey_label(hotkey) %></span>
         </label>
       <% end %>
     </div>

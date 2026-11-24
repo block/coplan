@@ -1,0 +1,17 @@
+---
+en:
+  coplan:
+    notifications:
+      inbox: Inbox
+      messages:
+        all: All
+        all_notifications_marked_as_read: All notifications marked as read.
+        mark_all_read: Mark all read
+        mark_read: Mark read
+        no_notifications_yet: No notifications yet.
+        no_unread_notifications: No unread notifications.
+        notifications_cleared: Notifications cleared.
+        someone: Someone
+        unread: Unread
+      no_unread_notifications: No unread notifications
+      thread: Thread

@@ -29,6 +29,11 @@ Post `🤖 @codex review` when a Codex review is needed. Avoid duplicate request
 for reviews already in progress. Copilot review is not required; do not request
 or wait for it. Assess any existing actionable findings on their merits.
 
+Use the [internationalization review rules](../AGENTS.md#internationalization)
+on every PR. If the PR touches localized copy or changes its context, record the
+languages reviewed in the cleanup summary and flag any copy that still needs a
+fluent review. Apply the base branch's review rules when the PR changes them.
+
 Check back after roughly 30 minutes. If a review is still running, keep monitoring;
 elapsed time does not count as approval. Record which commit each review covered.
 Read findings and replies, verify claims, and combine duplicate findings. A bot

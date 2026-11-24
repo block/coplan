@@ -1,0 +1,132 @@
+---
+es:
+  coplan:
+    documents:
+      about_writing_sources: Acerca de las fuentes del texto
+      add_a_reference: Añadir referencia
+      add_comment: Añadir comentario
+      add_files: Añadir archivos
+      ai: IA
+      all_comments: Todos los comentarios
+      allow_refresh_microphones: Permitir o actualizar micrófonos
+      archive_plan: Archivar plan
+      attachments: Archivos adjuntos
+      audio_input: Entrada de audio
+      choose_audio_input: Elegir entrada de audio
+      close_reference_preview: Cerrar vista previa de referencia
+      comment_on_selected_text_c: Comentar el texto seleccionado (C)
+      comments: Comentarios
+      comments_on_earlier_text: Comentarios sobre texto anterior
+      copy_markdown: Copiar Markdown
+      copy_markdown_to_embed_this: Copiar Markdown para insertar este archivo en el plan
+      discussions: Conversaciones
+      document_comments: Comentarios del documento
+      done: Listo
+      done_inspecting: Terminar inspección
+      drop_files_here_or_click: Suelta los archivos aquí o haz clic para explorar
+      earlier_comments: Comentarios anteriores
+      earlier_text: Texto anterior
+      history: Historial
+      human: Humana
+      inspect_writing: Inspeccionar el texto
+      loading_writing_provenance_pending: Cargando fuentes del texto…
+      make_private: Hacer privado
+      messages:
+        add_reference: Añadir referencia
+        ai_written: Escrito por IA
+        attachment_removed: Archivo adjunto eliminado.
+        back_to_the_document_backspace: Volver al documento (Retroceso)
+        back_to_title: Volver a %{title}
+        choose_a_valid_plan_type: Elige un tipo de plan válido.
+        choose_at_least_one_file: Elige al menos un archivo para subir.
+        comment_by_voice: Comentar por voz
+        comment_by_voice_or_hold: Comenta por voz o mantén pulsada la tecla %{hotkey} para hablar
+        conflict: Conflicto
+        coplan_plan: Plan de Coplan
+        delete_attachment: Eliminar archivo adjunto
+        delete_filename: "¿Eliminar %{filename}?"
+        document: Documento
+        edit_reference_label: Editar referencia %{label}
+        edit_this_document: Editar este documento
+        embedded_page_unavailable_check_its: Página incrustada no disponible. Comprueba su URL, tamaño y dominio aprobado por la administración.
+        entirely_ai_written: Escrito íntegramente por IA
+        entirely_human_written: De autoría exclusivamente humana
+        github_pull_request: Solicitud de cambios de GitHub
+        github_repository: Repositorio de GitHub
+        google_doc: Documento de Google
+        google_sheet: Hoja de cálculo de Google
+        google_slides: Presentaciones de Google
+        government_website: Sitio web gubernamental
+        hidden_from_lists_unless_filtered: Solo aparece en las listas si se activa el filtro correspondiente
+        history_title_coplan: Historial — %{title} — Coplan
+        human_written: De autoría humana
+        key: Clave
+        listed_for_everyone_in_the: Visible en las listas para toda la organización.
+        mixed_writing_origins: Autoría mixta
+        mostly_ai_written: Escrito principalmente por IA
+        mostly_harness_name_written: Escrito principalmente por %{harness_name}
+        mostly_human_written: De autoría mayoritariamente humana
+        my_plans: Mis planes
+        name_document: Documento de tipo %{name}
+        name_s_plans: Planes de %{name}
+        name_s_profile: Perfil de %{name}
+        name_you: "%{name} (tú)"
+        new_name_coplan: Nuevo %{name} — Coplan
+        new_to_you: nuevo para ti
+        next_slide: Diapositiva siguiente
+        no_changes_to_save: No hay cambios que guardar.
+        not_shared_hidden_from_lists: No compartido. Se oculta de las listas y de la búsqueda, pero quien tenga el enlace puede leerlo.
+        open_source_title_in_a: Abrir la fuente %{title} en otra pestaña (%{metadata})
+        optional: Opcional
+        optional_e_g_auth_repo: Opcional. P. ej., auth-repo
+        past_review: Revisión anterior
+        plan_is_private_again_hidden: El plan es privado de nuevo. Se oculta de las listas y de la búsqueda.
+        plan_published_everyone_can_see: El plan se publicó. Ahora todos pueden verlo.
+        plan_restored: Plan restaurado.
+        plan_updated: Plan actualizado.
+        present_deck: Presentar
+        previous_slide: Diapositiva anterior
+        private_again_hidden_from_lists: Es privado de nuevo. Se oculta de las listas y de la búsqueda.
+        reference_added: Referencia añadida.
+        reference_removed: Referencia eliminada.
+        remove_reference: Quitar referencia
+        remove_this_reference: "¿Quitar esta referencia?"
+        removed_title_from_its_folder: Se quitó «%{title}» de su carpeta.
+        restore: Restaurar
+        shared: Compartido
+        shared_with_everyone_in_the: Compartido con toda la organización.
+        task: Tarea
+        task_text: 'Tarea: %{text}'
+        title: Título
+        title_coplan: "%{title} — Coplan"
+        unknown_folder: Carpeta desconocida.
+        unlisted_anyone_with_the_link: No aparece en las listas. Quien tenga el enlace puede leerlo.
+        up_to_containing_folder_path: Subir a la carpeta contenedora — %{path}
+        up_to_name: Subir a %{name}
+        updating_pending: Actualizando…
+        url: URL
+        website: Sitio web
+        writing_origin_mostly_unknown: De autoría mayoritariamente desconocida
+        writing_origin_unknown: Autoría desconocida
+      microphone: Micrófono
+      microphone_settings: Configuración del micrófono
+      more_actions: Más acciones
+      move_to_folder_pending: Mover a una carpeta…
+      not_saved: Sin guardar
+      open: Abiertos
+      plan_actions: Acciones del plan
+      plan_comment: Comentario sobre el plan
+      plan_visibility: Visibilidad del plan
+      references: Referencias
+      resolved: Resuelto
+      share_with_everyone: Compartir con todos
+      shares_count_the_non_whitespace: Los porcentajes se calculan a partir de los caracteres Markdown que siguen en el documento, sin contar los espacios en blanco. El texto pegado recientemente y los cambios sin registro se clasifican como de origen desconocido. El historial anterior al 18 de agosto de 2026 se clasifica como de origen desconocido, salvo que se haya registrado la identidad de un agente. Los cambios posteriores en el editor que preceden al lanzamiento de esta función se consideran de autoría humana. Las identidades declaradas por los agentes se registran por separado de la revisión humana. Inspecciona el texto para ver quién lo añadió y cuándo. Los diagramas y las imágenes conservan su apariencia.
+      show: Mostrar
+      show_outline: Mostrar índice
+      system_default: Predeterminado del sistema
+      text_comment: Comentario sobre el texto
+      this_plan_has_no_content: Este plan todavía no tiene contenido.
+      this_plan_is_archived_it: Este plan está archivado. Sigue disponible en esta URL y se oculta de las listas y los resultados de búsqueda.
+      unknown: Desconocida
+      visibility: Visibilidad
+      writing_sources: Fuentes del texto

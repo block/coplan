@@ -1,39 +1,39 @@
 <dialog class="review-dialog review-management" data-coplan--review-tray-target="reviews" aria-labelledby="review-management-title" data-action="close->coplan--review-tray#closeAssignment">
   <header class="review-management__header">
-    <h2 id="review-management-title">Manage reviewers</h2>
-    <button type="button" class="review-management__close" aria-label="Close reviews" data-action="coplan--review-tray#closeReviews"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    <h2 id="review-management-title"><%= t("coplan.common.manage_reviewers") %></h2>
+    <button type="button" class="review-management__close" aria-label="<%= t("coplan.reviews.close_reviews") %>" data-action="coplan--review-tray#closeReviews"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
   </header>
   <div class="review-management__overview">
     <div class="review-management__status">
-      <div data-review-summary><span><%= pluralize(active_requests.size, "reviewer") %><%= " · #{active_requests.count(&:pending?)} awaiting review" if active_requests.any?(&:pending?) %></span></div>
+      <div data-review-summary><span><%= t("coplan.display.reviewers", count: active_requests.size) %><%= t("coplan.reviews.messages.count_awaiting_review", count: active_requests.count(&:pending?)) if active_requests.any?(&:pending?) %></span></div>
       <span role="status" aria-live="polite" data-coplan--review-tray-target="managementStatus"></span>
     </div>
     <% if allowed_to?(plan, :update?) %>
-      <button type="button" class="review-add-button" title="Add reviewer" aria-expanded="false" aria-haspopup="dialog" aria-controls="review-assignment" popovertarget="review-assignment" data-coplan--review-tray-target="addReviewerButton"><span aria-hidden="true">+</span> Add reviewer</button>
+      <button type="button" class="review-add-button" title="<%= t("coplan.reviews.add_reviewer") %>" aria-expanded="false" aria-haspopup="dialog" aria-controls="review-assignment" popovertarget="review-assignment" data-coplan--review-tray-target="addReviewerButton"><span aria-hidden="true">+</span> <%= t("coplan.reviews.add_reviewer") %></button>
     <% end %>
   </div>
   <% if allowed_to?(plan, :update?) %>
     <div class="review-reset-policy">
-      <label class="review-required"><input type="checkbox" <%= "checked" if plan.reset_reviews_on_change %> data-action="change->coplan--review-tray#changeResetPolicy" data-review-reset-policy data-policy-write-id="<%= plan.review_policy_write_id %>" data-policy-write-sequence="<%= plan.review_policy_write_sequence %>" data-review-sequence="<%= plan.review_sequence %>" data-saved-value="<%= plan.reset_reviews_on_change %>"> Require a new review after changes <span class="review-reset-policy__status" data-coplan--review-tray-target="policyIcon" role="img" aria-hidden="true" aria-label="Saved" title="Saved">✓</span></label>
-      <p class="text-sm text-muted">Applies to future edits for all reviewers. When off, completed reviews stay on the version reviewed. New approvals always require the latest version.</p>
+      <label class="review-required"><input type="checkbox" <%= "checked" if plan.reset_reviews_on_change %> data-action="change->coplan--review-tray#changeResetPolicy" data-review-reset-policy data-policy-write-id="<%= plan.review_policy_write_id %>" data-policy-write-sequence="<%= plan.review_policy_write_sequence %>" data-review-sequence="<%= plan.review_sequence %>" data-saved-value="<%= plan.reset_reviews_on_change %>"> Require a new review after changes <span class="review-reset-policy__status" data-coplan--review-tray-target="policyIcon" role="img" aria-hidden="true" aria-label="<%= t("coplan.reviews.saved") %>" title="<%= t("coplan.reviews.saved") %>">✓</span></label>
+      <p class="text-sm text-muted"><%= t("coplan.reviews.applies_to_future_edits_for") %></p>
     </div>
-    <div id="review-assignment" class="review-assignment" popover="auto" role="dialog" aria-label="Add reviewer" data-coplan--review-tray-target="assignment" data-action="toggle->coplan--review-tray#assignmentToggled keydown.esc->coplan--review-tray#dismissAssignment">
+    <div id="review-assignment" class="review-assignment" popover="auto" role="dialog" aria-label="<%= t("coplan.reviews.add_reviewer") %>" data-coplan--review-tray-target="assignment" data-action="toggle->coplan--review-tray#assignmentToggled keydown.esc->coplan--review-tray#dismissAssignment">
       <%= form_with url: plan_review_requests_path(plan), class: "review-assignment-form", data: { action: "submit->coplan--review-tray#assign" } do %>
-        <label for="reviewer-search">Find a reviewer</label>
+        <label for="reviewer-search"><%= t("coplan.reviews.find_a_reviewer") %></label>
         <div class="review-search-field">
-          <input id="reviewer-search" type="search" placeholder="Search by name or username…" autocomplete="off" data-coplan--review-tray-target="search" data-action="input->coplan--review-tray#search keydown.down->coplan--review-tray#focusResults" aria-controls="reviewer-results" aria-expanded="false">
+          <input id="reviewer-search" type="search" placeholder="<%= t("coplan.reviews.search_by_name_or_username_pending") %>" autocomplete="off" data-coplan--review-tray-target="search" data-action="input->coplan--review-tray#search keydown.down->coplan--review-tray#focusResults" aria-controls="reviewer-results" aria-expanded="false">
           <input type="hidden" name="review_request[reviewer_id]" data-coplan--review-tray-target="reviewerId">
           <div id="reviewer-results" class="review-search-results" data-coplan--review-tray-target="results" aria-live="polite" hidden></div>
         </div>
         <% if Coplan.configuration.suggest_reviewers %>
           <div class="review-suggestions" data-coplan--review-tray-target="suggestions" hidden>
-            <span id="review-suggestions-label" class="review-suggestions__label">Suggested</span>
+            <span id="review-suggestions-label" class="review-suggestions__label"><%= t("coplan.reviews.suggested") %></span>
             <div class="review-suggestions__list" role="group" aria-labelledby="review-suggestions-label" data-review-suggestion-list></div>
           </div>
         <% end %>
         <div class="review-assignment-form__footer">
-          <label class="review-required"><input type="checkbox" name="review_request[required]" checked> Required</label>
-          <button type="submit" class="review-add-button" data-coplan--review-tray-target="assignButton" disabled>Add reviewer</button>
+          <label class="review-required"><input type="checkbox" name="review_request[required]" checked> <%= t("coplan.reviews.required") %></label>
+          <button type="submit" class="review-add-button" data-coplan--review-tray-target="assignButton" disabled><%= t("coplan.reviews.add_reviewer") %></button>
         </div>
         <p class="review-error" role="alert" data-coplan--review-tray-target="assignmentError"></p>
       <% end %>

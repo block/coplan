@@ -18,6 +18,7 @@ export default class extends Controller {
   static targets = ["input", "body", "announcement"]
   static values = {
     url: String,
+    searching: String,
     debounce: { type: Number, default: 150 }
   }
 
@@ -134,7 +135,7 @@ export default class extends Controller {
     // Reset selection — the frame is about to be replaced.
     this._selectedIndex = -1
     this._applySelection([])
-    this.announcementTarget.textContent = "Searching…"
+    this.announcementTarget.textContent = this.searchingValue
     frame.src = url.toString()
   }
 

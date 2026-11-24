@@ -1,13 +1,13 @@
 <tr id="<%= dom_id(token) %>">
   <td>
     <strong><%= token.name %></strong>
-    <span class="access-detail"><code><%= token.token_prefix %>…</code> · Created <%= token.created_at.strftime("%b %d, %Y") %></span>
+    <span class="access-detail"><code><%= token.token_prefix %>…</code> · <%= t("coplan.display.token_created", date: l(token.created_at, format: t("coplan.display.date_token"))) %></span>
   </td>
-  <td><span class="badge <%= token.revoked? ? 'badge--neutral' : 'badge--success' %>"><%= token.revoked? ? "Revoked" : "Valid" %></span></td>
+  <td><span class="badge <%= token.revoked? ? 'badge--neutral' : 'badge--success' %>"><%= token.revoked? ? t("coplan.access.revoked") : t("coplan.access.valid") %></span></td>
   <td><%= render "last_used", token: token %></td>
   <td>
     <% unless token.revoked? %>
-      <%= button_to "Revoke", settings_token_path(token), method: :delete, params: { page: @page }, class: "btn btn--danger btn--sm", aria: { label: "Revoke #{token.name}" }, data: { turbo_submits_with: "Revoking…" } %>
+      <%= button_to t("coplan.access.messages.revoke"), settings_token_path(token), method: :delete, params: { page: @page }, class: "btn btn--danger btn--sm", aria: { label: t("coplan.access.messages.revoke_name", name: token.name) }, data: { turbo_submits_with: t("coplan.access.messages.revoking_pending") } %>
     <% end %>
   </td>
 </tr>

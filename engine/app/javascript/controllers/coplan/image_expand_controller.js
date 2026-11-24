@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { openExpander, attachExpandAffordance, mountPanZoom, nearestHeading } from "coplan/expander"
 
@@ -28,8 +29,8 @@ export default class extends Controller {
     }
 
     this.affordance = attachExpandAffordance(this.element, {
-      label: "Expand image",
-      hint: "Expand image",
+      label: t("coplan.client.reader.expand_image"),
+      hint: t("coplan.client.reader.expand_image"),
       className: "image-frame__expand",
       onExpand: () => this.expand()
     })
@@ -70,7 +71,7 @@ export default class extends Controller {
 
     const expander = openExpander({
       title: image.alt || nearestHeading(this.element) || "Image",
-      label: "Expanded image",
+      label: t("coplan.client.reader.expanded_image"),
       variant: "image",
       container: this.element.closest('[data-controller~="coplan--source-comments"]') || document.body,
       status: true,

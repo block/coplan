@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { commandFor } from "coplan/shortcuts"
 
@@ -61,7 +62,7 @@ export default class extends Controller {
       if (!this.inlineValue || !this.isNew || this.recoveredDraft) {
         try { this.setMode(sessionStorage.getItem(`coplan-editor-mode-${this.userIdValue}`) || "rich") } catch {}
       }
-      if (!this.blocked) this.setStatus(this.dirty() ? "Recovered draft · waiting to sync" : this.isNew ? "Start writing to create this plan" : `All changes saved · v${this.base.revision}`)
+      if (!this.blocked) this.setStatus(this.dirty() ? t("coplan.client.editor.draft_recovered") : this.isNew ? t("coplan.client.editor.start_writing") : t("coplan.client.editor.saved_version", { revision: this.base.revision }))
       // Retire leases from the previous prototype, without acquiring one.
       if (this.leaseUrlValue) await this.request(this.leaseUrlValue, "DELETE", {}).catch(() => {})
       if (!this.active) return
@@ -72,7 +73,7 @@ export default class extends Controller {
       }
       if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-ready", { bubbles: true, detail: { controller: this } }))
     } catch (error) {
-      this.fail(error.message || "The editor could not load. Reload to retry.")
+      this.fail(error.message || t("coplan.client.editor.editor_load_failed"))
       if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-error", { bubbles: true, detail: { error } }))
     }
   }
@@ -120,10 +121,10 @@ export default class extends Controller {
     this.uploadNoticeTarget.hidden = true
   }
   async uploadFiles(files) {
-    this.uploadNotice(`Uploading ${files.length === 1 ? files[0].name : `${files.length} files`}…`)
+    this.uploadNotice(t("coplan.client.editor.uploading_file", { files: files.length === 1 ? files[0].name : t("coplan.client.editor.upload_files_count", { count: files.length }) }))
     // The normal creation key makes this safe even when a previous create
     // response was lost. Wait for creation before attaching to the new plan.
-    if (this.isNew && !await this.flush(true)) throw new Error("Save this document before uploading. Your files have not been uploaded; drop them again to retry.")
+    if (this.isNew && !await this.flush(true)) throw new Error(t("coplan.client.editor.save_before_upload"))
     if (!this.active) return []
     const body = new FormData()
     for (const file of files) body.append("files[]", file)
@@ -133,24 +134,24 @@ export default class extends Controller {
     try {
       const response = await fetch(this.attachmentsUrlValue, { method: "POST", body, signal: abort.signal,
         headers: { Accept: "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content } })
-      if (response.redirected || response.status === 401) throw new Error("Sign in again in another tab, then drop the files again to retry.")
-      if (!response.headers.get("content-type")?.includes("application/json")) throw new Error("Could not upload files. Check your connection or sign in again, then drop them again to retry.")
+      if (response.redirected || response.status === 401) throw new Error(t("coplan.client.editor.sign_in_before_upload"))
+      if (!response.headers.get("content-type")?.includes("application/json")) throw new Error(t("coplan.client.editor.upload_failed_with_session"))
       const result = await response.json()
-      if (!response.ok && response.status !== 422) throw new Error(result.error || "Could not upload files. Drop them again to retry.")
+      if (!response.ok && response.status !== 422) throw new Error(result.error || t("coplan.client.editor.upload_failed"))
       if (!this.active) return []
       if (result.streams) window.Turbo?.renderStreamMessage(result.streams)
       const errors = result.errors || []
       const reused = result.attachments.filter(file => file.reused).length
       const uploaded = result.attachments.length - reused
       const messages = []
-      if (uploaded) messages.push(`${uploaded} ${uploaded === 1 ? "file" : "files"} uploaded.`)
-      if (reused) messages.push(`${reused} existing ${reused === 1 ? "file" : "files"} reused.`)
-      this.uploadNotice(errors.length ? `${errors.join(" ")} Drop rejected files again to retry.` :
+      if (uploaded) messages.push(t("coplan.client.editor.uploaded", { count: uploaded }))
+      if (reused) messages.push(t("coplan.client.editor.reused", { count: reused }))
+      this.uploadNotice(errors.length ? t("coplan.client.editor.retry_rejected_uploads", { errors: errors.join(" ") }) :
         messages.join(" "), errors.length > 0)
       return result.attachments
     } catch (error) {
-      if (error.name === "AbortError") throw new Error("Upload interrupted. Check Attachments before dropping the files again to retry.")
-      throw new Error(`${error.message} Check Attachments before dropping the files again to retry.`)
+      if (error.name === "AbortError") throw new Error(t("coplan.client.editor.upload_interrupted"))
+      throw new Error(t("coplan.client.editor.retry_interrupted_upload", { error: error.message }))
     } finally {
       clearTimeout(timer)
       this.uploadRequests.delete(abort)
@@ -162,7 +163,7 @@ export default class extends Controller {
     toast.className = "flash flash--alert toasts__toast"
     toast.dataset.controller = "coplan--toast"
     toast.setAttribute("role", "alert")
-    toast.textContent = "We couldn't add that text because it would end the comment. Use -- > to show a closing marker."
+    toast.textContent = t("coplan.client.editor.comment_end_marker")
     document.getElementById("coplan-toasts").append(toast)
     this.noteToast = toast
   }
@@ -178,19 +179,32 @@ export default class extends Controller {
     if (state === "dirty") {
       if (["saving", "error", "conflict"].includes(this.statusTarget.dataset.state)) return
       state = this.dirty() ? "queued" : "idle"
-      if (message === "Unsaved changes") message = state === "queued" ? (this.inlineValue ? "Changes ready to save" : "Saving soon…") : `All changes saved · v${this.base.revision}`
+      if (state === "idle") {
+        message = t("coplan.client.editor.saved_version", { revision: this.base.revision })
+      } else {
+        message = this.inlineValue ? t("coplan.client.editor.ready_to_save") : t("coplan.client.editor.saving_soon")
+      }
     }
     if (this.statusTextTarget.textContent !== message) this.statusTextTarget.textContent = message
     if (this.hasStatusAnnouncementTarget && this.statusAnnouncementTarget.textContent !== message) this.statusAnnouncementTarget.textContent = message
     this.statusTarget.dataset.state = state
-    this.statusTarget.title = state === "saved" ? `${message} · ${new Date().toLocaleTimeString()}` : message
+    this.statusTarget.title = state === "saved" ? `${message} · ${new Date().toLocaleTimeString(document.documentElement.lang)}` : message
     if (this.inlineValue) {
       const close = this.statusTarget.closest(".document-editor__close-inline")
       this.retryOffered = state === "error" && this.retryable
       close.dataset.state = state === "saved" ? "idle" : state
       close.disabled = ["loading", "saving"].includes(state)
-      close.setAttribute("aria-label", { loading: "Opening document", queued: "Done editing and save changes", saving: "Saving document", error: this.retryOffered ? "Retry sync" : message, conflict: "Conflict — reload document" }[state] || "Done editing")
-      close.title = ["error", "conflict", "loading", "saving"].includes(state) ? message : `Done editing · ${message}`
+      let label
+      switch (state) {
+        case "loading": label = t("coplan.client.editor.opening"); break
+        case "queued": label = t("coplan.client.editor.done_and_save"); break
+        case "saving": label = t("coplan.client.editor.saving_document"); break
+        case "error": label = this.retryOffered ? t("coplan.client.editor.retry_sync") : message; break
+        case "conflict": label = t("coplan.client.editor.reload_conflict"); break
+        default: label = t("coplan.client.editor.done_editing")
+      }
+      close.setAttribute("aria-label", label)
+      close.title = ["error", "conflict", "loading", "saving"].includes(state) ? message : t("coplan.client.editor.done_editing_status", { message })
     }
   }
 
@@ -200,22 +214,22 @@ export default class extends Controller {
       const response = await fetch(url, { method, signal: abort.signal, cache: "no-store",
         headers: { "Content-Type": "application/json", Accept: tokenOnly ? "text/html" : "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
-      if (response.redirected || response.status === 401) throw Object.assign(new Error("Sign in again in another tab, then retry here. Your draft is retained."), { code: "sign_in_required" })
+      if (response.redirected || response.status === 401) throw Object.assign(new Error(t("coplan.client.editor.sign_in_and_retry")), { code: "sign_in_required" })
       const token = response.headers.get("X-CSRF-Token")
       if (response.ok && token) document.querySelector('meta[name="csrf-token"]')?.setAttribute("content", token)
       if (tokenOnly) {
-        if (!response.ok || !token) throw new Error("Could not refresh your session. Your draft is retained; retry here after signing in.")
+        if (!response.ok || !token) throw new Error(t("coplan.client.editor.session_refresh_failed"))
         return true
       }
       if (!response.headers.get("content-type")?.includes("application/json")) {
-        if (response.status === 422) throw Object.assign(new Error("Your session changed. Sign in again in another tab, then retry here. Your draft is retained."), { code: "sign_in_required" })
-        throw new Error("Could not sync. Check your connection or sign in again; your draft is retained.")
+        if (response.status === 422) throw Object.assign(new Error(t("coplan.client.editor.session_changed")), { code: "sign_in_required" })
+        throw new Error(t("coplan.client.editor.sync_failed"))
       }
       const data = await response.json()
-      if (!response.ok) throw Object.assign(new Error(data.error || "Could not save"), data, { status: response.status })
+      if (!response.ok) throw Object.assign(new Error(data.error || t("coplan.client.editor.save_failed")), data, { status: response.status })
       return data
     } catch (error) {
-      if (error.name === "AbortError") throw new Error("The request timed out. Your draft is retained; retry to verify the saved version.")
+      if (error.name === "AbortError") throw new Error(t("coplan.client.editor.save_timed_out"))
       throw error
     } finally { clearTimeout(timer) }
   }
@@ -224,7 +238,7 @@ export default class extends Controller {
     // ProseMirror transactions already report document edits, once per change.
     if (event && event.target.name !== "plan[tag_names]") return
     if (!this.editor) return
-    this.setStatus("Unsaved changes", "dirty")
+    this.setStatus(null, "dirty")
     this.persistDraft()
     this.scheduleSave()
   }
@@ -239,10 +253,10 @@ export default class extends Controller {
     // A selected type may prefill a template. Choosing it is still a local
     // draft; the first content edit, including a title edit, creates the plan.
     if (this.isNew && !manual && this.textareaTarget.value === this.base.content) {
-      this.setStatus("Start writing to create this plan", "idle")
+      this.setStatus(t("coplan.client.editor.start_writing"), "idle")
       return false
     }
-    if (!this.editor) return this.fail("The editor is still loading. Your draft is retained.")
+    if (!this.editor) return this.fail(t("coplan.client.editor.editor_loading"))
     if (this.composing) { this.scheduleSave(250); return }
     if (this.busy) {
       if (!manual) { this.scheduleSave(250); return false }
@@ -250,15 +264,15 @@ export default class extends Controller {
       if (!this.active) return false
       return this.flush(manual, overwriteRevision, finalize)
     }
-    if (this.blocked && !overwriteRevision) { if (manual && !this.inlineValue) this.setStatus("Resolve the conflicting edit before saving", "error"); return false }
-    if (!manual && !this.element.checkValidity()) { this.setStatus("Correct the highlighted field to save this draft", "error"); return false }
+    if (this.blocked && !overwriteRevision) { if (manual && !this.inlineValue) this.setStatus(t("coplan.client.editor.resolve_before_save"), "error"); return false }
+    if (!manual && !this.element.checkValidity()) { this.setStatus(t("coplan.client.editor.fix_field_draft"), "error"); return false }
     if (!this.element.checkValidity() && this.inlineValue) this.revealDetails()
-    if (!this.element.reportValidity()) { this.setStatus("Correct the highlighted field to save", "error"); return }
+    if (!this.element.reportValidity()) { this.setStatus(t("coplan.client.editor.fix_field"), "error"); return }
     const sent = this.isNew ? (this.creationSnapshot ||= this.snapshot()) : this.snapshot(), sentBase = { ...this.base }
     // Keep attribution tied to the exact snapshot retried after a lost create.
     const inputSources = this.isNew ? (this.creationInputSources ||= sent.content === this.inputOrigins.content ? this.inputOrigins.payload() : {runs: [[sent.content.length, "unknown"]]}) : this.inputOrigins.payload()
     this.busy = true
-    this.setStatus("Saving…", "saving")
+    this.setStatus(t("coplan.client.editor.saving"), "saving")
     this.persistDraft()
     try {
       const result = await this.request(this.element.action, this.isNew ? "POST" : "PATCH", {
@@ -295,7 +309,7 @@ export default class extends Controller {
       this.accept(result, sent)
       if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-saved", { bubbles: true, detail: { revision: result.revision } }))
       const newerChanges = this.dirty()
-      this.setStatus(newerChanges ? (this.inlineValue ? "Changes ready to save" : "Saved · newer changes waiting") : `All changes saved · v${result.revision}`,
+      this.setStatus(newerChanges ? (this.inlineValue ? t("coplan.client.editor.ready_to_save") : t("coplan.client.editor.saved_changes_pending")) : t("coplan.client.editor.saved_version", { revision: result.revision }),
         newerChanges ? "queued" : "saved")
       this.persistDraft()
       if (this.pendingInlineVisitUrl && !newerChanges && this.active && !this.richEditor?.uploading && !this.uploadErrors?.size) {
@@ -312,7 +326,7 @@ export default class extends Controller {
       if (this.isNew && error.status === 422) { this.creationSnapshot = null; this.creationInputSources = null; this.persistDraft() }
       if (error.code === "overlapping_edits" || error instanceof this.merge.MergeConflict) this.showConflict(error.code === "overlapping_edits" ? error : this.pendingRemote, error.message)
       else {
-        this.fail(error.message || "Offline — your draft is retained", error.code)
+        this.fail(error.message || t("coplan.client.editor.offline_draft"), error.code)
       }
       return false
     } finally {
@@ -331,7 +345,7 @@ export default class extends Controller {
     const merged = {
       content: this.merge.mergeText(ancestor.content, local.content, remote.content),
       title: remote.title,
-      tags: this.merge.mergeField(ancestor.tags, local.tags, remote.tags, "tags")
+      tags: this.merge.mergeField(ancestor.tags, local.tags, remote.tags, t("coplan.client.editor.tag_conflict"))
     }
     // Update before dispatching remote steps; those transactions preserve local
     // undo history and selection and intentionally do not call input().
@@ -370,14 +384,14 @@ export default class extends Controller {
       if (!this.active) return
       this.accept(remote)
       this.persistDraft()
-      if (updated) this.setStatus(this.dirty() ? `Live update merged · saving your changes` : `Updated live · v${remote.revision}`, this.dirty() ? "dirty" : "idle")
-      else if (wasRetryable && !this.dirty()) this.setStatus(`All changes saved · v${remote.revision}`, "saved")
+      if (updated) this.setStatus(this.dirty() ? t("coplan.client.editor.merged_live") : t("coplan.client.editor.updated_live", { revision: remote.revision }), this.dirty() ? "dirty" : "idle")
+      else if (wasRetryable && !this.dirty()) this.setStatus(t("coplan.client.editor.saved_version", { revision: remote.revision }), "saved")
       if (this.dirty()) this.scheduleSave()
       return true
     } catch (error) {
       if (error instanceof this.merge.MergeConflict) this.showConflict(this.pendingRemote, error.message)
-      else if (this.dirty()) this.fail(error.code === "sign_in_required" ? error.message : "Offline or disconnected · draft retained. We’ll retry when connected.", error.code)
-      else if (this.inlineValue && this.statusTarget.dataset.state === "saving") this.fail("Could not check the saved version")
+      else if (this.dirty()) this.fail(error.code === "sign_in_required" ? error.message : t("coplan.client.editor.offline_retry"), error.code)
+      else if (this.inlineValue && this.statusTarget.dataset.state === "saving") this.fail(t("coplan.client.editor.check_saved_version_failed"))
       return false
     } finally {
       this.busy = false
@@ -403,7 +417,7 @@ export default class extends Controller {
     await this.whenIdle()
     if (!this.active) return
     this.retryable = false
-    if (this.inlineValue) this.setStatus("Retrying sync…", "saving")
+    if (this.inlineValue) this.setStatus(t("coplan.client.editor.retrying_sync"), "saving")
     if (this.isNew) {
       try {
         await this.request(this.tokenUrlValue, "GET", undefined, true)
@@ -413,23 +427,23 @@ export default class extends Controller {
     }
     if (!await this.refresh() || !this.active || this.blocked) return
     if (this.dirty()) await this.flush(true)
-    else this.setStatus(`All changes saved · v${this.base.revision}`, "saved")
+    else this.setStatus(t("coplan.client.editor.saved_version", { revision: this.base.revision }), "saved")
   }
   showConflict(remote, message) {
     this.blocked = true
     this.pendingRemote = remote
     clearTimeout(this.saveTimer)
-    this.fail(this.inlineValue ? `${message}. Reload to use the saved version.` : `${message}. Your draft and the saved version are both retained. Review them before continuing.`)
+    this.fail(this.inlineValue ? t("coplan.client.editor.reload_saved_version", { message }) : t("coplan.client.editor.review_both_versions", { message }))
     if (remote && this.active) { this.latestTarget.textContent = remote.content; this.replaceTarget.hidden = false }
     this.persistDraft()
   }
   replace(event) {
     event.preventDefault()
-    if (this.pendingRemote && window.confirm(`Replace reviewed v${this.pendingRemote.revision} with this draft? The saved version remains in history.`)) this.flush(true, this.pendingRemote.revision)
+    if (this.pendingRemote && window.confirm(t("coplan.client.editor.confirm_replace_reviewed", { revision: this.pendingRemote.revision }))) this.flush(true, this.pendingRemote.revision)
   }
   async discardChanges(event) {
     event?.preventDefault()
-    this.setStatus("Reverting…", "saving")
+    this.setStatus(t("coplan.client.editor.reverting"), "saving")
     await this.whenIdle()
     if (!this.active) return
     // A connection error has no pendingRemote; the last acknowledged
@@ -445,7 +459,7 @@ export default class extends Controller {
     this.conflictTarget.hidden = true
     this.draftNoticeTarget.hidden = true
     this.clearDraft()
-    this.setStatus(`Reverted to saved version · v${latest.revision}`, "saved")
+    this.setStatus(t("coplan.client.editor.reverted", { revision: latest.revision }), "saved")
     this.refresh()
   }
   applyBase() {
@@ -458,9 +472,9 @@ export default class extends Controller {
   fail(message, code = null) {
     if (!this.active) return
     this.retryable = !this.blocked
-    const status = code === "sign_in_required" ? "Sign in again · draft retained" : this.inlineValue ? (this.blocked ? "Conflict — reload document to start over" : "Couldn't save · click to retry") : "Not saved"
+    const status = code === "sign_in_required" ? t("coplan.client.editor.session_draft_retained") : this.inlineValue ? (this.blocked ? t("coplan.client.editor.conflict_restart") : t("coplan.client.editor.save_failed_click")) : t("coplan.client.editor.not_saved")
     this.setStatus(status, this.blocked && this.inlineValue ? "conflict" : "error")
-    this.errorTarget.textContent = this.blocked ? message : `Couldn't save. Your edits are still here. ${message}`
+    this.errorTarget.textContent = this.blocked ? message : t("coplan.client.editor.editing_save_failed", { message })
     this.conflictTarget.dataset.kind = this.blocked ? "conflict" : "save-error"
     this.retryTarget.hidden = this.blocked
     this.reviewTarget.hidden = !this.blocked
@@ -515,7 +529,7 @@ export default class extends Controller {
     if (!overflowing) return
     const atEnd = controls.scrollLeft + controls.clientWidth >= controls.scrollWidth - 3
     button.textContent = atEnd ? "‹" : "›"
-    button.setAttribute("aria-label", atEnd ? "Earlier formatting tools" : "More formatting tools")
+    button.setAttribute("aria-label", atEnd ? t("coplan.client.editor.earlier_formatting") : t("coplan.client.editor.more_formatting"))
     button.title = button.getAttribute("aria-label")
   }
   scrollTools() {
@@ -603,7 +617,7 @@ export default class extends Controller {
     try {
       while (true) {
         await this.richEditor?.whenUploadsIdle()
-        if (this.busy || this.dirty()) this.setStatus("Saving before going back…", "saving")
+        if (this.busy || this.dirty()) this.setStatus(t("coplan.client.editor.saving_before_back"), "saving")
         await this.whenIdle()
         await this.whenCompositionEnds()
         if (!this.active) return
@@ -614,8 +628,8 @@ export default class extends Controller {
           window.Turbo.visit(destination())
           return
         }
-        if ((!this.isNew || this.dirty()) && !this.element.reportValidity()) { this.setStatus("Correct the highlighted field before going back", "error"); return }
-        if (this.blocked) { this.setStatus("Resolve the conflict before going back · draft retained", "error"); return }
+        if ((!this.isNew || this.dirty()) && !this.element.reportValidity()) { this.setStatus(t("coplan.client.editor.fix_field_before_back"), "error"); return }
+        if (this.blocked) { this.setStatus(t("coplan.client.editor.resolve_before_back"), "error"); return }
         if (this.dirty()) {
           if (!await this.flush(true) || !this.active || this.blocked) return
           continue
@@ -766,7 +780,7 @@ export default class extends Controller {
   insertCodeLanguage(language, origin = "human") {
     if (this.editor !== this.richEditor) return
     if (/[\r\n`]/.test(language)) {
-      this.newLanguageTarget.setCustomValidity("Use a language without backticks or line breaks.")
+      this.newLanguageTarget.setCustomValidity(t("coplan.client.editor.invalid_code_language"))
       this.newLanguageTarget.reportValidity()
       this.newLanguageTarget.setCustomValidity("")
       return
@@ -803,7 +817,7 @@ export default class extends Controller {
     const block = event.currentTarget.closest(".document-editor__block")
     const input = block.querySelector("textarea")
     input.hidden = !input.hidden
-    event.currentTarget.textContent = input.hidden ? "Edit table" : "Done"
+    event.currentTarget.textContent = input.hidden ? t("coplan.client.editor.edit_table") : t("coplan.client.editor.done")
     if (!input.hidden) input.focus({ preventScroll: true })
   }
   blockKeydown(event) {
@@ -844,10 +858,10 @@ export default class extends Controller {
     picker.style.top = `${window.innerHeight - rect.bottom < height + 16 ? Math.max(8, rect.top - height - 6) : rect.bottom + 6}px`
   }
   insertPresentation() {
-    this.insertContentBlock("::: {.presentation}\n\n# Slide title\n\nSlide content.\n\n:::\n", '[aria-label="Presentation Markdown"]')
+    this.insertContentBlock("::: {.presentation}\n\n# Slide title\n\nSlide content.\n\n:::\n", '[data-presentation-source]')
   }
   insertEmbed() {
-    const source = this.richModule.iframeSource({ src: "https://", title: "Embedded content", width: "100%", height: "480" })
+    const source = this.richModule.iframeSource({ src: "https://", title: t("coplan.client.editor.embed_content"), width: "100%", height: "480" })
     this.insertContentBlock(source, '[data-embed-attribute="src"]')
   }
   insertContentBlock(source, focusSelector) {
@@ -870,7 +884,7 @@ export default class extends Controller {
     this.citationLabel = event.currentTarget.dataset.citationLabel
     const definition = this.findCitationDefinition(this.textareaTarget.value)
     this.citationOriginal = definition?.source || null
-    this.citationTitleTarget.textContent = `Citation: ${this.citationLabel}`
+    this.citationTitleTarget.textContent = t("coplan.client.editor.citation_title", { label: this.citationLabel })
     this.citationBodyTarget.value = definition?.body || ""
     this.citationOrigins = new this.InputOrigins(this.citationBodyTarget.value)
     this.citationErrorTarget.textContent = ""
@@ -892,11 +906,11 @@ export default class extends Controller {
   }
   async saveCitation() {
     const body = this.citationBodyTarget.value.trim()
-    if (!body) { this.citationErrorTarget.textContent = "Add the citation text or source link."; this.citationBodyTarget.focus(); return }
+    if (!body) { this.citationErrorTarget.textContent = t("coplan.client.editor.citation_required"); this.citationBodyTarget.focus(); return }
     const content = this.textareaTarget.value
     const definition = this.findCitationDefinition(content)
     if ((definition?.source || null) !== this.citationOriginal) {
-      this.citationErrorTarget.textContent = "This citation changed while you were editing. Close and reopen it to review the new text."
+      this.citationErrorTarget.textContent = t("coplan.client.editor.citation_changed")
       return
     }
     const lines = body.split("\n")
@@ -918,11 +932,11 @@ export default class extends Controller {
     this.richEditor.replaceSource(from, to, replacement, {source: content.slice(0, from) + replacement + content.slice(to), runs: runs.filter(([length]) => length > 0)})
     this.citationOriginal = source
     this.citationSaveTarget.disabled = true
-    this.citationSaveTarget.textContent = "Saving…"
+    this.citationSaveTarget.textContent = t("coplan.client.editor.saving")
     try {
       if (await this.flush(true)) this.closeCitation()
-      else this.citationErrorTarget.textContent = "The citation is in your draft. Retry Save to sync it."
-    } finally { this.citationSaveTarget.disabled = false; this.citationSaveTarget.textContent = "Save citation" }
+      else this.citationErrorTarget.textContent = t("coplan.client.editor.citation_sync_failed")
+    } finally { this.citationSaveTarget.disabled = false; this.citationSaveTarget.textContent = t("coplan.client.editor.save_citation") }
   }
   editSource(event) {
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
@@ -937,9 +951,9 @@ export default class extends Controller {
     try {
       await navigator.clipboard.writeText(this.richEditor.content().slice(range.from, range.to))
       const button = event.currentTarget
-      button.textContent = "Copied"
-      setTimeout(() => { if (button.isConnected) button.textContent = "Copy" }, 1400)
-    } catch { this.setStatus("Could not copy this block", "error") }
+      button.textContent = t("coplan.client.editor.copied")
+      setTimeout(() => { if (button.isConnected) button.textContent = t("coplan.client.editor.copy") }, 1400)
+    } catch { this.setStatus(t("coplan.client.editor.copy_block_failed"), "error") }
   }
   // A language edit is separate from typing code, even within history's
   // grouping delay. Undoing code must retain the chosen grammar.
@@ -950,7 +964,7 @@ export default class extends Controller {
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
     const kind = /^(insertText|insertCompositionText|delete)/.test(event.inputType || "") ? "human" : "unknown"
     if (!this.richEditor.setLanguage(position, event.currentTarget.value, kind)) {
-      event.currentTarget.setCustomValidity("Use a language or fence info string without backticks or line breaks.")
+      event.currentTarget.setCustomValidity(t("coplan.client.editor.invalid_fence"))
       event.currentTarget.reportValidity()
     } else event.currentTarget.setCustomValidity("")
   }
@@ -961,7 +975,7 @@ export default class extends Controller {
     const request = (async () => {
       const response = await fetch(this.previewUrlValue, { method: "POST", signal: AbortSignal.timeout(15000),
         headers: { "Content-Type": "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content }, body: JSON.stringify({ content }) })
-      if (!response.ok || response.redirected) throw new Error("Preview unavailable")
+      if (!response.ok || response.redirected) throw new Error(t("coplan.client.editor.preview_unavailable"))
       return response.text()
     })()
     this.previews.set(content, request)
@@ -999,7 +1013,7 @@ export default class extends Controller {
         sessionStorage.setItem(this.tabDraftKey(), JSON.stringify([...new Set([...this.tabDraftKeys(), this.draftKey()])]))
       }
       else this.clearDraft()
-    } catch { this.setStatus("Browser storage unavailable · keep this page open until saved", "error") }
+    } catch { this.setStatus(t("coplan.client.editor.storage_unavailable"), "error") }
   }
   restoreDraft(skipScopedDrafts = false) {
     try {
@@ -1024,7 +1038,7 @@ export default class extends Controller {
       this.creationSnapshot = draft.creationSnapshot
       this.creationInputSources = draft.creationInputSources
       if (draft.base) this.base = draft.base
-      else if (draft.revision !== this.base.revision) { this.blocked = true; this.fail("An older draft needs review before syncing.") }
+      else if (draft.revision !== this.base.revision) { this.blocked = true; this.fail(t("coplan.client.editor.older_draft_review")) }
       this.textareaTarget.value = draft.content
       this.element.querySelector('[name="plan[tag_names]"]').value = draft.tags ?? this.base.tags
       this.draftNoticeTarget.hidden = false
@@ -1032,7 +1046,7 @@ export default class extends Controller {
         this.legacySource = draft.legacySource
         this.legacyDraftNoticeTarget.hidden = true
       }
-      if (draft.reviewRequired) { this.blocked = true; this.fail("Recovered draft needs review before syncing.") }
+      if (draft.reviewRequired) { this.blocked = true; this.fail(t("coplan.client.editor.recovered_draft_review")) }
     } catch {}
   }
   recoverLegacyNewDocumentTitle(rich) {
@@ -1089,7 +1103,7 @@ export default class extends Controller {
       this.inputOrigins?.record(this.legacyDraft.data.content, "unknown")
       this.textareaTarget.value = this.legacyDraft.data.content
       this.legacyDraftNoticeTarget.hidden = true
-      this.showConflict(latest, "Review this older draft before replacing the saved version")
+      this.showConflict(latest, t("coplan.client.editor.review_before_replacing"))
       this.editor.view.focus()
     } finally {
       button.disabled = false

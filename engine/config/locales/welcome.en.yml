@@ -1,0 +1,42 @@
+---
+en:
+  coplan:
+    welcome:
+      a_plan_is_a_markdown: A plan is a Markdown design doc. Draft it yourself or have an agent write it through the API. Plans are listed for the whole org from the start — or keep one Private (unlisted, link-only) until it's ready to share.
+      a_semantic_agent_api: A semantic agent API
+      agents_apply_the_edits: Agents apply the edits
+      agents_can_mint_their_own: Agents can mint their own session token using your existing sign-in.
+      applied_edit_version_4: applied edit → version 4
+      built_for_any_ai_agent: Built for any AI agent
+      comments_edits_status_changes_and: Comments, edits, status changes, and new versions broadcast instantly to everyone viewing the plan — no refresh needed.
+      coplan_gives_your_plans_a: Coplan gives your plans a home where teammates and AI agents make them better together. Domain experts leave inline feedback, Google-Docs-style. Agents respond to that feedback and apply the edits. Every change becomes an immutable version with full provenance — who changed what, why, and which comment triggered it.
+      design_doc: design doc
+      design_docs_built_for_ai: Design docs, built for AI-assisted planning.
+      done_capped_at_5_attempts: Done — capped at 5 attempts with exponential backoff and jitter.
+      every_edit_produces_a_new: Every edit produces a new version recording who (or what) made it, the AI model and prompt used, and which comments triggered the change. History is always browsable and never rewritten.
+      failure_handling: Failure handling
+      get_inline_feedback: Get inline feedback
+      how_it_works: How it works
+      humans_comment_agents_edit: Humans comment, agents edit
+      humans_comment_ai_agents_edit: Humans comment. AI agents edit.
+      immutable_versions_with_provenance: Immutable versions with provenance
+      inline_anchored_comments: Inline, anchored comments
+      messages:
+        connect_your_agent: Connect your agent
+        go_to_your_library: Go to your library
+        open_source: open source
+        see_what_s_happening: See what's happening →
+        sign_in_to_get_started: Sign in to get started
+        welcome_to_coplan: Welcome to Coplan
+      payment_retry_pipeline: Payment retry pipeline
+      priya_reviewer: Priya — reviewer
+      realtime_collaboration: Realtime collaboration
+      select_text_in_the_rendered: Select text in the rendered plan to start a thread, Google-Docs-style. Comments stay pinned to the words they reference until you resolve them.
+      settings_api_tokens: Settings → API Tokens
+      the_editing_model_is_intentionally: 'The editing model is intentionally asymmetric: people review and decide, agents type. That keeps the version history clean, auditable, and tied to a reason for every change.'
+      tight_loop_retries_will_hammer: Tight-loop retries will hammer the processor. Exponential backoff with a cap?
+      webhooks_notify_the_billing_service: Webhooks notify the billing service after the final attempt, and the plan owner is paged if the failure rate crosses the alert threshold.
+      what_you_get: What you get
+      works_with_any_agent: Works with any agent
+      write_a_plan: Write a plan
+      you_triage_the_feedback_agents: You triage the feedback; agents do the typing. An agent reads the accepted comments, applies targeted edits, and resolves the threads. Each edit creates a new immutable version with full attribution — the actor, the model, and the comments that prompted it.

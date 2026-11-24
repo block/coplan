@@ -1,0 +1,52 @@
+---
+es:
+  coplan:
+    display:
+      agent_sessions:
+        one: "%{count} sesión de agente con acceso válido. Las sesiones caducan automáticamente."
+        other: "%{count} sesiones de agente con acceso válido. Las sesiones caducan automáticamente."
+      changes:
+        one: "%{count} cambio"
+        other: "%{count} cambios"
+      date_feed: "%A, %-d de %B"
+      date_review: "%-d de %b de %Y"
+      date_review_full: "%-d de %B de %Y a las %H:%M %Z"
+      date_token: "%d de %b de %Y"
+      device_added: Añadido %{when}
+      device_last_notified: última notificación %{when}
+      empty: vacío
+      entries:
+        one: "%{count} entrada"
+        other: "%{count} entradas"
+      history_overview: Historial — todas las versiones y cambios
+      items:
+        one: "%{count} elemento"
+        other: "%{count} elementos"
+      libraries:
+        one: "%{count} biblioteca disponible"
+        other: "%{count} bibliotecas disponibles"
+      more_unread:
+        one: "+ %{count} plan más con comentarios sin leer —"
+        other: "+ %{count} planes más con comentarios sin leer —"
+      notifications:
+        one: "%{count} notificación"
+        other: "%{count} notificaciones"
+      personal_tokens:
+        one: "%{count} token personal con acceso válido. Crea uno para un equipo local cuando la autenticación automática no esté disponible."
+        other: "%{count} tokens personales con acceso válido. Crea uno para un equipo local cuando la autenticación automática no esté disponible."
+      plans:
+        one: "%{count} plan"
+        other: "%{count} planes"
+      relative_time: hace %{duration}
+      replies:
+        one: "%{count} respuesta"
+        other: "%{count} respuestas"
+      reviewers:
+        one: "%{count} revisor"
+        other: "%{count} revisores"
+      save_changes: Guardar cambios
+      sign_in_required: Inicia sesión.
+      token_created: Creado el %{date}
+      unread:
+        one: "%{count} comentario sin leer"
+        other: "%{count} comentarios sin leer"

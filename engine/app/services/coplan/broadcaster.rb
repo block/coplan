@@ -4,29 +4,33 @@ module Coplan
     # requestless context. Never pass request-rendered HTML that contains
     # forms via html:: form_with/button_to embed the acting user's session
     # authenticity token, and a broadcast would send that secret to every
-    # subscribed viewer. html: is fine for form-free fragments the caller
-    # already rendered for its own inline response.
+    # subscribed viewer. Use html: only for form-free, locale-independent
+    # fragments.
     class << self
       def prepend_to(streamable, target:, html: nil, partial: nil, locals: {})
-        html ||= render(partial:, locals:)
-        Turbo::StreamsChannel.broadcast_prepend_to(streamable, target: target, html: html)
+        broadcast_html(streamable, html:, partial:, locals:) do |stream, markup|
+          Turbo::StreamsChannel.broadcast_prepend_to(stream, target: target, html: markup)
+        end
       end
 
       def append_to(streamable, target:, html: nil, partial: nil, locals: {})
-        html ||= render(partial:, locals:)
-        Turbo::StreamsChannel.broadcast_append_to(streamable, target: target, html: html)
+        broadcast_html(streamable, html:, partial:, locals:) do |stream, markup|
+          Turbo::StreamsChannel.broadcast_append_to(stream, target: target, html: markup)
+        end
       end
 
       def replace_to(streamable, target:, html: nil, partial: nil, locals: {})
-        html ||= render(partial:, locals:)
-        Turbo::StreamsChannel.broadcast_replace_to(streamable, target: target, html: html)
+        broadcast_html(streamable, html:, partial:, locals:) do |stream, markup|
+          Turbo::StreamsChannel.broadcast_replace_to(stream, target: target, html: markup)
+        end
       end
 
       # targets: takes a CSS selector, so one render can fill several
       # containers (e.g. the masthead and sticky-nav copies of presence).
       def update_to(streamable, target: nil, targets: nil, html: nil, partial: nil, locals: {})
-        html ||= render(partial:, locals:)
-        Turbo::StreamsChannel.broadcast_update_to(streamable, target: target, targets: targets, html: html)
+        broadcast_html(streamable, html:, partial:, locals:) do |stream, markup|
+          Turbo::StreamsChannel.broadcast_update_to(stream, target: target, targets: targets, html: markup)
+        end
       end
 
       def remove_to(streamable, target:)
@@ -72,71 +76,90 @@ module Coplan
       # along so viewing tabs can flash exactly the sections this revision
       # touched instead of hard-swapping the whole body silently.
       def replace_plan_content(plan, changed_sections: nil)
-        html = render(partial: "coplan/plans/content_body", locals: { plan: plan })
         attrs = { "data-revision" => plan.current_revision }
         attrs["data-changed-sections"] = changed_sections.to_json if changed_sections.present?
-        if (version = plan.current_plan_version)
-          details = ApplicationController.helpers.section_update_details(version)
-          changes = section_update_changes(plan, changed_sections)
-          attrs["data-section-update"] = details.merge(keys: changes.keys, rewritten: changes.rewritten?).to_json
+        version = plan.current_plan_version
+        changes = section_update_changes(plan, changed_sections) if version
+        # Anchor ranges move with prose. Load their projection once, then render
+        # the discussion controls in the same locale as each document update.
+        threads = plan.comment_threads.where.not(anchor_kind: nil).with_kept_comments
+          .includes({ comments: { reactions: :user } }, :created_by_user).to_a
+
+        each_ui_stream(plan) do |stream|
+          html = render(partial: "coplan/plans/content_body", locals: { plan: plan })
+          if version
+            details = ApplicationController.helpers.section_update_details(version)
+            attrs["data-section-update"] = details.merge(keys: changes.keys, rewritten: changes.rewritten?).to_json
+          end
+          custom_action_to(stream, action: "coplan-replace-if-clean", target: "plan-content-body", html: html, attrs: attrs)
+          updates = threads.map do |thread|
+            target = ERB::Util.html_escape(ActionView::RecordIdentifier.dom_id(thread))
+            html = render(partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread })
+            %(<turbo-stream action="replace" target="#{target}"><template>#{html}</template></turbo-stream>)
+          end
+          Turbo::StreamsChannel.broadcast_stream_to(stream, content: updates.join.html_safe) if updates.any?
         end
-        custom_action_to(
-          plan,
-          action: "coplan-replace-if-clean",
-          target: "plan-content-body",
-          html: html,
-          attrs: attrs
-        )
-        # Structured anchors move through the same OT as prose anchors.
-        # Refresh their source ranges together with the rendered document;
-        # the client compares content digests before displaying a badge.
-        updates = plan.comment_threads.where.not(anchor_kind: nil).with_kept_comments.includes({ comments: { reactions: :user } }, :created_by_user).map do |thread|
-          target = ERB::Util.html_escape(ActionView::RecordIdentifier.dom_id(thread))
-          html = render(partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread })
-          %(<turbo-stream action="replace" target="#{target}"><template>#{html}</template></turbo-stream>)
-        end
-        Turbo::StreamsChannel.broadcast_stream_to(plan, content: updates.join.html_safe) if updates.any?
       end
 
       # Reference extraction runs after the version transaction commits. Build
       # and broadcast this projection only then, so open readers receive the
       # newly extracted resources rather than the previous revision's list.
       def replace_plan_references(plan)
-        references = plan.references.order(reference_type: :asc, created_at: :desc)
-        back_matter = Coplan::ApplicationController.helpers.plan_citation_back_matter(plan, references)
-        listed_references = Coplan::ApplicationController.helpers.listed_plan_references(references, back_matter[:cited_urls])
-        extracted_references = listed_references.select { |reference| reference.source == "extracted" }
-        reference_count = back_matter[:count] + listed_references.size
-        extracted_html = render(
-          partial: "coplan/plans/reference_list",
-          locals: { references: extracted_references, plan: plan, allow_removal: false }
-        )
-        custom_action_to(
-          plan,
-          action: "coplan-replace-if-clean",
-          target: "plan-citations",
-          html: Coplan::ApplicationController.helpers.citation_edit_controls(back_matter[:html]),
-          attrs: { "data-revision" => plan.current_revision }
-        )
-        custom_action_to(
-          plan,
-          action: "coplan-replace-if-clean",
-          target: "plan-extracted-references",
-          html: extracted_html,
-          attrs: { "data-revision" => plan.current_revision }
-        )
-        [ "references-count", "nav-references-count" ].each do |target|
+        references = plan.references.order(reference_type: :asc, created_at: :desc).to_a
+        each_ui_stream(plan) do |stream|
+          back_matter = Coplan::ApplicationController.helpers.plan_citation_back_matter(plan, references)
+          listed_references = Coplan::ApplicationController.helpers.listed_plan_references(references, back_matter[:cited_urls])
+          extracted_references = listed_references.select { |reference| reference.source == "extracted" }
+          reference_count = back_matter[:count] + listed_references.size
+          extracted_html = render(
+            partial: "coplan/plans/reference_list",
+            locals: { references: extracted_references, plan: plan, allow_removal: false }
+          )
           custom_action_to(
-            plan,
+            stream,
             action: "coplan-replace-if-clean",
-            target: target,
-            html: reference_count.positive? ? reference_count : "",
+            target: "plan-citations",
+            html: Coplan::ApplicationController.helpers.citation_edit_controls(back_matter[:html]),
             attrs: { "data-revision" => plan.current_revision }
           )
+          custom_action_to(
+            stream,
+            action: "coplan-replace-if-clean",
+            target: "plan-extracted-references",
+            html: extracted_html,
+            attrs: { "data-revision" => plan.current_revision }
+          )
+          [ "references-count", "nav-references-count" ].each do |target|
+            custom_action_to(
+              stream,
+              action: "coplan-replace-if-clean",
+              target: target,
+              html: reference_count.positive? ? reference_count : "",
+              attrs: { "data-revision" => plan.current_revision }
+            )
+          end
         end
       end
 
+      def localized_stream(streamable, locale)
+        return streamable if Coplan.configuration.ui_locales.one?
+
+        [ streamable, "ui-#{locale}" ]
+      end
+
       private
+
+      def broadcast_html(streamable, html:, partial:, locals:)
+        return yield(streamable, html) if html
+
+        each_ui_stream(streamable) { |stream| yield(stream, render(partial:, locals:)) }
+      end
+
+      def each_ui_stream(streamable)
+        Coplan.configuration.ui_locales.each do |locale|
+          I18n.with_locale(locale) { yield localized_stream(streamable, locale) }
+        end
+      end
 
       # Some write paths do not request a diff flash. Still update attribution
       # and mark new sections while preserving the extensive-update notice.

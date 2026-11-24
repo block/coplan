@@ -1,13 +1,13 @@
 <div class="page-header">
-  <h1>Inbox</h1>
+  <h1><%= t("coplan.notifications.inbox") %></h1>
   <% if @unread_count > 0 %>
-    <%= button_to "Mark all read", mark_all_read_notifications_path, method: :post, class: "btn btn--secondary" %>
+    <%= button_to t("coplan.notifications.messages.mark_all_read"), mark_all_read_notifications_path, method: :post, class: "btn btn--secondary" %>
   <% end %>
 </div>
 
 <div class="status-filters">
-  <%= link_to "Unread", notifications_path, class: "status-filter #{'status-filter--active' if @filter == 'unread'}" %>
-  <%= link_to "All", notifications_path(filter: "all"), class: "status-filter #{'status-filter--active' if @filter == 'all'}" %>
+  <%= link_to t("coplan.notifications.messages.unread"), notifications_path, class: "status-filter #{'status-filter--active' if @filter == 'unread'}" %>
+  <%= link_to t("coplan.notifications.messages.all"), notifications_path(filter: "all"), class: "status-filter #{'status-filter--active' if @filter == 'all'}" %>
 </div>
 
 <%= render "coplan/reviews/tasks", tasks: @review_tasks %>
@@ -20,6 +20,6 @@
   </div>
 <% else %>
   <div class="empty-state card">
-    <p><%= @filter == "unread" ? "No unread notifications." : "No notifications yet." %></p>
+    <p><%= @filter == "unread" ? t("coplan.notifications.messages.no_unread_notifications") : t("coplan.notifications.messages.no_notifications_yet") %></p>
   </div>
 <% end %>

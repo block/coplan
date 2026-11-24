@@ -8,6 +8,25 @@ RSpec.describe "Plans", type: :request do
 
   before { sign_in_as(alice) }
 
+  it "subscribes to localized updates and sends only document client messages" do
+    allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
+
+    get plan_page_path(plan), headers: { "Accept-Language" => "es-ES" }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.headers["Content-Language"]).to eq("es")
+    page = response.parsed_body
+    streams = page.css("turbo-cable-stream-source").map do |source|
+      Turbo.signed_stream_verifier.verified(source["signed-stream-name"])
+    end
+    expect(streams).to include(plan.to_gid_param, "#{plan.to_gid_param}:ui-es")
+    expect(streams).not_to include("#{plan.to_gid_param}:ui-en")
+    messages = JSON.parse(page.at_css("body")["data-coplan-client-messages"])
+    expect(messages.dig("reader", "expand_table")).to eq("Ampliar tabla")
+    expect(messages).not_to have_key("settings")
+    expect(page.at_css("#plan-content-body").text).to include(plan.title)
+  end
+
   describe "new plan in a folder" do
     it "shows a typed template without creating a plan, then creates with the chosen title and folder on first save" do
       folder = create(:folder, created_by_user: alice)

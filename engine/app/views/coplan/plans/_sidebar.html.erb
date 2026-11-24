@@ -1,18 +1,18 @@
-<aside id="workspace-sidebar" class="workspace__sidebar" aria-label="Library navigation"
+<aside id="workspace-sidebar" class="workspace__sidebar" aria-label="<%= t("coplan.library.library_navigation") %>"
        data-controller="coplan--sidebar-toggle">
   <button type="button" class="workspace__sidebar-toggle"
           data-coplan--sidebar-toggle-target="button"
           data-action="coplan--sidebar-toggle#toggle" aria-expanded="false"
           aria-controls="workspace-sidebar-sections">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-    Browse library
+    <%= t("coplan.library.browse_library") %>
     <svg class="workspace__sidebar-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
   </button>
 
   <div class="workspace__sidebar-sections" id="workspace-sidebar-sections"
        data-coplan--sidebar-toggle-target="sections">
     <div class="sidebar__section">
-      <h3 class="sidebar__heading">Folders</h3>
+      <h3 class="sidebar__heading"><%= t("coplan.library.folders") %></h3>
       <ul class="folder-tree folder-tree--rooted">
         <li class="folder-tree__node folder-tree__node--root">
           <%= link_to workspace_path(folder: nil),
@@ -36,12 +36,12 @@
 
     <% filter_active = params[:tag].present? || params[:plan_type].present? || params[:updated].present? || params[:filter].present? %>
     <details class="sidebar__filters" <%= "open" if filter_active %>>
-      <summary class="sidebar__filters-toggle">Filters<%= " · Active" if filter_active %></summary>
+      <summary class="sidebar__filters-toggle"><%= t("coplan.library.filters") %><%= t("coplan.library.messages.active") if filter_active %></summary>
       <div class="sidebar__filters-content">
         <% visible_types = (@plan_types || []).select { |pt| @type_counts[pt.id].to_i.positive? || params[:plan_type] == pt.id } %>
         <% if visible_types.any? %>
           <div class="sidebar__section">
-            <h3 class="sidebar__heading">Types</h3>
+            <h3 class="sidebar__heading"><%= t("coplan.library.types") %></h3>
             <ul class="sidebar__list">
               <% visible_types.each do |pt| %>
                 <li><%= link_to workspace_path(plan_type: params[:plan_type] == pt.id ? nil : pt.id),
@@ -56,7 +56,7 @@
 
         <% if @top_tags.present? %>
           <div class="sidebar__section">
-            <h3 class="sidebar__heading">Tags</h3>
+            <h3 class="sidebar__heading"><%= t("coplan.library.tags") %></h3>
             <ul class="sidebar__list">
               <% @top_tags.each do |name, count| %>
                 <li><%= link_to workspace_path(tag: params[:tag] == name ? nil : name),
@@ -69,11 +69,11 @@
           </div>
         <% end %>
 
-        <% visible_windows = [["7d", "Last 7 days"], ["30d", "Last 30 days"]]
+        <% visible_windows = [["7d", t("coplan.library.messages.last_7_days")], ["30d", t("coplan.library.messages.last_30_days")]]
              .select { |window, _| @updated_counts[window].to_i.positive? || @updated_window == window } %>
         <% if visible_windows.any? %>
           <div class="sidebar__section">
-            <h3 class="sidebar__heading">Updated</h3>
+            <h3 class="sidebar__heading"><%= t("coplan.library.updated") %></h3>
             <ul class="sidebar__list">
               <% visible_windows.each do |window, label| %>
                 <li><%= link_to workspace_path(updated: @updated_window == window ? nil : window),
@@ -87,14 +87,14 @@
         <% end %>
 
         <div class="sidebar__section">
-          <h3 class="sidebar__heading">Hidden</h3>
+          <h3 class="sidebar__heading"><%= t("coplan.library.hidden") %></h3>
           <ul class="sidebar__list">
             <% if @can_write %>
-              <li><%= link_to @filter == "draft" ? "Showing private" : "Show my private plans",
+              <li><%= link_to @filter == "draft" ? t("coplan.library.messages.showing_private") : t("coplan.library.messages.show_my_private_plans"),
                     workspace_path(filter: @filter == "draft" ? nil : "private"),
                     class: "sidebar__item #{'sidebar__item--active' if @filter == 'draft'}" %></li>
             <% end %>
-            <li><%= link_to @filter == "archived" ? "Showing archived" : "Show archived",
+            <li><%= link_to @filter == "archived" ? t("coplan.library.messages.showing_archived") : t("coplan.library.messages.show_archived"),
                   workspace_path(filter: @filter == "archived" ? nil : "archived"),
                   class: "sidebar__item sidebar__item--archived #{'sidebar__item--active' if @filter == 'archived'}" %></li>
           </ul>

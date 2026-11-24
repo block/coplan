@@ -30,7 +30,7 @@ module Coplan
 
       folder = params[:folder].present? ? library.folders.find_by(id: params[:folder]) : nil
       if params[:folder].present? && folder.nil?
-        redirect_to browse_library_path(handle: library.handle), alert: "That folder no longer exists."
+        redirect_to browse_library_path(handle: library.handle), alert: I18n.t("coplan.common.messages.that_folder_no_longer_exists")
         return
       end
 

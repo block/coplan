@@ -1,25 +1,25 @@
 <div class="card access-summary">
   <div class="settings-row">
     <div class="settings-row__main">
-      <h2 class="settings-row__label access-heading">Agent access</h2>
-      <p class="settings-row__hint"><%= pluralize(@agent_session_count, "agent session") %> with valid access. Sessions expire automatically.</p>
+      <h2 class="settings-row__label access-heading"><%= t("coplan.access.agent_access") %></h2>
+      <p class="settings-row__hint"><%= t("coplan.display.agent_sessions", count: @agent_session_count) %></p>
     </div>
-    <%= link_to "Manage agent sessions", settings_agent_sessions_path, class: "btn btn--secondary" %>
+    <%= link_to t("coplan.access.messages.manage_agent_sessions"), settings_agent_sessions_path, class: "btn btn--secondary" %>
   </div>
   <% if Coplan.configuration.agent_connection_enabled? %>
     <div class="settings-row access-summary__advanced">
       <div class="settings-row__main">
-        <h2 class="settings-row__label access-heading">Connect your local agent</h2>
-        <p class="settings-row__hint">Approve this computer in your browser. Your agent saves its credential locally and mints its own sessions.</p>
+        <h2 class="settings-row__label access-heading"><%= t("coplan.access.connect_your_local_agent") %></h2>
+        <p class="settings-row__hint"><%= t("coplan.access.approve_this_computer_in_your") %></p>
       </div>
-      <%= link_to "Connect your local agent", agent_setup_path, class: "btn btn--primary" %>
+      <%= link_to t("coplan.access.connect_your_local_agent"), agent_setup_path, class: "btn btn--primary" %>
     </div>
   <% end %>
   <div class="settings-row access-summary__advanced">
     <div class="settings-row__main">
-      <h2 class="settings-row__label access-heading">Personal API tokens <span class="access-muted">· Advanced</span></h2>
-      <p class="settings-row__hint"><%= pluralize(@personal_token_count, "personal token") %> with valid access. Set one up for a local machine when automatic authentication is unavailable.</p>
+      <h2 class="settings-row__label access-heading"><%= t("coplan.access.personal_api_tokens") %> <span class="access-muted"><%= t("coplan.access.advanced") %></span></h2>
+      <p class="settings-row__hint"><%= t("coplan.display.personal_tokens", count: @personal_token_count) %></p>
     </div>
-    <%= link_to "Manage personal tokens", settings_tokens_path, class: "btn btn--secondary" %>
+    <%= link_to t("coplan.access.messages.manage_personal_tokens"), settings_tokens_path, class: "btn btn--secondary" %>
   </div>
 </div>

@@ -8,6 +8,7 @@ module Coplan
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
+    config.i18n.available_locales = %i[en es]
     config.exceptions_app = Coplan::ExceptionsApp.new(Rails.root.join("public"))
 
     # Please, add to the `ignore` list any other `lib` subdirectories that do

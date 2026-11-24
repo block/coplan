@@ -16,7 +16,7 @@ module Coplan
       def update
         load_request
         if params[:decision] == "approve" && params[:confirm_code] != "1"
-          @confirmation_error = "Confirm that the code matches your local agent."
+          @confirmation_error = I18n.t("coplan.agent_access.messages.confirm_that_the_code_matches")
         elsif %w[approve deny].include?(params[:decision])
           @connection&.decide!(user: current_user, approve: params[:decision] == "approve")
         end

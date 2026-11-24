@@ -8,12 +8,12 @@
         <% else %>
           <%= @version.actor_type %> ·
         <% end %>
-        <%= time_ago_in_words(@version.created_at) %> ago
+        <%= relative_ui_time(@version.created_at) %>
         <% if @version.change_summary.present? %>
           · <%= @version.change_summary %>
         <% end %>
       </span>
-      <%= link_to "View full version →", plan_version_browse_path(@plan, @version), class: "text-sm", data: { turbo_frame: "_top" } %>
+      <%= link_to t("coplan.versions.messages.view_full_version"), plan_version_browse_path(@plan, @version), class: "text-sm", data: { turbo_frame: "_top" } %>
     </div>
 
     <% if @diff %>
@@ -22,7 +22,7 @@
       </div>
     <% else %>
       <div class="text-sm text-muted" style="padding: var(--space-lg) 0;">
-        Initial version — no previous version to compare.
+        <%= t("coplan.versions.initial_version_no_previous_version") %>
       </div>
     <% end %>
   </div>

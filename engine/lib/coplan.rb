@@ -1,6 +1,7 @@
 require "commonmarker"
 require "diffy"
 require "openai"
+require "rails-i18n"
 require "coplan/configuration"
 require "coplan/admin"
 require "coplan/analytics"

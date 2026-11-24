@@ -1,10 +1,10 @@
-<h2>Create a personal token</h2>
-<p class="settings-row__hint">Name the machine or integration that will store it, such as “Work laptop”. You usually only need one per machine.</p>
+<h2><%= t("coplan.access.create_a_personal_token") %></h2>
+<p class="settings-row__hint"><%= t("coplan.access.name_the_machine_or_integration") %></p>
 <p id="token-errors" role="alert" class="access-error"></p>
 <%= form_with url: settings_tokens_path, method: :post, class: "form-inline" do |f| %>
   <div class="form-group">
-    <%= f.label :name, "Token Name" %>
-    <%= f.text_field :name, name: "api_token[name]", placeholder: "e.g. Work laptop", required: true, class: "form-control" %>
+    <%= f.label :name, t("coplan.access.messages.token_name") %>
+    <%= f.text_field :name, name: "api_token[name]", placeholder: t("coplan.access.messages.e_g_work_laptop"), required: true, class: "form-control" %>
   </div>
-  <%= f.submit "Create Token", class: "btn btn--primary", data: { turbo_submits_with: "Creating…" } %>
+  <%= f.submit t("coplan.access.messages.create_token"), class: "btn btn--primary", data: { turbo_submits_with: t("coplan.access.messages.creating_pending") } %>
 <% end %>

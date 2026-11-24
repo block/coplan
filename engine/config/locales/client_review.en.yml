@@ -1,0 +1,34 @@
+---
+en:
+  coplan:
+    client:
+      review:
+        already_reviewer: Already a reviewer
+        approval_already_recorded: Your earlier decision was already recorded. Review the current request again.
+        approval_recorded: Your approval of v%{revision} is recorded.
+        approve_version: Approve v%{revision}
+        approve_version_question: Approve v%{revision}?
+        changes_already_recorded: Your earlier change request was already recorded. Review the current request again.
+        changes_requested: Changes requested. Your feedback is in the plan’s comments.
+        choose_reviewer: Choose a person from the results first.
+        confirm_setting_failed: Couldn't confirm the setting. Please try again.
+        load_diff_failed: Couldn't load the comparison. Please try again.
+        loading_diff: Loading changes…
+        no_people: No people found.
+        offline_review: Couldn't reach Coplan. Your draft is still here. Check that the server is running and try again.
+        posting: Posting…
+        recording: Recording…
+        refresh_comment: " Refresh the page to see your comment."
+        request_inactive: Your review request is no longer active.
+        request_inactive_with_draft: This review request is no longer active. Your unsent feedback is still here.
+        requesting_review: Requesting…
+        review_save_failed: Couldn't save your response. Your draft is still here. Please try again.
+        reviewer_search_error: Search unavailable. Please try again.
+        save_failed: Couldn't save. Please try again.
+        save_still_running: " A previous save may still be running. Toggle again to retry."
+        search_unavailable: Search unavailable
+        searching: Searching…
+        sign_in_other_tab: Sign in in a new tab
+        stale_approval: This review request changed. Close this dialog and reopen approval for the current request. Your note is preserved.
+        suggestions_unavailable: Suggestions unavailable
+        updating: Updating…

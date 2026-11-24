@@ -1,4 +1,5 @@
-<p class="mb-md"><%= link_to "← Back to history", plan_history_browse_path(@plan) %></p>
+<% use_coplan_client_messages(:reader) %>
+<p class="mb-md"><%= link_to t("coplan.versions.messages.back_to_history"), plan_history_browse_path(@plan) %></p>
 
 <div class="page-header">
   <div>
@@ -9,7 +10,7 @@
       <% else %>
         <%= @version.actor_type %>
       <% end %>
-      · <%= time_ago_in_words(@version.created_at) %> ago
+      · <%= relative_ui_time(@version.created_at) %>
       <% if @version.change_summary.present? %>
         · <%= @version.change_summary %>
       <% end %>
@@ -17,12 +18,12 @@
   </div>
 </div>
 
-<p class="text-sm text-muted">This snapshot records Markdown source only. The title above is current metadata. Attachments, linked or embedded content, and child plans are not part of this approval.</p>
-<details class="card mb-md"><summary>Exact Markdown source · SHA-256 <%= @version.content_sha256 %></summary><pre><code><%= @version.verified_content! %></code></pre></details>
+<p class="text-sm text-muted"><%= t("coplan.versions.this_snapshot_records_markdown_source") %></p>
+<details class="card mb-md"><summary><%= t("coplan.versions.exact_markdown_source_sha_256") %> <%= @version.content_sha256 %></summary><pre><code><%= @version.verified_content! %></code></pre></details>
 
 <% if @diff %>
   <div class="card mb-md">
-    <h3>Changes from v<%= @version.revision - 1 %></h3>
+    <h3><%= t("coplan.interface.changes_since_version", revision: @version.revision - 1) %></h3>
     <div class="diff-view">
       <%= @diff.to_s(:html).html_safe %>
     </div>
@@ -30,14 +31,14 @@
 <% end %>
 
 <div class="plan-layout" data-controller="coplan--content-nav" data-action="coplan:deck-slide-changed->coplan--content-nav#slideChanged hashchange@window->coplan--content-nav#hashChanged" data-coplan--content-nav-plan-id-value="<%= @plan.id %>">
-  <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
+  <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="<%= t("coplan.common.document_outline") %>">
     <div class="content-nav__header">
-      <span class="content-nav__title">Contents</span>
-      <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="Hide table of contents" title="Toggle (t)">✕</button>
+      <span class="content-nav__title"><%= t("coplan.versions.contents") %></span>
+      <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="<%= t("coplan.common.hide_table_of_contents") %>" title="<%= t("coplan.common.toggle_t") %>">✕</button>
     </div>
     <ul class="content-nav__list" data-coplan--content-nav-target="list" data-action="keydown->coplan--content-nav#outlineKeydown"></ul>
   </nav>
-  <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
+  <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="<%= t("coplan.common.show_table_of_contents_t") %>">☰ <kbd>t</kbd></button>
 
   <div class="plan-layout__content card" data-coplan--content-nav-target="content">
     <%= render_content_regions(@version.content_markdown, interactive: false) %>

@@ -4,6 +4,7 @@ module Coplan
 
     config.after_initialize do
       Coplan::Themes.check_default!
+      Coplan::UiLocale.check_configuration!
       Coplan::WritingProvenanceBackfillJob.start unless Rails.env.test? || ENV["SECRET_KEY_BASE_DUMMY"]
     end
 

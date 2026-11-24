@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Fragment, Slice } from "prosemirror-model"
 import { Plugin, PluginKey } from "prosemirror-state"
 import { Decoration, DecorationSet } from "prosemirror-view"
@@ -25,7 +26,7 @@ export function richUploads(schema, uploadFiles, reportError, documentTitle) {
         if (destroyed) return
         const placeholder = key.getState(view.state).find().find(item => item.spec.id === id)
         if (!placeholder) {
-          if (attachments.length) reportError("Files uploaded to Attachments. Their insertion point was removed; copy their Markdown there to embed them.")
+          if (attachments.length) reportError(t("coplan.client.editor.files_uploaded_without_insertion"))
           return
         }
         const blocks = attachments.map(file => schema.nodes.paragraph.create(null,
@@ -41,7 +42,7 @@ export function richUploads(schema, uploadFiles, reportError, documentTitle) {
         view.dispatch(tr)
         if (blocks.length) view.dispatch(closeHistory(view.state.tr))
       } catch (error) {
-        if (!destroyed) reportError(`${files.map(file => file.name).join(", ")}: ${error.message || "Upload failed. Drop the files again to retry."}`)
+        if (!destroyed) reportError(`${files.map(file => file.name).join(", ")}: ${error.message || t("coplan.client.editor.drop_files_again")}`)
       } finally {
         if (!destroyed) view.dispatch(view.state.tr.setMeta(key, { remove: id }))
       }

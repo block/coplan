@@ -1,0 +1,132 @@
+---
+es:
+  coplan:
+    client:
+      editor:
+        approved_embed_domains: 'Dominios autorizados: %{hosts}. Solo HTTPS.'
+        check_saved_version_failed: No se pudo comprobar la versión guardada
+        citation_changed: La cita cambió mientras la editabas. Ciérrala y vuelve a abrirla para revisar el nuevo texto.
+        citation_required: Añade el texto de la cita o el enlace a la fuente.
+        citation_sync_failed: La cita está en tu borrador. Vuelve a pulsar Guardar para sincronizarla.
+        citation_title: 'Cita: %{label}'
+        code: Código
+        code_language: Lenguaje de programación
+        comment_end_marker: No se pudo añadir el texto porque cerraría el comentario. Escribe -- > para mostrar un marcador de cierre.
+        confirm_replace_reviewed: "¿Reemplazar la versión revisada v%{revision} por este borrador? La versión guardada seguirá en el historial."
+        conflict_restart: Conflicto — recarga el documento para volver a empezar
+        copied: Copiado
+        copy: Copiar
+        copy_block_failed: No se pudo copiar este bloque
+        copy_markdown: Copiar bloque como Markdown
+        delete_code: Eliminar bloque de código
+        document_body: Cuerpo del documento
+        done: Listo
+        done_and_save: Terminar de editar y guardar los cambios
+        done_editing: Terminar de editar
+        done_editing_status: Terminar de editar · %{message}
+        draft_recovered: Borrador recuperado · pendiente de sincronizar
+        drop_files_again: No se pudieron subir los archivos. Suéltalos de nuevo para volver a intentarlo.
+        earlier_formatting: Herramientas de formato anteriores
+        edit_citation: Editar cita %{label}
+        edit_markdown: Editar Markdown
+        edit_table: Editar tabla
+        editing_save_failed: No se pudo guardar. Tus cambios siguen aquí. %{message}
+        editor_load_failed: No se pudo cargar el editor. Recarga para volver a intentarlo.
+        editor_loading: El editor aún se está cargando. Se conservó tu borrador.
+        editor_open_failed: 'No se pudo abrir el editor: %{error}'
+        embed_content: Contenido insertado
+        embed_field: 'Página insertada: %{field}'
+        embed_height: Alto
+        embed_title: Título
+        embed_title_help: " El título describe la página para los lectores de pantalla y no aparece como leyenda."
+        embed_width: Ancho
+        embedded_page: Página insertada
+        files_uploaded_without_insertion: Los archivos están en Archivos adjuntos. Se eliminó el punto de inserción. Copia su Markdown desde allí para insertarlos.
+        fix_field: Corrige el campo resaltado para guardar
+        fix_field_before_back: Corrige el campo resaltado antes de volver
+        fix_field_draft: Corrige el campo resaltado para guardar este borrador
+        inline_saved: Guardado · v%{revision}
+        invalid_code_language: Introduce un lenguaje sin acentos graves ni saltos de línea.
+        invalid_fence: Indica un lenguaje o una descripción del bloque sin acentos graves ni saltos de línea.
+        link_url: URL del enlace (https://…)
+        loading_preview: Cargando la vista previa…
+        markdown_block: Bloque Markdown
+        markdown_source: Código Markdown
+        merged_live: Actualización incorporada · guardando tus cambios
+        mermaid_preview_failed: La vista previa no está disponible. Se conservó el código Mermaid.
+        more_formatting: Más herramientas de formato
+        no_embed_domains: No hay dominios autorizados para iframes. Un administrador puede añadirlos en Coplan Admin.
+        not_saved: Sin guardar
+        offline_draft: Sin conexión — se conservó tu borrador
+        offline_retry: Sin conexión · se conservó el borrador. Se reintentará al recuperar la conexión.
+        older_draft_review: Revisa un borrador anterior antes de sincronizar.
+        opening: Abriendo el documento
+        plain_text: Texto sin formato
+        presentation_markdown: Markdown de la presentación
+        presentation_unavailable: Presentación no disponible
+        preserved_block: Bloque Markdown conservado
+        preview: Vista previa
+        preview_failed_edit_markdown: La vista previa no está disponible. Vuelve a Markdown para seguir editando.
+        preview_unavailable: Vista previa no disponible
+        reader_kept_open: "%{error}. El editor sigue abierto con el borrador guardado."
+        reader_timeout: Se agotó el tiempo de espera de la vista de lectura
+        ready_to_save: Cambios listos para guardar
+        recovered_draft_review: Revisa el borrador recuperado antes de sincronizar.
+        reference_label: 'Referencia: %{label}'
+        refresh_comments_failed: No se pudieron actualizar los comentarios. Vuelve a pulsar Listo
+        refresh_preview_failed: No se pudo actualizar la vista previa. Vuelve a activar Vista previa para reintentarlo.
+        refresh_reader_failed: No se pudo actualizar la vista de lectura. Revisa la conexión o vuelve a iniciar sesión
+        refreshing_preview: Actualizando…
+        reload_conflict: Conflicto — vuelve a cargar el documento
+        reload_saved_version: "%{message}. Recarga para usar la versión guardada."
+        remove_embed: Quitar página insertada
+        remove_presentation: Quitar presentación
+        resize_image: Cambiar el tamaño de la imagen
+        resize_image_hint: Arrastra para cambiar el tamaño · arrastra hasta el ancho completo para restablecerlo. Usa las flechas para ajustar el tamaño o Fin para restablecerlo.
+        resolve_before_back: Resuelve el conflicto antes de volver · se conservó el borrador
+        resolve_before_save: Resuelve el conflicto de edición antes de guardar
+        retry_interrupted_upload: "%{error} Revisa los archivos adjuntos antes de volver a soltar los archivos."
+        retry_rejected_uploads: "%{errors} Suelta de nuevo los archivos rechazados para reintentarlo."
+        retry_sync: Reintentar sincronización
+        retrying_sync: Reintentando la sincronización…
+        reused:
+          one: Se reutilizó %{count} archivo existente.
+          other: Se reutilizaron %{count} archivos existentes.
+        reverted: Se restauró la versión guardada · v%{revision}
+        reverting: Revirtiendo…
+        review_before_replacing: Revisa este borrador anterior antes de reemplazar la versión guardada
+        review_both_versions: "%{message}. Se conservaron tu borrador y la versión guardada. Revísalos antes de continuar."
+        same_passage_conflict: Las dos ediciones cambian el mismo fragmento
+        save_before_upload: Guarda el documento antes de subir archivos. Suéltalos de nuevo para volver a intentarlo.
+        save_citation: Guardar cita
+        save_failed: No se pudo guardar
+        save_failed_click: No se pudo guardar · haz clic para reintentar
+        save_timed_out: Se agotó el tiempo de espera. Se conservó tu borrador. Vuelve a intentarlo para verificar la versión guardada.
+        saved_changes_pending: Guardado · hay cambios nuevos pendientes
+        saved_version: Todos los cambios guardados · v%{revision}
+        saving: Guardando…
+        saving_before_back: Guardando antes de volver…
+        saving_document: Guardando el documento
+        saving_soon: Se guardará en breve…
+        session_changed: Tu sesión cambió. Vuelve a iniciar sesión en otra pestaña y después inténtalo aquí. Se conservó tu borrador.
+        session_draft_retained: Vuelve a iniciar sesión · se conservó el borrador
+        session_refresh_failed: No se pudo renovar la sesión. Se conservó tu borrador. Vuelve a intentarlo aquí después de iniciar sesión.
+        sign_in_and_retry: Vuelve a iniciar sesión en otra pestaña y después inténtalo aquí. Se conservó tu borrador.
+        sign_in_before_upload: Vuelve a iniciar sesión en otra pestaña y después suelta los archivos de nuevo.
+        start_writing: Empieza a escribir para crear este plan
+        storage_unavailable: Almacenamiento del navegador no disponible · mantén la página abierta hasta guardar
+        sync_failed: No se pudo sincronizar. Revisa la conexión o vuelve a iniciar sesión. Se conservó tu borrador.
+        table_markdown: Markdown de la tabla
+        tag_conflict: Las dos ediciones cambian las etiquetas
+        task_label: 'Tarea: %{text}'
+        template_comment: Comentario
+        try_again: vuelve a intentarlo
+        updated_live: Actualizado en directo · v%{revision}
+        upload_failed: No se pudieron subir los archivos. Suéltalos de nuevo para volver a intentarlo.
+        upload_failed_with_session: No se pudieron subir los archivos. Revisa la conexión o inicia sesión de nuevo y vuelve a soltarlos.
+        upload_files_count: "%{count} archivos"
+        upload_interrupted: Se interrumpió la subida. Revisa los archivos adjuntos antes de volver a soltarlos.
+        uploaded:
+          one: "%{count} archivo subido."
+          other: "%{count} archivos subidos."
+        uploading_file: Subiendo %{files}…

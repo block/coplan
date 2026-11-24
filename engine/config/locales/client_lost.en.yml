@@ -1,0 +1,16 @@
+---
+en:
+  coplan:
+    client:
+      lost:
+        connected_tile: 'Row %{row}, column %{column}: %{ends}, connected to start. Rotate clockwise.'
+        down: down
+        instructions: Connect IN to OUT. The blue line shows how far you’ve made it.
+        left: left
+        right: right
+        turns:
+          one: "%{count} turn"
+          other: "%{count} turns"
+        unconnected_tile: 'Row %{row}, column %{column}: %{ends}. Rotate clockwise.'
+        up: up
+        won: Route found! If only every broken link were this easy.

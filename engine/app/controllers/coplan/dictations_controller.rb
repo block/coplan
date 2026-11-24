@@ -72,15 +72,15 @@ module Coplan
         comments: result.comments.map { |c| { body: c.body, anchor_text: c.anchor_text } }
       }
     rescue Transcription::Inaudible
-      render json: { error: "Didn't hear anything" }, status: :unprocessable_content
+      render json: { error: I18n.t("coplan.discussions.messages.didn_t_hear_anything") }, status: :unprocessable_content
     rescue Transcription::Fabricated
-      render json: { error: "Didn't catch that — try saying it again" }, status: :unprocessable_content
+      render json: { error: I18n.t("coplan.discussions.messages.didn_t_catch_that_try") }, status: :unprocessable_content
     rescue Ai::Error => e
       # Only reachable when there was audio and nothing else: interpreting
       # has its own fallbacks, but an untranscribed recording is not a
       # comment, and saying so beats posting silence.
       Rails.logger.warn("[coplan] transcription failed: #{e.message}")
-      render json: { error: "Couldn't make out the recording" }, status: :bad_gateway
+      render json: { error: I18n.t("coplan.discussions.messages.couldn_t_make_out_the") }, status: :bad_gateway
     end
 
     module Transcription

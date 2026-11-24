@@ -11,6 +11,13 @@ Thanks for helping improve Coplan. Keep pull requests focused and make it easy f
 - For every feature, test the affected UI in both **light and dark mode**. Check the complete interaction, including loading, success, error, and empty states that apply. For a feature without a UI, explain in the PR why mode testing does not apply.
 - Include **a video or images** in feature PRs and UI bug fixes so reviewers can see the result. Show both modes for UI changes; a short video or labeled screenshots are both fine. For features without a UI, include images of the relevant API or command output, or a short video demonstrating it. Include before-and-after evidence for visual fixes when useful.
 
+## User-facing copy
+
+Add or update translations in the same PR as the English copy. Authors may
+use their coding agent to write the translations. Follow the
+[internationalization guide](docs/INTERNATIONALIZATION.md) for Rails and
+Stimulus examples, local preview, and `bin/i18n-lint`.
+
 ## Shared development examples
 
 Run `bin/setup --skip-server`, then `bin/dev`. Sign in as **hampton@example.com**

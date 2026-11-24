@@ -1,0 +1,27 @@
+---
+en:
+  coplan:
+    shared:
+      changes_weren_t_saved: Changes weren’t saved
+      close_keyboard_shortcuts: Close keyboard shortcuts
+      copy_url: Copy URL
+      grouped_by_where_they_work: Grouped by where they work. Page shortcuts pause while you’re typing.
+      hold_to_comment_by_voice: Hold to comment by voice on a plan
+      keyboard_shortcuts: Keyboard shortcuts
+      messages:
+        page_down: Page Down
+        page_up: Page Up
+        return_to_document: Return to document
+        space: Space
+      no_folders_yet_create_one: No folders yet — create one from your workspace to start organizing.
+      not_now: Not now
+      or: or
+      remove_from_library: Remove from library
+      save_to_library: Save to library
+      tags: 'Tags:'
+      title: 'Title:'
+      voice_comments: Voice comments
+      want_to_know_when_someone: Want to know when someone replies?
+      yes_notify_me: Yes, notify me
+      your_folders: Your folders
+      your_unsaved_draft: Your unsaved draft

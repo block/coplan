@@ -106,8 +106,8 @@ module Coplan
         folder = current_user.library.folders.find_by(id: params[:folder_id])
         unless folder
           respond_to do |format|
-            format.json { render json: { error: "Unknown folder" }, status: :unprocessable_content }
-            format.html { redirect_back fallback_location: helpers.own_library_browse_path(current_user), alert: "Unknown folder." }
+            format.json { render json: { error: I18n.t("coplan.common.messages.unknown_folder") }, status: :unprocessable_content }
+            format.html { redirect_back fallback_location: helpers.own_library_browse_path(current_user), alert: I18n.t("coplan.documents.messages.unknown_folder") }
           end
           return
         end
@@ -122,7 +122,7 @@ module Coplan
         return
       end
 
-      notice = folder ? "Moved “#{@plan.title}” to #{folder.path}." : "Removed “#{@plan.title}” from its folder."
+      notice = folder ? I18n.t("coplan.common.messages.moved_name_to_level", name: @plan.title, level: folder.path) : I18n.t("coplan.documents.messages.removed_title_from_its_folder", title: @plan.title)
       respond_to do |format|
         format.json do
           render json: {
@@ -208,7 +208,7 @@ module Coplan
         )
       end
       broadcast_plan_update(@plan)
-      redirect_to helpers.plan_browse_path(@plan), notice: "Plan updated."
+      redirect_to helpers.plan_browse_path(@plan), notice: I18n.t("coplan.documents.messages.plan_updated")
     end
 
     def new
@@ -228,9 +228,9 @@ module Coplan
 
     def create
       plan_type = PlanType.find_by(id: params[:plan_type_id]) if params[:plan_type_id].present?
-      return render json: { error: "Choose a valid plan type." }, status: :unprocessable_content if params[:plan_type_id].present? && !plan_type
+      return render json: { error: I18n.t("coplan.documents.messages.choose_a_valid_plan_type") }, status: :unprocessable_content if params[:plan_type_id].present? && !plan_type
       folder = current_user.library.folders.find_by(id: params[:folder_id]) if params[:folder_id].present?
-      return render json: { error: "That folder no longer exists." }, status: :unprocessable_content if params[:folder_id].present? && !folder
+      return render json: { error: I18n.t("coplan.common.messages.that_folder_no_longer_exists") }, status: :unprocessable_content if params[:folder_id].present? && !folder
 
       plan = Plans::CreateHumanDraft.call(user: current_user, title: params.dig(:plan, :title), content: params[:content],
         tags: params.dig(:plan, :tag_names), creation_key: params[:creation_key], plan_type: plan_type, folder: folder,
@@ -238,7 +238,7 @@ module Coplan
       @plan = plan
       edit_url = helpers.plan_browse_path(plan, edit: "continue")
       render json: editor_snapshot.merge(edit_url: edit_url, inline_after_create: true, id: plan.id,
-        subscription_html: helpers.turbo_stream_from(plan),
+        subscription_html: helpers.coplan_plan_streams(plan),
         update_url: update_content_plan_path(plan), state_url: editor_state_plan_path(plan), lease_url: editor_lease_plan_path(plan),
         attachments_url: plan_attachments_path(plan))
     rescue Plans::CreateHumanDraft::InvalidKey => error
@@ -312,7 +312,7 @@ module Coplan
       if request.format.json?
         render json: editor_snapshot.merge(no_op: result[:no_op] && !changed)
       else
-        redirect_to helpers.plan_browse_path(@plan), notice: result[:no_op] && !changed ? "No changes to save." : "Plan updated."
+        redirect_to helpers.plan_browse_path(@plan), notice: result[:no_op] && !changed ? I18n.t("coplan.documents.messages.no_changes_to_save") : I18n.t("coplan.documents.messages.plan_updated")
       end
     rescue Plans::MergeText::Conflict, Plans::ReplaceContent::StaleRevisionError => error
       @plan.reload
@@ -363,9 +363,9 @@ module Coplan
         # The toggle fetches this: the header re-render carries the new
         # state flag, so the page repaints even when the ActionCable
         # broadcast can't reach this browser.
-        format.turbo_stream { render turbo_stream: visibility_streams("Shared with everyone in the org.") }
+        format.turbo_stream { render turbo_stream: visibility_streams(I18n.t("coplan.documents.messages.shared_with_everyone_in_the")) }
         format.json { render json: { visibility: @plan.visibility } }
-        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Plan published — everyone can see it now." }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: I18n.t("coplan.documents.messages.plan_published_everyone_can_see") }
       end
     end
 
@@ -391,9 +391,9 @@ module Coplan
         via: "web"
       )
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: visibility_streams("Private again — hidden from lists and search.") }
+        format.turbo_stream { render turbo_stream: visibility_streams(I18n.t("coplan.documents.messages.private_again_hidden_from_lists")) }
         format.json { render json: { visibility: @plan.visibility } }
-        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Plan is private again — hidden from lists and search." }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: I18n.t("coplan.documents.messages.plan_is_private_again_hidden") }
       end
     end
 
@@ -419,13 +419,13 @@ module Coplan
         destination = @plan.folder || @plan.library
         respond_to do |format|
           format.turbo_stream { render turbo_stream: restore_workspace_streams }
-          format.html { redirect_to helpers.browse_path_for(destination), status: :see_other, notice: "Plan restored." }
+          format.html { redirect_to helpers.browse_path_for(destination), status: :see_other, notice: I18n.t("coplan.documents.messages.plan_restored") }
         end
         return
       end
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: restore_streams("Plan restored.") }
-        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Plan restored." }
+        format.turbo_stream { render turbo_stream: restore_streams(I18n.t("coplan.documents.messages.plan_restored")) }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: I18n.t("coplan.documents.messages.plan_restored") }
       end
     end
 
@@ -469,7 +469,7 @@ module Coplan
 
       render json: { revision: @plan.current_revision }
     rescue Plans::ReplaceContent::StaleRevisionError => e
-      render json: { error: "Conflict", current_revision: e.current_revision }, status: :conflict
+      render json: { error: I18n.t("coplan.documents.messages.conflict"), current_revision: e.current_revision }, status: :conflict
     rescue Plans::ToggleCheckbox::LineMismatchError => e
       render json: { error: e.message, current_revision: e.current_revision }, status: :unprocessable_content
     rescue Plans::OperationError => e
@@ -584,7 +584,7 @@ module Coplan
           # Your own unvisited plan is just a plan you made elsewhere (API,
           # agent) — not news.
           next if plan.created_by_user_id == current_user.id
-          { plan: plan, badge: "new to you" }
+          { plan: plan, badge: I18n.t("coplan.documents.messages.new_to_you") }
         elsif plan.updated_at > seen_at
           { plan: plan, badge: "updated" }
         end

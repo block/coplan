@@ -1,19 +1,20 @@
-<% content_for(:title, "History — #{@plan.title} — Coplan") %>
+<% use_coplan_client_messages(:reader) %>
+<% content_for(:title, t("coplan.documents.messages.history_title_coplan", title: @plan.title)) %>
 
 <%# New versions/events broadcast into #plan-history-list while you watch. %>
-<%= turbo_stream_from @plan %>
+<%= coplan_plan_streams @plan %>
 
 <div data-controller="coplan--plan-keys"
      data-coplan--plan-keys-fallback-url-value="<%= plan_browse_path(@plan) %>">
   <div class="page-header page-header--plan">
-    <%= link_to plan_browse_path(@plan), class: "history-back", title: "Back to the document (Backspace)", aria: { label: "Back to #{@plan.title}" } do %>
+    <%= link_to plan_browse_path(@plan), class: "history-back", title: t("coplan.documents.messages.back_to_the_document_backspace"), aria: { label: t("coplan.documents.messages.back_to_title", title: @plan.title) } do %>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
     <% end %>
     <%= plan_type_icon(@plan, size: :lg) %>
     <div class="page-header__text">
       <h1 class="page-header__title"><%= link_to @plan.title, plan_browse_path(@plan), class: "history-title-link" %></h1>
       <div class="page-header__byline text-sm text-muted">
-        History — every version and change · <span class="section-count" id="history-count"><%= pluralize(@plan.plan_versions.count + @plan.plan_events.count, "entry") %></span>
+        <%= t("coplan.display.history_overview") %> · <span class="section-count" id="history-count"><%= t("coplan.display.entries", count: @plan.plan_versions.count + @plan.plan_events.count) %></span>
       </div>
     </div>
   </div>

@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { diffChars } from "diff"
 
 export class MergeConflict extends Error {}
@@ -30,13 +31,13 @@ export function mergeText(base, local, remote) {
   const ours = textHunks(base, local), theirs = textHunks(base, remote)
   const same = (a, b) => a.from === b.from && a.to === b.to && a.text === b.text
   for (const a of ours) for (const b of theirs) {
-    if (!same(a, b) && overlaps(a, b)) throw new MergeConflict("Both edits change the same passage")
+    if (!same(a, b) && overlaps(a, b)) throw new MergeConflict(t("coplan.client.editor.same_passage_conflict"))
   }
   const edits = [...theirs, ...ours.filter(a => !theirs.some(b => same(a, b)))].sort((a, b) => b.from - a.from || b.to - a.to)
   return edits.reduce((text, edit) => text.slice(0, edit.from) + edit.text + text.slice(edit.to), base)
 }
-export function mergeField(base, local, remote, label) {
+export function mergeField(base, local, remote, conflictMessage) {
   if (local === base || local === remote) return remote
   if (remote === base) return local
-  throw new MergeConflict(`Both edits change the ${label}`)
+  throw new MergeConflict(conflictMessage)
 }

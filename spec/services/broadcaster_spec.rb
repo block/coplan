@@ -13,6 +13,41 @@ RSpec.describe Coplan::Broadcaster do
     p
   end
 
+  it "uses the configured locale on a single-language host" do
+    thread = create(:comment_thread, plan: plan)
+    comment = create(:comment, comment_thread: thread, author_id: author.id, created_at: 2.days.ago)
+    allow(Turbo::StreamsChannel).to receive(:broadcast_append_to)
+
+    I18n.with_locale(:es) do
+      described_class.append_to(plan, target: "comments", partial: "coplan/comments/comment", locals: { comment: comment })
+      expect(I18n.locale).to eq(:es)
+    end
+
+    expect(Turbo::StreamsChannel).to have_received(:broadcast_append_to).with(plan, target: "comments", html: a_string_including("2 days ago"))
+  end
+
+  it "sends the same discussion to English and Spanish viewers with localized controls" do
+    allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
+    thread = create(:comment_thread, plan: plan)
+    comment = create(:comment, comment_thread: thread, author_id: author.id,
+      body_markdown: "Keep this authored comment.", created_at: 2.days.ago)
+    payloads = {}
+    allow(Turbo::StreamsChannel).to receive(:broadcast_append_to) do |stream, target:, html:|
+      payloads[stream] = [ target, Nokogiri::HTML.fragment(html).text.squish ]
+    end
+
+    I18n.with_locale(:es) do
+      described_class.append_to(plan, target: "comments", partial: "coplan/comments/comment", locals: { comment: comment })
+      expect(I18n.locale).to eq(:es)
+    end
+
+    expect(payloads.keys).to match_array([ [ plan, "ui-en" ], [ plan, "ui-es" ] ])
+    expect(payloads.fetch([ plan, "ui-en" ])).to match([ "comments",
+      a_string_including("2 days ago", "Keep this authored comment.") ])
+    expect(payloads.fetch([ plan, "ui-es" ])).to match([ "comments",
+      a_string_including("hace 2 días", "Keep this authored comment.") ])
+  end
+
   describe ".replace_plan_content" do
     # Ensure plan is built BEFORE we start spying, so setup-time broadcasts
     # (from Coplan::Plan.create! / Coplan::PlanVersion.create!) don't pollute
@@ -43,12 +78,14 @@ RSpec.describe Coplan::Broadcaster do
       end
       changes = Coplan::Plans::ChangedSections::Result.new(keys: [ "plan-content" ], rewritten: false)
 
-      described_class.replace_plan_content(plan, changed_sections: changes)
+      I18n.with_locale(:es) do
+        described_class.replace_plan_content(plan, changed_sections: changes)
+      end
 
       stream = Nokogiri::HTML.fragment(payloads.first).at_css("turbo-stream")
       update = JSON.parse(stream["data-section-update"])
       expect(update).to include("by" => author.name, "at" => plan.current_plan_version.created_at.iso8601,
-        "revision" => plan.current_revision)
+        "revision" => plan.current_revision, "ago" => "less than a minute ago")
     end
 
     it "refreshes attribution for writes without a diff flash, without crediting untouched sections" do

@@ -14,35 +14,35 @@
         to it is the library you found it in. %>
 <% placement = local_assigns.fetch(:placement) { plan.placement } %>
 <% can_edit = allowed_to?(plan, :edit_content?) %>
-<div id="plan-toolbar" class="plan-actions" role="toolbar" aria-label="Plan actions">
+<div id="plan-toolbar" class="plan-actions" role="toolbar" aria-label="<%= t("coplan.documents.plan_actions") %>">
   <% if can_edit %>
     <%= link_to plan_browse_path(plan, edit: 1), class: "btn btn--ghost btn--sm",
-          title: "Edit this document",
+          title: t("coplan.documents.messages.edit_this_document"),
           data: { action: "coplan--inline-editor#open", "coplan--inline-editor-target": "trigger" } do %>
       <svg class="plan-edit-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>
       <svg class="plan-done-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12 5 5L20 6"/></svg>
-      <span class="plan-edit-label">Edit</span><span class="plan-done-label">Done</span>
+      <span class="plan-edit-label"><%= t("coplan.common.edit") %></span><span class="plan-done-label"><%= t("coplan.documents.done") %></span>
     <% end %>
   <% end %>
   <span data-controller="coplan--menu">
     <button type="button" class="btn btn--ghost btn--sm btn--icon"
             popovertarget="plan-menu" data-coplan--menu-target="trigger"
-            aria-label="More actions" title="More actions">
+            aria-label="<%= t("coplan.documents.more_actions") %>" title="<%= t("coplan.documents.more_actions") %>">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
     </button>
     <div id="plan-menu" popover="auto" class="menu" data-coplan--menu-target="menu"
-         data-action="beforetoggle->coplan--menu#reposition" role="menu" aria-label="Plan actions menu">
+         data-action="beforetoggle->coplan--menu#reposition" role="menu" aria-label="<%= t("coplan.interface.plan_actions") %>">
       <%= link_to plan_history_browse_path(plan), class: "menu__item", role: "menuitem" do %>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
-        <span>History</span>
+        <span><%= t("coplan.documents.history") %></span>
       <% end %>
       <% if can_edit %>
         <button type="button" class="menu__item" role="menuitem" data-action="coplan--menu#close coplan--plan-details#manageReviews">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="4" y="4" width="16" height="18" rx="2"/><path d="M9 2h6v4H9zM8 12l3 3 5-6"/></svg><span>Manage reviewers</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="4" y="4" width="16" height="18" rx="2"/><path d="M9 2h6v4H9zM8 12l3 3 5-6"/></svg><span><%= t("coplan.common.manage_reviewers") %></span>
         </button>
         <button type="button" class="menu__item plan-outline-action" role="menuitem" data-action="coplan--menu#showOutline">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>
-          <span>Show outline</span>
+          <span><%= t("coplan.documents.show_outline") %></span>
         </button>
         <button type="button" class="menu__item" role="menuitem"
                 data-action="coplan--menu#close coplan--folder-picker#open"
@@ -53,24 +53,24 @@
                 data-picker-heading="Move to folder"
                 data-remove-label="Remove from folder">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-          <span>Move to folder…</span>
+          <span><%= t("coplan.documents.move_to_folder_pending") %></span>
         </button>
         <% if allowed_to?(plan, :publish?) %>
           <%= button_to publish_plan_path(plan), method: :patch, class: "menu__item", form_class: "menu__form", role: "menuitem" do %>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
-            <span>Share with everyone</span>
+            <span><%= t("coplan.documents.share_with_everyone") %></span>
           <% end %>
         <% elsif allowed_to?(plan, :hide?) %>
           <%= button_to hide_plan_path(plan), method: :patch, class: "menu__item", form_class: "menu__form", role: "menuitem" do %>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
-            <span>Make private</span>
+            <span><%= t("coplan.documents.make_private") %></span>
           <% end %>
         <% end %>
         <% if allowed_to?(plan, :archive?) && !plan.archived? %>
           <div class="menu__separator" role="separator"></div>
           <%= button_to archive_plan_path(plan), method: :patch, class: "menu__item menu__item--danger", form_class: "menu__form", role: "menuitem" do %>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
-            <span>Archive plan</span>
+            <span><%= t("coplan.documents.archive_plan") %></span>
           <% end %>
         <% end %>
       <% end %>

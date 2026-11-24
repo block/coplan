@@ -1,0 +1,31 @@
+---
+en:
+  coplan:
+    versions:
+      contents: Contents
+      exact_markdown_source_sha_256: Exact Markdown source · SHA-256
+      initial_version_no_previous_version: Initial version — no previous version to compare.
+      messages:
+        added_attachment: 'Added attachment '
+        added_reference: 'Added reference '
+        added_tag: 'Added tag '
+        back_to_history: "← Back to history"
+        created_at_ago: "%{created_at} ago"
+        deleted_comment: Deleted comment
+        moved_to_folder: 'Moved to folder '
+        past_decisions_preserved: " · past decisions preserved"
+        permanently_deleted_comment: Permanently deleted comment
+        plan_type: 'Plan type: '
+        published_listed_for_everyone: Published — listed for everyone
+        removed_attachment: 'Removed attachment '
+        removed_from_folder: 'Removed from folder '
+        removed_reference: 'Removed reference '
+        removed_reviewer: 'Removed reviewer '
+        removed_tag: 'Removed tag '
+        renamed: 'Renamed: '
+        requested_a_review_from: 'Requested a review from '
+        restored_from_archive: Restored from archive
+        status: 'Status: '
+        view_full_version: View full version →
+        withdrew_the_review_request_for: 'Withdrew the review request for '
+      this_snapshot_records_markdown_source: This snapshot records Markdown source only. The title above is current metadata. Attachments, linked or embedded content, and child plans are not part of this approval.

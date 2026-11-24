@@ -1,10 +1,11 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 // The folder navigator popover: the viewer's folder tree, a little
 // filesystem. Every trigger opens it — Save on someone's plan, "Move to
 // folder…" in the plan menu, workspace row fallbacks. Triggers carry the
 // plan's move URL, current folder, and saved state; already-saved triggers
-// get a "Remove from library" row inside the navigator, so removal is a
+// get a t("coplan.client.workspace.remove_from_library") row inside the navigator, so removal is a
 // deliberate labeled choice instead of a surprise toggle on the trigger.
 export default class extends Controller {
   static targets = ["modal", "title", "heading", "remove", "removeLabel"]
@@ -16,14 +17,14 @@ export default class extends Controller {
     this._currentFolderId = trigger.dataset.currentFolderId || ""
 
     if (this.hasHeadingTarget) {
-      this.headingTarget.textContent = trigger.dataset.pickerHeading || "Save to library"
+      this.headingTarget.textContent = trigger.dataset.pickerHeading || t("coplan.client.workspace.save_to_library")
     }
     if (this.hasRemoveTarget) {
       this.removeTarget.hidden = trigger.dataset.saved !== "true"
       if (this.hasRemoveLabelTarget) {
         // "Remove" means different things per trigger: a reader letting a
         // saved plan go entirely vs. an owner unfiling their own plan.
-        this.removeLabelTarget.textContent = trigger.dataset.removeLabel || "Remove from library"
+        this.removeLabelTarget.textContent = trigger.dataset.removeLabel || t("coplan.client.workspace.remove_from_library")
       }
     }
     if (this.hasTitleTarget && trigger.dataset.planTitle) {
@@ -47,7 +48,7 @@ export default class extends Controller {
     this._patch(folderId)
   }
 
-  // The "Remove from library" row inside the navigator (only shown when
+  // The t("coplan.client.workspace.remove_from_library") row inside the navigator (only shown when
   // the trigger was already saved).
   remove() {
     if (!this._moveUrl) return
@@ -67,19 +68,19 @@ export default class extends Controller {
     })
       .then(async response => {
         const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(data.error || "Move failed")
+        if (!response.ok) throw new Error(data.error || t("coplan.client.workspace.move_failed"))
         try { this.modalTarget.hidePopover() } catch {}
         // Re-render so shelves, breadcrumbs, and counts stay accurate —
         // with a toast on the fresh page when the action deserves one
         // (unbookmarking is quiet, like any bookmark star).
         if (!quiet && window.Turbo) {
-          const message = data.message || "Saved."
+          const message = data.message || t("coplan.client.workspace.saved")
           document.addEventListener("turbo:load", () => this._toast(message, "notice"), { once: true })
         }
         if (window.Turbo) {
           window.Turbo.visit(window.location.href, { action: "replace" })
         } else if (!quiet) {
-          this._toast(data.message || "Saved.", "notice")
+          this._toast(data.message || t("coplan.client.workspace.saved"), "notice")
         }
       })
       .catch(error => this._toast(error.message, "alert"))

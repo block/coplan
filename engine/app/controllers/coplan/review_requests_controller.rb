@@ -26,7 +26,7 @@ module Coplan
       enabled = ActiveModel::Type::Boolean.new.cast(attributes.fetch(:reset_reviews_on_change))
       @plan.with_lock do
         unless attributes.fetch(:review_sequence).to_s == @plan.review_sequence.to_s
-          render json: { error: "Review settings changed. Please try again." }, status: :conflict
+          render json: { error: I18n.t("coplan.reviews.messages.review_settings_changed_please_try") }, status: :conflict
           return
         end
         # Even a same-value write fences an older, indeterminate request.

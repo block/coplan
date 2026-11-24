@@ -39,6 +39,32 @@ module Coplan
 
     private
 
+    # Rails runs rescue_from handlers outside the action callback chain.
+    # Wrap dispatch so rescued HTML and Turbo responses use the same locale.
+    def process_action(...)
+      # This controller also serves JSON to the browser. The separate API
+      # controller keeps its stable, machine-facing messages.
+      return super unless request.format.html? || request.format.json? || request.format == Mime::ALL
+
+      locale = UiLocale.for_request(request)
+      I18n.with_locale(locale) do
+        super.tap { set_language_headers(locale, negotiated: Coplan.configuration.ui_locales.many?) }
+      end
+    end
+
+    def set_language_headers(locale, negotiated:)
+      return unless [ Mime[:html].to_s, Mime[:turbo_stream].to_s, Mime[:json].to_s ].include?(response.media_type)
+
+      response.headers["Content-Language"] = locale.to_s
+      return unless negotiated
+
+      vary = response.headers["Vary"].to_s.split(",").map(&:strip)
+      return if vary.include?("*")
+
+      vary = (vary + [ "Accept-Language", "Cookie" ]).uniq(&:downcase)
+      response.headers["Vary"] = vary.join(", ")
+    end
+
     def render_not_found
       # Mime#html? also matches Turbo Streams, which need an empty error response.
       if request.format == Mime[:html] && action_name != "markdown"
@@ -90,10 +116,10 @@ module Coplan
         @current_coplan_user.library
       else
         if request.format.json?
-          render json: { error: "Your session ended. Sign in, then retry; your draft is still here.",
+          render json: { error: I18n.t("coplan.common.messages.your_session_ended_sign_in"),
                          code: "authentication_required", sign_in_path: Coplan.configuration.sign_in_path }, status: :unauthorized
         elsif Coplan.configuration.sign_in_path
-          redirect_to Coplan.configuration.sign_in_path, alert: "Please sign in."
+          redirect_to Coplan.configuration.sign_in_path, alert: I18n.t("coplan.display.sign_in_required")
         else
           head :unauthorized
         end

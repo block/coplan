@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 // One slide is visible while reading each embedded deck. The presenter uses
@@ -53,7 +54,7 @@ export default class extends Controller {
     this.element.dataset.currentSlide = String(this.index + 1)
     this.slides.forEach((slide, i) => slide.classList.toggle("deck-slide--current", i === this.index))
     this.countTarget.dataset.count = `${this.index + 1} / ${this.slides.length}`
-    this.countTarget.setAttribute("aria-label", `Slide ${this.index + 1} of ${this.slides.length}`)
+    this.countTarget.setAttribute("aria-label", t("coplan.client.reader.slide_count", { position: this.index + 1, total: this.slides.length }))
     this.previousTarget.disabled = this.index === 0
     this.nextTarget.disabled = this.index === this.slides.length - 1
     this.element.dispatchEvent(new CustomEvent("coplan:deck-slide-changed", { bubbles: true }))

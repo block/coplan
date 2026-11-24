@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { readableText } from "coplan/math_text"
 
@@ -146,7 +147,7 @@ export default class extends Controller {
     const title = readableText(target).trim()
     this.titleTarget.hidden = footnote
     this.titleTarget.textContent = footnote ? "" : title
-    this.popoverTarget.setAttribute("aria-label", footnote ? "Citation preview" : `Section preview: ${title}`)
+    this.popoverTarget.setAttribute("aria-label", footnote ? t("coplan.client.reader.citation_preview") : t("coplan.client.reader.section_preview", { title }))
 
     if (footnote) {
       this.renderFootnote(target)
@@ -190,7 +191,7 @@ export default class extends Controller {
       metadata.textContent = `${type} · ${domain} ↗`
 
       node.classList.add("reference-preview__source")
-      node.setAttribute("aria-label", `Open source: ${originalText || domain} in a new tab (${type}, ${domain})`)
+      node.setAttribute("aria-label", t("coplan.client.reader.open_source", { title: originalText || domain, type, domain }))
       node.replaceChildren(title, metadata)
 
       const punctuation = node.nextSibling
@@ -201,15 +202,15 @@ export default class extends Controller {
   }
 
   referenceTypeLabel(referenceType, url) {
-    if (referenceType === "plan") return "Coplan plan"
-    if (referenceType === "repository") return "GitHub repository"
-    if (referenceType === "pull_request") return "GitHub pull request"
+    if (referenceType === "plan") return t("coplan.client.reader.coplan_plan")
+    if (referenceType === "repository") return t("coplan.client.reader.github_repository")
+    if (referenceType === "pull_request") return t("coplan.client.reader.github_pull_request")
 
     if (referenceType === "document") {
       if (url.hostname === "docs.google.com") {
-        if (url.pathname.startsWith("/spreadsheets/")) return "Google Sheet"
-        if (url.pathname.startsWith("/presentation/")) return "Google Slides"
-        return "Google Doc"
+        if (url.pathname.startsWith("/spreadsheets/")) return t("coplan.client.reader.google_sheet")
+        if (url.pathname.startsWith("/presentation/")) return t("coplan.client.reader.google_slides")
+        return t("coplan.client.reader.google_doc")
       }
       if (url.hostname === "drive.google.com") return "Google Drive"
       if (url.hostname.endsWith("notion.so") || url.hostname.endsWith("notion.site")) return "Notion"
@@ -217,7 +218,7 @@ export default class extends Controller {
       return "Document"
     }
 
-    return /(^|\.)gov(\.|$)/.test(url.hostname) ? "Government website" : "Website"
+    return /(^|\.)gov(\.|$)/.test(url.hostname) ? t("coplan.client.reader.government_website") : t("coplan.client.reader.website")
   }
 
   renderSection(heading) {
@@ -241,7 +242,7 @@ export default class extends Controller {
     }
 
     const paragraph = document.createElement("p")
-    paragraph.textContent = text || "This section has no preview text."
+    paragraph.textContent = text || t("coplan.client.reader.no_preview_text")
     this.bodyTarget.replaceChildren(paragraph)
   }
 

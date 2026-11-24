@@ -65,7 +65,7 @@ module Coplan
             turbo_stream.replace("inbox-panel", partial: "coplan/notifications/panel")
           ]
         }
-        format.html { redirect_to notifications_path, notice: "All notifications marked as read." }
+        format.html { redirect_to notifications_path, notice: I18n.t("coplan.notifications.messages.all_notifications_marked_as_read") }
       end
     end
 
@@ -88,7 +88,7 @@ module Coplan
             turbo_stream.remove(helpers.plan_unread_badge_id(plan_id))
           ]
         end
-        format.html { redirect_back fallback_location: helpers.own_library_browse_path(current_user), notice: "Notifications cleared." }
+        format.html { redirect_back fallback_location: helpers.own_library_browse_path(current_user), notice: I18n.t("coplan.notifications.messages.notifications_cleared") }
       end
     end
 

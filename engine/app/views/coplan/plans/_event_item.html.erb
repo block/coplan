@@ -14,5 +14,5 @@
   <div class="history-split__summary">
     <%= render_event_summary(event) %>
   </div>
-  <div class="history-split__time"><%= time_ago_in_words(event.created_at) %> ago</div>
+  <div class="history-split__time"><%= relative_ui_time(event.created_at) %></div>
 </div>

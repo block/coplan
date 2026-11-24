@@ -15,22 +15,21 @@
   </div>
   <div class="web-push-banner__main">
     <div class="web-push-banner__title" data-coplan--web-push-banner-target="title">
-      Want to know when someone replies?
+      <%= t("coplan.shared.want_to_know_when_someone") %>
     </div>
     <div class="web-push-banner__hint" data-coplan--web-push-banner-target="hint">
-      Get a desktop notification on this device. You can change this anytime in
-      <a href="<%= coplan.settings_root_path %>">Settings</a>.
+      <%= t("coplan.interface.notification_settings_html", settings: link_to(t("coplan.settings.title"), coplan.settings_root_path)) %>
     </div>
     <div class="web-push-banner__actions" data-coplan--web-push-banner-target="actions">
       <button type="button"
               class="btn btn--secondary btn--sm web-push-banner__btn"
               data-action="coplan--web-push-banner#dismiss">
-        Not now
+        <%= t("coplan.shared.not_now") %>
       </button>
       <button type="button"
               class="btn btn--primary btn--sm web-push-banner__btn"
               data-action="coplan--web-push-banner#enable">
-        Yes, notify me
+        <%= t("coplan.shared.yes_notify_me") %>
       </button>
     </div>
   </div>

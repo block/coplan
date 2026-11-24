@@ -1,0 +1,73 @@
+---
+es:
+  coplan:
+    keyboard_shortcuts:
+      bindings:
+        comments:
+          next: Siguiente discusión abierta
+          previous: Discusión abierta anterior
+          reply: Responder a la discusión abierta
+          resolve: Resolver la discusión abierta
+          resolved: Mostrar u ocultar las discusiones resueltas
+        deck:
+          start: Iniciar la presentación
+        editor:
+          save: Guardar los cambios pendientes (los demás se guardan automáticamente)
+        help:
+          show: Mostrar atajos de teclado
+        library:
+          home: Borrar los filtros o volver a la raíz de la biblioteca
+          next: Seleccionar el siguiente elemento
+          open: Abrir el elemento seleccionado
+          previous: Seleccionar el elemento anterior
+          up: Subir una carpeta
+        native:
+          dismiss: Cerrar el cuadro de diálogo o menú abierto
+        outline:
+          toggle: Mostrar u ocultar el índice
+        plan:
+          back: Volver
+          next: Sección siguiente
+          previous: Sección anterior
+        presentation:
+          draw: Activar o desactivar el lápiz
+          exit: Cerrar la ventana superpuesta, guardar el lápiz, salir de pantalla completa o terminar la presentación
+          first: Primera diapositiva
+          fullscreen: Activar o desactivar la pantalla completa
+          last: Última diapositiva
+          next: Diapositiva siguiente
+          previous: Diapositiva anterior
+        reply:
+          link: Enlazar el texto seleccionado o insertar un enlace
+          newline: Añadir una línea al comentario
+          pasteLink: Pegar una URL sobre el texto seleccionado para enlazarlo
+          submit: Publicar un comentario o una respuesta
+        results:
+          next: Siguiente resultado de búsqueda
+          open: Abrir el resultado de búsqueda seleccionado
+          previous: Resultado de búsqueda anterior
+        search:
+          open: Buscar planes y personas
+        table:
+          copy: Copiar la celda seleccionada
+          down: Bajar
+          end: Última celda de la tabla
+          first: Primera celda de la fila
+          last: Última celda de la fila
+          left: Mover a la izquierda
+          pageDown: Bajar una página
+          pageUp: Subir una página
+          right: Mover a la derecha
+          start: Primera celda de la tabla
+          up: Subir
+      groups:
+        editing: Edición
+        everywhere: En cualquier lugar
+        expanded_tables: Tablas ampliadas
+        library: Biblioteca
+        plan: Plan
+        presentations: Presentaciones
+        review_comments: Comentarios de revisión
+        search_results: Resultados de búsqueda
+        while_presenting: Durante una presentación
+        writing_comments: Al escribir comentarios

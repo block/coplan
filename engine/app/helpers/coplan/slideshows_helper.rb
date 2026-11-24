@@ -87,10 +87,10 @@ module Coplan
             safe_join([
               tag.div(class: "deck-toolbar") do
                 safe_join([
-                  tag.button("", type: "button", class: "deck-toolbar__step deck-toolbar__step--previous", disabled: empty_deck, aria: { label: "Previous slide" }, data: { action: "coplan--deck-reader#previous", "coplan--deck-reader-target": "previous" }),
+                  tag.button("", type: "button", class: "deck-toolbar__step deck-toolbar__step--previous", disabled: empty_deck, aria: { label: I18n.t("coplan.documents.messages.previous_slide") }, data: { action: "coplan--deck-reader#previous", "coplan--deck-reader-target": "previous" }),
                   tag.span("", class: "deck-toolbar__count", role: "status", aria: { live: "polite" }, data: { "coplan--deck-reader-target": "count", count: ("0 / 0" if empty_deck) }),
-                  tag.button("", type: "button", class: "deck-toolbar__step deck-toolbar__step--next", disabled: empty_deck, aria: { label: "Next slide" }, data: { action: "coplan--deck-reader#next", "coplan--deck-reader-target": "next" }),
-                  tag.button("", type: "button", class: "deck-toolbar__present", disabled: empty_deck, aria: { label: "Present deck" }, data: { action: "coplan--deck-presenter#start" })
+                  tag.button("", type: "button", class: "deck-toolbar__step deck-toolbar__step--next", disabled: empty_deck, aria: { label: I18n.t("coplan.documents.messages.next_slide") }, data: { action: "coplan--deck-reader#next", "coplan--deck-reader-target": "next" }),
+                  tag.button("", type: "button", class: "deck-toolbar__present", disabled: empty_deck, aria: { label: I18n.t("coplan.documents.messages.present_deck") }, data: { action: "coplan--deck-presenter#start" })
                 ])
               end,
               deck

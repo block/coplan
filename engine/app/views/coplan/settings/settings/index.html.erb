@@ -1,6 +1,9 @@
+<% use_coplan_client_messages(:settings) %>
 <div class="page-header">
-  <h1>Settings</h1>
+  <h1><%= t("coplan.settings.title") %></h1>
 </div>
+
+<%= render "language" if Coplan.configuration.ui_locales.size > 1 %>
 
 <%= render "appearance" %>
 

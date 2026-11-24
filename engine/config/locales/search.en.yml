@@ -1,0 +1,29 @@
+---
+en:
+  coplan:
+    search:
+      empty: Type to search plans.
+      label: Search plans and people
+      links_empty: No matches. Try another name or paste a link.
+      no_matches: Nothing matches “%{query}”.
+      people: People
+      person: Person
+      placeholder: Search plans and people…
+      plan: Plan
+      plans: Plans
+      private: Private
+      private_hint: Not shared — hidden from lists and search for others
+      profile: profile
+      recent: recent
+      recent_count:
+        one: "%{count} recent search available."
+        other: "%{count} recent searches available."
+      recent_searches: Recent searches
+      result_count:
+        one: "%{count} result available."
+        other: "%{count} results available."
+      results_label: Search results
+      searching: Searching…
+      shortcut: Search plans and people (%{shortcut})
+      title: Search
+      title_with_query: 'Search: %{query}'

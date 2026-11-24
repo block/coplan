@@ -1,4 +1,5 @@
-<% content_for(:title, "#{@plan.title} — Coplan") %>
+<% use_coplan_client_messages(:reader, :discussions, :review, :workspace) %>
+<% content_for(:title, t("coplan.documents.messages.title_coplan", title: @plan.title)) %>
 <% content_for(:head) do %>
   <%# Archive redirects to the containing folder. Back must fetch the new
       archived state instead of restoring a pre-archive Turbo snapshot. %>
@@ -30,7 +31,7 @@
   <div id="plan-nav-viewers" class="plan-viewers site-nav__viewers"><%= viewers_html %></div>
 <% end %>
 
-<%= turbo_stream_from @plan %>
+<%= coplan_plan_streams @plan %>
 
 <%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
     between the document and its footnote sections. Cold opens (direct link,
@@ -64,9 +65,9 @@
 <% update_details = (@section_updates || {}).transform_values { |version| section_update_details(version) } %>
 <div class="plan-document plan-document--titled card">
     <div class="plan-layout plan-layout--hide-resolved" data-controller="coplan--source-comments coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="coplan:request-text-anchors->coplan--text-selection#publishTextAnchors coplan:document-comment-count->coplan--content-nav#documentCommentCountChanged coplan:source-thread->coplan--source-comments#openThread coplan:resolved-visibility->coplan--source-comments#resolvedVisibilityChanged coplan:diagram-moved->coplan--source-comments#positionPanel keydown.esc@document->coplan--source-comments#dismiss:capture turbo:before-cache@document->coplan--source-comments#beforeCache coplan:mermaid-settled->coplan--source-comments#refresh coplan:content-updated->coplan--source-comments#refresh coplan:expander-opened->coplan--source-comments#refresh coplan:expander-closing->coplan--source-comments#expanderClosing resize@window->coplan--text-selection#reposition selectionchange@document->coplan--text-selection#selectionChanged coplan:editor-content-changed->coplan--text-selection#clearSelection keydown@document->coplan--text-selection#selectionKey keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread resize@window->coplan--content-nav#outlineResized coplan:show-outline@document->coplan--content-nav#showOutline coplan:content-updated->coplan--content-nav#contentUpdated coplan:content-updated->coplan--changed-sections#refresh coplan:section-update->coplan--changed-sections#refresh visibilitychange@document->coplan--changed-sections#visibilityChanged coplan:remote-change->coplan--content-nav#remoteChange coplan:deck-slide-changed->coplan--content-nav#slideChanged coplan:editor-content-changed->coplan--content-nav#editorContentChanged coplan:editor-preview-settled->coplan--text-selection#editorPreviewSettled coplan:mermaid-settled->coplan--text-selection#editorPreviewSettled hashchange@window->coplan--content-nav#hashChanged" data-coplan--content-nav-plan-id-value="<%= @plan.id %>" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-revision-value="<%= @plan.current_revision %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-updates-value="<%= update_details.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>">
-      <nav class="content-nav"<%= ' style="display:none"'.html_safe if @plan.current_content.blank? %> data-coplan--content-nav-target="sidebar" aria-label="Document outline" data-action="beforetoggle->coplan--content-nav#outlineClosing">
+      <nav class="content-nav"<%= ' style="display:none"'.html_safe if @plan.current_content.blank? %> data-coplan--content-nav-target="sidebar" aria-label="<%= t("coplan.common.document_outline") %>" data-action="beforetoggle->coplan--content-nav#outlineClosing">
         <div class="content-nav__header">
-          <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="Hide table of contents" title="Toggle (t)">✕</button>
+          <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="<%= t("coplan.common.hide_table_of_contents") %>" title="<%= t("coplan.common.toggle_t") %>">✕</button>
         </div>
         <ul class="content-nav__list" data-coplan--content-nav-target="list" data-action="keydown->coplan--content-nav#outlineKeydown"></ul>
         <ul class="content-nav__list content-nav__list--footnotes">
@@ -78,13 +79,13 @@
               visit, so the bare anchor refetched and re-rendered the page —
               and on a deck the re-rendered slides settle their heights
               asynchronously, landing the scroll nowhere near the section. %>
-          <li><a href="#footnote-references" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">References <%= plan_section_count(reference_count, id: "nav-references-count") %></a></li>
-          <li><a href="#footnote-attachments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Attachments <%= plan_section_count(@attachments.size, id: "nav-attachments-count") %></a></li>
-          <li><a href="#footnote-approvals" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Reviews <%= plan_section_count(@plan.review_requests.count, id: "nav-approvals-count") %></a></li>
-          <li><a href="#plan-general-comments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Comments <%= plan_section_count(@threads.count { |thread| !thread.anchored? && !thread.out_of_date? }, id: "nav-comments-count", data: { "coplan--content-nav-target": "commentsCount" }) %></a></li>
+          <li><a href="#footnote-references" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection"><%= t("coplan.documents.references") %> <%= plan_section_count(reference_count, id: "nav-references-count") %></a></li>
+          <li><a href="#footnote-attachments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection"><%= t("coplan.documents.attachments") %> <%= plan_section_count(@attachments.size, id: "nav-attachments-count") %></a></li>
+          <li><a href="#footnote-approvals" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection"><%= t("coplan.common.reviews") %> <%= plan_section_count(@plan.review_requests.count, id: "nav-approvals-count") %></a></li>
+          <li><a href="#plan-general-comments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection"><%= t("coplan.documents.comments") %> <%= plan_section_count(@threads.count { |thread| !thread.anchored? && !thread.out_of_date? }, id: "nav-comments-count", data: { "coplan--content-nav-target": "commentsCount" }) %></a></li>
         </ul>
       </nav>
-      <button type="button" class="content-nav-show-btn"<%= ' style="display:none"'.html_safe if @plan.current_content.blank? %> data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
+      <button type="button" class="content-nav-show-btn"<%= ' style="display:none"'.html_safe if @plan.current_content.blank? %> data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="<%= t("coplan.common.show_table_of_contents_t") %>">☰ <kbd>t</kbd></button>
 
       <%# Mermaid swaps its source block for rendered SVG asynchronously —
           re-run anchor highlighting once each diagram settles so comments
@@ -99,7 +100,7 @@
             matter below shares the column but must not offer comment
             anchors — they'd never resolve against the document body. %>
         <div class="plan-reader" data-coplan--inline-editor-target="reader">
-          <% if @plan.current_content.blank? %><div class="empty-state"><p>This plan has no content yet.</p></div><% end %>
+          <% if @plan.current_content.blank? %><div class="empty-state"><p><%= t("coplan.documents.this_plan_has_no_content") %></p></div><% end %>
         <div data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleContentSettled coplan:highlight-settled->coplan--text-selection#handleContentSettled">
           <div id="plan-content-body"
                data-controller="coplan--live-update"
@@ -111,19 +112,20 @@
         </div>
         </div>
         <% if allowed_to?(@plan, :edit_content?) %>
+          <% use_coplan_client_messages(:editor) %>
           <div class="inline-editor" data-coplan--inline-editor-target="editor" hidden>
             <template data-coplan--inline-editor-target="template"><%= render "coplan/plans/editor_form", inline_editor: true %></template>
           </div>
           <p class="inline-editor__error" data-coplan--inline-editor-target="error" role="alert" hidden></p>
         <% end %>
         <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
-          <button type="button" class="comment-popover__action" data-action="coplan--text-selection#openCommentForm" title="Comment on selected text (C)">
+          <button type="button" class="comment-popover__action" data-action="coplan--text-selection#openCommentForm" title="<%= t("coplan.documents.comment_on_selected_text_c") %>">
             <%# Lucide message-circle-plus, copyright 2026 Lucide Icons, ISC license. %>
             <svg class="comment-popover__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
               <path d="M8 12h8M12 8v8"/>
             </svg>
-            Comment <kbd>C</kbd>
+            <%= t("coplan.common.comment") %> <kbd>C</kbd>
           </button>
         </div>
         <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
@@ -142,7 +144,7 @@
                role="dialog"
                data-coplan--reference-preview-target="popover"
                data-action="mouseenter->coplan--reference-preview#popoverEnter mouseleave->coplan--reference-preview#popoverLeave">
-          <button type="button" class="reference-preview__close" aria-label="Close reference preview" data-action="coplan--reference-preview#dismiss">×</button>
+          <button type="button" class="reference-preview__close" aria-label="<%= t("coplan.documents.close_reference_preview") %>" data-action="coplan--reference-preview#dismiss">×</button>
           <strong id="reference-preview-title" class="reference-preview__title" data-coplan--reference-preview-target="title"></strong>
           <div class="reference-preview__body" data-coplan--reference-preview-target="body"></div>
         </aside>
@@ -152,7 +154,7 @@
       </div>
       <%# Avatar markers in the page margin beside the text each discussion is
           about. Positioned outside the card, so the text keeps its width. %>
-      <aside class="comment-margin" aria-label="Discussions" hidden
+      <aside class="comment-margin" aria-label="<%= t("coplan.documents.discussions") %>" hidden
              data-controller="coplan--comment-margin"
              data-action="coplan:deck-slide-changed@document->coplan--comment-margin#refresh scroll@document->coplan--comment-margin#position:capture coplan:anchors-updated@document->coplan--comment-margin#refresh coplan:resolved-visibility@document->coplan--comment-margin#refresh resize@window->coplan--comment-margin#position toggle@document->coplan--comment-margin#toggled:capture mouseover@document->coplan--comment-margin#hoverChanged"></aside>
     </div>

@@ -1,8 +1,8 @@
 <%= turbo_frame_tag "inbox-panel" do %>
 <div class="inbox-panel__header">
-  <span class="inbox-panel__title">Inbox</span>
+  <span class="inbox-panel__title"><%= t("coplan.notifications.inbox") %></span>
   <% if @unread_count > 0 %>
-    <%= button_to "Mark all read", mark_all_read_notifications_path, method: :post, class: "btn btn--secondary btn--sm", form: { data: { turbo_stream: true } } %>
+    <%= button_to t("coplan.notifications.messages.mark_all_read"), mark_all_read_notifications_path, method: :post, class: "btn btn--secondary btn--sm", form: { data: { turbo_stream: true } } %>
   <% end %>
 </div>
 
@@ -28,7 +28,7 @@
               <% if triggering_comment %>
                 <%= comment_author_name(triggering_comment) %>
               <% else %>
-                <%= thread.created_by_user&.name || "Someone" %>
+                <%= thread.created_by_user&.name || t("coplan.notifications.messages.someone") %>
               <% end %>
             </span>
             <span class="inbox-row__time"><%= time_ago_in_words(notification.created_at) %></span>
@@ -37,14 +37,14 @@
             <% if triggering_comment %>
               <%= truncate(triggering_comment.public_body_markdown, length: 100) %>
             <% else %>
-              Thread <%= notification.reason.humanize.downcase %>
+              <%= t("coplan.notifications.thread") %> <%= notification_reason_label(notification.reason).downcase %>
             <% end %>
           </div>
           <div class="inbox-row__footer">
             <span class="inbox-row__plan"><%= notification.plan.title %></span>
-            <span class="badge badge--<%= thread.status %>"><%= thread.status %></span>
+            <span class="badge badge--<%= thread.status %>"><%= thread.status == "resolved" ? t("coplan.interface.thread_resolved") : t("coplan.interface.thread_open") %></span>
             <% if triggering_comment&.agent? %>
-              <span class="badge badge--agent">agent</span>
+              <span class="badge badge--agent"><%= t("coplan.common.agent") %></span>
             <% end %>
           </div>
         </div>
@@ -54,7 +54,7 @@
   </div>
 <% else %>
   <div class="inbox-panel__empty">
-    No unread notifications
+    <%= t("coplan.notifications.no_unread_notifications") %>
   </div>
 <% end %>
 <% end %>

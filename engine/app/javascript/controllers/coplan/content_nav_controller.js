@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { registerShortcuts, commandFor } from "coplan/shortcuts"
 import { readableText } from "coplan/math_text"
@@ -135,8 +136,8 @@ export default class extends Controller {
       permalink.href = sectionUrl.href
       permalink.dataset.action = "click->coplan--content-nav#copySectionLink"
       permalink.dataset.sectionTitle = headingText
-      permalink.setAttribute("aria-label", `Copy link to ${headingText}`)
-      permalink.title = "Copy link to this section"
+      permalink.setAttribute("aria-label", t("coplan.client.reader.copy_section_link_named", { title: headingText }))
+      permalink.title = t("coplan.client.reader.copy_section_link")
       permalink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
       heading.appendChild(permalink)
 
@@ -280,7 +281,7 @@ export default class extends Controller {
       button.type = "button"
       button.className = "content-nav__disclosure"
       button.setAttribute("aria-controls", group.id)
-      button.setAttribute("aria-label", `${entry.text} sub-sections`)
+      button.setAttribute("aria-label", t("coplan.client.reader.subsections", { title: entry.text }))
       button.dataset.action = "coplan--content-nav#toggleSection"
       button.innerHTML = CHEVRON
       entry.row.prepend(button)
@@ -567,15 +568,15 @@ export default class extends Controller {
 
     try {
       await navigator.clipboard.writeText(link.href)
-      this.flashSectionLink(link, "copied", "Copied link to section")
+      this.flashSectionLink(link, "copied", t("coplan.client.reader.section_link_copied"))
     } catch {
-      this.flashSectionLink(link, "failed", "Copy failed")
+      this.flashSectionLink(link, "failed", t("coplan.client.reader.copy_failed"))
     }
   }
 
   flashSectionLink(link, state, label) {
     link.dataset.copyState = state
-    link.dataset.copyMessage = state === "copied" ? "Copied!" : "Copy failed"
+    link.dataset.copyMessage = state === "copied" ? t("coplan.client.reader.copied") : t("coplan.client.reader.copy_failed")
     link.setAttribute("aria-label", label)
     link.title = label
 
@@ -583,8 +584,8 @@ export default class extends Controller {
     link._copyResetTimer = setTimeout(() => {
       link.removeAttribute("data-copy-state")
       link.removeAttribute("data-copy-message")
-      link.setAttribute("aria-label", `Copy link to ${link.dataset.sectionTitle}`)
-      link.title = "Copy link to this section"
+      link.setAttribute("aria-label", t("coplan.client.reader.copy_section_link_named", { title: link.dataset.sectionTitle }))
+      link.title = t("coplan.client.reader.copy_section_link")
     }, 2000)
   }
 
@@ -746,7 +747,7 @@ export default class extends Controller {
       const badge = document.createElement("span")
       badge.className = "content-nav__badge content-nav__badge--open"
       badge.textContent = count
-      if (hidden) badge.title = `${count} open discussion${count === 1 ? "" : "s"}, including collapsed sub-sections`
+      if (hidden) badge.title = t("coplan.client.reader.open_discussions", { count })
       link.appendChild(badge)
     })
   }

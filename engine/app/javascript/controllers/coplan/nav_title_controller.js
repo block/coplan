@@ -18,7 +18,7 @@ export default class extends Controller {
     this.head = document.querySelector(".plan-layout__content")
     this.textEl = this.element.querySelector(".site-nav__doc-title-text")
     this.editEl = this.element.querySelector(".site-nav__edit")
-    if (this.editEl) this.editEl.hidden = !document.querySelector('#plan-toolbar a[title^="Edit this document"]')
+    if (this.editEl) this.editEl.hidden = !document.querySelector('#plan-toolbar a[data-coplan--inline-editor-target~="trigger"]')
     this._observeAnchor()
 
     if (this.head) {

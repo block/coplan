@@ -1,6 +1,7 @@
 require "coplan/development_seed"
 
 class SessionsController < ApplicationController
+  around_action :use_ui_locale
   skip_before_action :authenticate_user!, only: [ :new, :create ]
 
   def new
@@ -24,11 +25,24 @@ class SessionsController < ApplicationController
 
     session[:user_id] = user.id
     flash.delete(:alert)
-    redirect_to coplan.root_path, notice: "Signed in as #{user.name}."
+    redirect_to coplan.root_path, notice: I18n.t("coplan.sign_in.messages.signed_in_as_name", name: user.name)
   end
 
   def destroy
+    language = session[:coplan_ui_locale]
     reset_session
-    redirect_to sign_in_path, notice: "Signed out."
+    session[:coplan_ui_locale] = language if language.present?
+    redirect_to sign_in_path, notice: I18n.t("coplan.sign_in.messages.signed_out")
+  end
+
+  private
+
+  def use_ui_locale(&action)
+    locale = Coplan::UiLocale.for_request(request)
+    I18n.with_locale(locale, &action)
+    return unless response.media_type == "text/html"
+
+    response.headers["Content-Language"] = locale.to_s
+    response.headers["Vary"] = "Accept-Language, Cookie" if Coplan.configuration.ui_locales.many?
   end
 end

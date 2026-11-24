@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 // HTML5 drag & drop for the workspace's filing tree. Two payloads:
@@ -320,10 +321,10 @@ export default class extends Controller {
     if (payload.type === FOLDER_MIME) {
       if (payload.id && payload.id === targetFolderId) return
       if ((payload.parentId || "") === targetFolderId) return
-      this.#patch(payload.url, { parent_id: targetFolderId }, "Folder moved.", target)
+      this.#patch(payload.url, { parent_id: targetFolderId }, t("coplan.client.workspace.folder_moved"), target)
     } else {
       if ((payload.folderId || "") === targetFolderId) return
-      this.#patch(payload.url, { folder_id: targetFolderId }, "Plan moved.", target)
+      this.#patch(payload.url, { folder_id: targetFolderId }, t("coplan.client.workspace.plan_moved"), target)
     }
   }
 
@@ -361,7 +362,7 @@ export default class extends Controller {
     })
       .then(async response => {
         const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(data.error || "Move failed")
+        if (!response.ok) throw new Error(data.error || t("coplan.client.workspace.move_failed"))
         // Re-render so breadcrumbs and folder/group counts stay accurate,
         // then toast on the fresh page.
         const message = data.message || fallbackMessage

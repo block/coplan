@@ -1,0 +1,76 @@
+---
+en:
+  coplan:
+    client:
+      discussions:
+        added_to_draft: Added to draft. Review before sending.
+        adding_to_draft: Adding to your draft…
+        comment_by_voice: Comment by voice
+        copied: Copied
+        copy_failed: Couldn’t copy
+        copy_link: Copy link
+        copy_link_failed: Could not copy link — try again
+        dictate: Dictate
+        dictation_timed_out: Transcription timed out. Try again.
+        dictation_unavailable: Dictation is unavailable in this browser. Try Chrome or configure server transcription.
+        discussion_started_by: Discussion started by %{name}
+        discussions_in_section:
+          one: "%{count} discussion in this section, open the first"
+          other: "%{count} discussions in this section, open the first"
+        draft_changed: Draft changed. Cancel and reselect text.
+        edit_failed: Couldn't save this edit. Please try again.
+        edit_offline: Couldn't reach the server. Your edit is still here; try saving again.
+        element_discussions:
+          one: "%{label}. %{count} discussions. Press C or Enter to comment."
+          other: "%{label}. %{count} discussions. Press C or Enter to comment."
+        hold_to_talk: Comment by voice — or hold %{shortcut} to talk
+        input_changed: Audio input changed.
+        input_unsupported: Selected input unsupported
+        invalid_link: Enter a URI such as https://… or codex://… without spaces.
+        link_copied: Link copied
+        link_help: Search plans and people, or paste a link.
+        link_search_unavailable: Search unavailable. You can still paste a link.
+        listening: Listening…
+        mic_unavailable: Mic unavailable
+        microphone_permission: Allow microphone access to see input names.
+        microphone_start_failed: Couldn't start the microphone. Please try again.
+        microphone_use: Used for both comment dictation and the voice button.
+        no_comments: No comments yet.
+        no_matches: No matches
+        no_open_discussions: No open discussions.
+        no_resolved_discussions: No resolved discussions.
+        no_speech: No speech heard. Try again.
+        no_username: no username — can't mention
+        open_discussion: Open discussion %{position}
+        outdated_discussions: Outdated element comments (%{count})
+        post_failed: Couldn't post your comment. Your draft is still here. Try again.
+        post_offline: Couldn't reach the server. Your draft is still here. Try again when the connection is back.
+        reacted_with: "%{who} reacted with %{reaction}"
+        reaction_failed: Couldn't save your reaction. Please try again.
+        requesting_microphone: Requesting microphone access…
+        retry: Try again
+        save_first_voice: Save the document before commenting by voice
+        saved_microphone_unsupported: Saved microphone (unsupported)
+        saved_microphone_unusable: This browser cannot use the saved microphone. Choose System default to resume dictation.
+        saving: Saving…
+        search_unavailable: Search unavailable
+        searching: Searching…
+        selected_microphone_unavailable: Selected microphone (unavailable)
+        stop: Stop
+        system_default: System default
+        system_microphone_only: This browser uses its default microphone. Change the input in browser or system settings.
+        tidying: Tidying up…
+        transcribing: Transcribing…
+        transcription_failed: Couldn't transcribe. Please try again.
+        unnamed: "(unnamed)"
+        voice_agent_started: Agent picked it up…
+        voice_anchor_added: Comment added to “%{quote}”
+        voice_comment_added: Comment added to document
+        voice_comments_added: "%{count} comments added"
+        voice_done: Done — take a look.
+        voice_input_unusable: This browser cannot use the selected microphone for speech recognition. Choose System default or try desktop Chrome.
+        voice_not_heard: Hmm — didn't hear anything
+        voice_not_understood: Couldn't make that out
+        voice_received: Got it.
+        voice_transcriber_unreachable: Couldn't reach the transcriber. Check your connection and try again.
+        voice_transcription_timed_out: Transcription timed out. Please try again.

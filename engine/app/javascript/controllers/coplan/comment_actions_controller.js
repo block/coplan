@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 // Reveals per-viewer edit and delete actions when this comment
@@ -36,7 +37,7 @@ export default class extends Controller {
     const button = form.querySelector('[type="submit"]')
     const label = button.innerHTML
     button.disabled = true
-    button.textContent = "Saving…"
+    button.textContent = t("coplan.client.discussions.saving")
     const error = form.querySelector(".comment-form__error")
     error.textContent = ""
     try {
@@ -47,12 +48,12 @@ export default class extends Controller {
       const html = await response.text()
       if (!response.ok) {
         const stream = new DOMParser().parseFromString(html, "text/html").querySelector("turbo-stream template")
-        error.textContent = stream?.content.textContent || "Couldn't save this edit. Please try again."
+        error.textContent = stream?.content.textContent || t("coplan.client.discussions.edit_failed")
         return
       }
       window.Turbo.renderStreamMessage(html)
     } catch {
-      error.textContent = "Couldn't reach the server. Your edit is still here; try saving again."
+      error.textContent = t("coplan.client.discussions.edit_offline")
     } finally {
       this.saving = false
       button.disabled = false

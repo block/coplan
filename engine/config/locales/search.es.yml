@@ -1,0 +1,29 @@
+---
+es:
+  coplan:
+    search:
+      empty: Escribe para buscar planes.
+      label: Buscar planes y personas
+      links_empty: No hay coincidencias. Prueba con otro nombre o pega un enlace.
+      no_matches: No hay coincidencias para «%{query}».
+      people: Personas
+      person: Persona
+      placeholder: Buscar planes y personas…
+      plan: Plan
+      plans: Planes
+      private: Privado
+      private_hint: Este plan no se ha compartido. Otras personas no lo ven en sus listas ni en los resultados de búsqueda.
+      profile: perfil
+      recent: reciente
+      recent_count:
+        one: "%{count} búsqueda reciente disponible."
+        other: "%{count} búsquedas recientes disponibles."
+      recent_searches: Búsquedas recientes
+      result_count:
+        one: "%{count} resultado disponible."
+        other: "%{count} resultados disponibles."
+      results_label: Resultados de búsqueda
+      searching: Buscando…
+      shortcut: Buscar planes y personas (%{shortcut})
+      title: Buscar
+      title_with_query: 'Buscar: %{query}'

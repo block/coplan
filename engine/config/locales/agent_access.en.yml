@@ -1,0 +1,49 @@
+---
+en:
+  coplan:
+    agent_access:
+      agent_setup: Agent setup
+      allow_this_computer_to_use: Allow this computer to use Coplan?
+      connect_this_computer: Connect this computer
+      connect_your_agent_in_three: Connect your agent in three steps
+      connect_your_ai_agent: Connect your AI agent
+      connect_your_computer: Connect your computer
+      connection_approval: Connection approval
+      connection_approved: Connection approved
+      connection_declined: Connection declined
+      connection_name_reported_by_your: 'Connection name reported by your local helper:'
+      connection_request_expired: Connection request expired
+      copy_the_setup_url: Copy the setup URL
+      curious_about_what_your_agent: Curious about what your agent will read?
+      enter_your_connection_code: Enter your connection code
+      give_it_to_your_agent: Give it to your agent
+      give_this_url_to_your: Give this URL to your agent and let it set up the Coplan skill.
+      let_it_set_up_the: Let it set up the skill
+      local_agent_setup: Local agent setup
+      messages:
+        agent_access_settings: Agent access settings
+        checking_pending: Checking…
+        confirm_that_the_code_matches: Confirm that the code matches your local agent.
+        connect_your_ai_agent_coplan: Connect your AI agent — Coplan
+        connect_your_computer_coplan: Connect your computer · Coplan
+        connecting_pending: Connecting…
+        connection_code: Connection code
+        continue: Continue
+        continue_after_signing_in: Continue after signing in
+        decline: Decline
+        declining_pending: Declining…
+        view_the_agent_instructions: View the agent instructions
+      no_new_access_can_be: No new access can be granted from this request. Ask your local agent to start setup again.
+      only_approve_a_request_you: Only approve a request you started. The code must match the one shown by your local agent.
+      paste_the_url_into_your: Paste the URL into your agent’s chat.
+      return_to_your_local_agent: Return to your local agent. It will save the credential on your computer. You can revoke its personal token in Settings at any time.
+      sign_in_in_a_new: Sign in in a new tab, then return here and continue. Opening this page does not grant access.
+      sign_in_to_approve_this: Sign in to approve this connection
+      start_setup_in_your_local: Start setup in your local agent, then enter the code it shows you.
+      that_connection_code_is_not: That connection code is not valid. Ask your local agent to start setup again.
+      this_lets_local_tools_read: This lets local tools read and change plans and post comments under your account’s permissions. They can mint their own session tokens. Access lasts until you revoke this computer’s personal token in Settings.
+      this_link_goes_straight_to: This link goes straight to the guide for your agent.
+      this_matches_the_code_shown: This matches the code shown by my local agent.
+      this_request_is_no_longer: This request is no longer available
+      your_agent_saves_the_coplan: Your agent saves the Coplan skill and fetches current instructions when it needs them.
+      your_local_agent_will_receive: Your local agent will receive the decision. No credential was created.

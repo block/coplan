@@ -1,0 +1,18 @@
+---
+en:
+  coplan:
+    errors:
+      connect_in_to_out_the: Connect IN to OUT. The blue line shows how far you’ve made it.
+      in: IN
+      make_a_way_back: Make a way back.
+      messages:
+        page_not_found_coplan: Page not found — Coplan
+      out: OUT
+      page_not_found: Page not found
+      path_puzzle_connect_the_left: Path puzzle. Connect the left edge of row 1, column 1 to the right edge of row 4, column 4.
+      rotate_the_tiles_to_connect: Rotate the tiles to connect IN to OUT.
+      start_over: Start over
+      take_a_puzzle_break: Take a puzzle break
+      tap_to_turn_keyboard_arrows: 'Tap to turn · Keyboard: arrows + Enter'
+      the_puzzle_needs_javascript_use: The puzzle needs JavaScript. Use the Coplan logo above to head home.
+      this_page_may_have_moved: This page may have moved or been removed.

@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 const preferenceKey = "coplan:microphone"
 
 export function selectedMicrophone() {
@@ -25,16 +26,16 @@ export function supportsRecognitionTrack() {
 export function microphoneError(error) {
   const code = error?.error || error?.name
   return {
-    NotAllowedError: "Mic blocked. Allow microphone access in your browser and system privacy settings.",
-    SecurityError: "Mic blocked. Allow microphone access in your browser and system privacy settings.",
-    NotFoundError: "No microphone found. Connect an input and choose it in Microphone settings.",
-    OverconstrainedError: "The selected microphone is unavailable. Choose another audio input.",
-    NotReadableError: "Couldn't open the microphone. Check whether another app is using it, or choose another input.",
-    "not-allowed": "Mic blocked. Allow microphone access in your browser and system privacy settings.",
-    "audio-capture": "Couldn't capture microphone audio. Check Microphone settings and your system input.",
-    "no-speech": "No speech heard. Check your audio input and try again.",
-    "network": "The browser's speech service couldn't connect. Try dictation in Chrome, or enable server transcription.",
-    "service-not-allowed": "Speech recognition is unavailable in this browser. Try Chrome, or enable server transcription.",
-    "language-not-supported": "Speech recognition doesn't support this language. Try another browser or enable server transcription."
-  }[code] || `Dictation couldn't start${code ? ` (${code})` : ""}. Check Microphone settings and try again.`
+    NotAllowedError: t("coplan.client.common.mic_blocked"),
+    SecurityError: t("coplan.client.common.mic_blocked"),
+    NotFoundError: t("coplan.client.common.mic_not_found"),
+    OverconstrainedError: t("coplan.client.common.mic_unavailable"),
+    NotReadableError: t("coplan.client.common.mic_open_failed"),
+    "not-allowed": t("coplan.client.common.mic_blocked"),
+    "audio-capture": t("coplan.client.common.mic_capture_failed"),
+    "no-speech": t("coplan.client.common.mic_no_speech"),
+    "network": t("coplan.client.common.mic_connection_failed"),
+    "service-not-allowed": t("coplan.client.common.mic_recognition_unavailable"),
+    "language-not-supported": t("coplan.client.common.mic_language_unsupported")
+  }[code] || t("coplan.client.common.dictation_start_failed", { detail: code ? " (" + code + ")" : "" })
 }

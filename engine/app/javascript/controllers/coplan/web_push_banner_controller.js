@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import * as WebPush from "coplan/web_push"
 
@@ -52,12 +53,12 @@ export default class extends Controller {
   }
 
   async enable() {
-    this._setMessage("Enabling…", "")
+    this._setMessage(t("coplan.client.common.enabling_notifications"), "")
     try {
       await WebPush.subscribe()
       this._setMessage(
-        "All set!",
-        "You'll get a desktop notification when someone replies."
+        t("coplan.client.common.notifications_ready"),
+        t("coplan.client.common.reply_notifications")
       )
       this.actionsTarget.hidden = true
       // Mark permanent so we never nag again on this device — they're already in.
@@ -65,7 +66,7 @@ export default class extends Controller {
       setTimeout(() => { this.element.hidden = true }, 4000)
     } catch (err) {
       this._setMessage(
-        "Couldn't enable notifications.",
+        t("coplan.client.common.enable_notifications_failed"),
         this._friendlyError(err)
       )
     }
@@ -93,7 +94,7 @@ export default class extends Controller {
 
   _friendlyError(err) {
     const msg = err?.message || String(err)
-    if (/permission/i.test(msg)) return "Permission was not granted."
+    if (/permission/i.test(msg)) return t("coplan.client.common.notification_permission_denied")
     return msg
   }
 }

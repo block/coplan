@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { captureViewport, restoreViewport } from "coplan/viewport_anchor"
 import { renderedBlocks } from "coplan/content_sections"
@@ -348,8 +349,7 @@ function settleFlashes(root) {
 function showStaleBanner(targetEl, revision) {
   let banner = document.getElementById("plan-stale-banner")
   if (banner) {
-    const span = banner.querySelector("[data-revision]")
-    if (span && revision) span.textContent = String(revision)
+    if (revision) updateStaleMessage(banner, revision)
     return
   }
 
@@ -361,16 +361,23 @@ function showStaleBanner(targetEl, revision) {
   banner.innerHTML = `
     <div class="plan-stale-banner__message">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-      This plan was updated${revision ? ` (now at revision <strong data-revision>${revision}</strong>)` : ""}.
-      Your draft is preserved here — reload to see the latest version.
+      <span data-stale-update></span>
     </div>
-    <button type="button" class="btn btn--primary btn--sm plan-stale-banner__reload">Reload</button>
+    <button type="button" class="btn btn--primary btn--sm plan-stale-banner__reload"></button>
   `
+  banner.querySelector(".plan-stale-banner__reload").textContent = t("coplan.client.reader.reload")
+  updateStaleMessage(banner, revision)
   banner.querySelector(".plan-stale-banner__reload").addEventListener("click", () => {
     window.location.reload()
   })
 
   targetEl.parentNode.insertBefore(banner, targetEl)
+}
+
+function updateStaleMessage(banner, revision) {
+  banner.querySelector("[data-stale-update]").textContent = revision
+    ? t("coplan.client.reader.plan_updated_revision", { revision })
+    : t("coplan.client.reader.plan_updated")
 }
 
 function clearStaleBanner() {

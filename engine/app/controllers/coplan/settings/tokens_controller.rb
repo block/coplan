@@ -19,7 +19,7 @@ module Coplan
           format.turbo_stream
           format.html do
             flash[:raw_token] = @raw_token
-            flash[:notice] = "Token created. Copy it now — it won't be shown again."
+            flash[:notice] = I18n.t("coplan.access.messages.token_created_copy_it_now")
             redirect_to settings_tokens_path, status: :see_other
           end
         end
@@ -47,7 +47,7 @@ module Coplan
           format.turbo_stream
           format.html do
             destination = @sessions_view ? settings_agent_sessions_path(filter: @filter, q: @query, page: @page) : settings_tokens_path(page: (@page if @page > 1))
-            redirect_to destination, notice: "Access revoked.", status: :see_other
+            redirect_to destination, notice: I18n.t("coplan.access.messages.access_revoked"), status: :see_other
           end
         end
       end

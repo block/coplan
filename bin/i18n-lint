@@ -1,0 +1,68 @@
+#!/usr/bin/env ruby
+
+require "psych"
+
+class LocaleLint
+  def initialize(locales)
+    @locales = locales
+    @locations = {}
+  end
+
+  def check(file)
+    locale = File.basename(file)[/\A.+\.([a-zA-Z0-9-]+)\.yml\z/, 1]
+    abort "#{file}: expected a <surface>.<locale>.yml catalog" unless locale
+    abort "#{file}: add #{locale} to the checked locales in config/i18n-tasks.yml" unless @locales.include?(locale)
+
+    # safe_load rejects tags and aliases. Walk the syntax tree as well, since
+    # the loaded hash has already discarded any duplicate YAML keys.
+    catalog = Psych.safe_load_file(file)
+    unless catalog.is_a?(Hash) &&
+        catalog.keys == [ locale ] && catalog[locale].is_a?(Hash) &&
+        catalog[locale].keys == [ "coplan" ] && catalog[locale]["coplan"].is_a?(Hash)
+      abort "#{file}: expected a catalog under #{locale}.coplan"
+    end
+
+    document, extra = Psych.parse_stream(File.read(file), filename: file).children
+    abort "#{file}: expected one YAML document" if extra
+    check_node(document.root, catalog, file, [])
+  rescue Psych::Exception => error
+    abort "#{file}: #{error.message}"
+  end
+
+  private
+
+  def check_node(node, value, file, path)
+    location = "#{file}:#{node.start_line + 1}"
+    key_path = path.join(".")
+    first_node, first_location = @locations[key_path]
+    if first_node && !(node.is_a?(Psych::Nodes::Mapping) && first_node == node.class)
+      abort "#{location}: #{key_path} is also defined at #{first_location}"
+    end
+    @locations[key_path] ||= [ node.class, location ]
+
+    if node.is_a?(Psych::Nodes::Mapping) && value.is_a?(Hash) && !value.empty?
+      sibling_keys = {}
+      node.children.each_slice(2) do |key, child|
+        key_location = "#{file}:#{key.start_line + 1}"
+        name = key.value if key.is_a?(Psych::Nodes::Scalar)
+        abort "#{key_location}: expected a simple string key" unless name&.match?(/\A[\w-]+\z/) && value.key?(name)
+        abort "#{key_location}: duplicate key #{(path + [ name ]).join('.')}" if sibling_keys[name]
+        sibling_keys[name] = true
+        check_node(child, value.fetch(name), file, path + [ name ])
+      end
+    elsif node.is_a?(Psych::Nodes::Scalar) && value.is_a?(String) && !value.strip.empty?
+      if value.match?(/<\/?[a-z!][^>]*>/i)
+        abort "#{location}: #{key_path} must be plain text. Put markup in the view."
+      end
+    else
+      abort "#{location}: #{key_path} must be a nonempty string or mapping"
+    end
+  end
+end
+
+Dir.chdir(File.expand_path("..", __dir__)) do
+  config = Psych.safe_load_file("config/i18n-tasks.yml")
+  lint = LocaleLint.new(config.fetch("locales"))
+  Dir.glob("engine/config/locales/**/*").select { |path| File.file?(path) }.each { |file| lint.check(file) }
+  exec "bundle", "exec", "i18n-tasks", "health"
+end

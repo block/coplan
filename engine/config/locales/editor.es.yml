@@ -1,0 +1,55 @@
+---
+es:
+  coplan:
+    editor:
+      an_older_draft_is_available: Hay un borrador anterior en este dispositivo. No se pudo verificar su autoría.
+      citation: Cita
+      citation_text_and_source_links: Texto de la cita y enlaces a las fuentes
+      close_citation_editor: Cerrar editor de citas
+      close_editor: Cerrar editor
+      code_block: Bloque de código
+      code_languages: Lenguajes de programación
+      discard_my_unsaved_changes: Descartar mis cambios sin guardar
+      discard_recovered_draft: Descartar borrador recuperado
+      dismiss: Cerrar
+      dismiss_upload_errors: Cerrar errores de carga
+      dual: Doble
+      editing_mode: Modo de edición
+      editor: Editor
+      embed: Incrustar
+      heading_1: Encabezado 1
+      heading_2: Encabezado 2
+      heading_3: Encabezado 3
+      insert: Insertar
+      insert_code_block: Insertar bloque de código
+      insert_content: Insertar contenido
+      messages:
+        block_quote: Cita en bloque
+        bold: Negrita
+        bullet_list: Lista con viñetas
+        document_markdown: Markdown del documento
+        inline_code: Código en línea
+        italic: Cursiva
+        link: Enlace
+        numbered_list: Lista numerada
+        plain_text: Texto sin formato
+        redo: Rehacer
+        undo: Deshacer
+      more_formatting_tools: Más herramientas de formato
+      new_code_language: Lenguaje del nuevo bloque de código
+      normal_text: Texto normal
+      opening_document: Abriendo documento
+      opening_document_pending: Abriendo documento…
+      paragraph_style: Estilo de párrafo
+      presentation: Presentación
+      raw: Markdown
+      recovered_an_unsaved_draft: Se recuperó un borrador sin guardar.
+      replace_reviewed_version_with_my: Reemplazar la versión revisada con mi borrador
+      retry_sync: Reintentar sincronización
+      review_older_draft: Revisar borrador anterior
+      review_the_saved_version: Revisar la versión guardada
+      save_citation: Guardar cita
+      search_languages_pending: Buscar lenguajes…
+      text_formatting: Formato de texto
+      toggle_table_of_contents: Mostrar u ocultar el índice
+      toggle_table_of_contents_t: Mostrar u ocultar el índice (t)

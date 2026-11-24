@@ -1,0 +1,13 @@
+---
+es:
+  coplan:
+    admin:
+      comment_permanently_deleted: Comentario eliminado definitivamente.
+      delete_failed: No se pudo eliminar de forma permanente. Vuelve a intentarlo.
+      deleting: Eliminando de forma permanente…
+      messages:
+        back_to_comments: Volver a los comentarios
+        permanently_delete_comment: Eliminar comentario definitivamente
+        type_delete_to_confirm_permanent: Escribe DELETE para confirmar la eliminación definitiva
+      permanent_deletion_removes_the_comment: La eliminación definitiva borra el comentario, sus reacciones, las notificaciones, los eventos de agentes en cola y las vistas previas conservadas en el historial de eliminación. Esta acción es irreversible.
+      this_comment_is_soft_deleted: Este comentario está marcado como eliminado. Los administradores pueden ver el texto original arriba.

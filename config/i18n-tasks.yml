@@ -1,0 +1,16 @@
+base_locale: en
+locales: [en, es]
+
+data:
+  read:
+    - engine/config/locales/**/*.%{locale}.yml
+  yaml:
+    write:
+      line_width: -1
+
+search:
+  paths:
+    - engine/app
+    - app
+  only: ["*.rb", "*.erb", "*.js"]
+  prism: ruby

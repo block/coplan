@@ -4,24 +4,24 @@
       create action replaces this container via turbo_stream, which closes
       the lightbox the moment the reference lands. %>
   <% if current_user %>
-    <%= render layout: "coplan/shared/add_modal", locals: { id: "add-reference-modal", title: "Add a reference" } do %>
+    <%= render layout: "coplan/shared/add_modal", locals: { id: "add-reference-modal", title: t("coplan.documents.add_a_reference") } do %>
       <%= form_with url: plan_references_path(plan), method: :post, class: "add-modal__form" do |f| %>
         <div class="form-group">
-          <%= f.label :url, "URL", for: "reference_url" %>
+          <%= f.label :url, t("coplan.documents.messages.url"), for: "reference_url" %>
           <%# autofocus is honored by showPopover() — keyboard users land in
               the form instead of staying on the trigger button. %>
           <%= f.text_field :url, id: "reference_url", placeholder: "https://...", required: true, autofocus: true, name: "reference[url]" %>
         </div>
         <div class="form-group">
-          <%= f.label :title, "Title", for: "reference_title" %>
-          <%= f.text_field :title, id: "reference_title", placeholder: "Optional", name: "reference[title]" %>
+          <%= f.label :title, t("coplan.documents.messages.title"), for: "reference_title" %>
+          <%= f.text_field :title, id: "reference_title", placeholder: t("coplan.documents.messages.optional"), name: "reference[title]" %>
         </div>
         <div class="form-group">
-          <%= f.label :key, "Key", for: "reference_key" %>
-          <%= f.text_field :key, id: "reference_key", placeholder: "Optional — e.g. auth-repo", name: "reference[key]" %>
+          <%= f.label :key, t("coplan.documents.messages.key"), for: "reference_key" %>
+          <%= f.text_field :key, id: "reference_key", placeholder: t("coplan.documents.messages.optional_e_g_auth_repo"), name: "reference[key]" %>
         </div>
         <div class="add-modal__actions">
-          <%= f.submit "Add reference", class: "btn btn--primary btn--sm" %>
+          <%= f.submit t("coplan.documents.messages.add_reference"), class: "btn btn--primary btn--sm" %>
         </div>
       <% end %>
     <% end %>

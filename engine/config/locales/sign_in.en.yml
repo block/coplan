@@ -1,0 +1,17 @@
+---
+en:
+  coplan:
+    sign_in:
+      choose_an_account_to_sign: Choose an account to sign in.
+      demo_accounts: Demo accounts
+      messages:
+        admin: " · Admin"
+        default_owner: Default owner
+        email_address: Email address
+        sign_in: Sign In
+        sign_in_coplan: Sign In — Coplan
+        signed_in_as_name: Signed in as %{name}.
+        signed_out: Signed out.
+        signing_in_pending: Signing in…
+      sign_in_with_your_work: Sign in with your work email
+      this_example_host_uses_email: This example host uses email-only sign in. No password is required.

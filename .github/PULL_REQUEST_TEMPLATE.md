@@ -19,3 +19,5 @@
 - [ ] Ran `bundle exec rspec`, or explained why it could not run and listed the specs that did run.
 - [ ] Tested affected UI behavior in both light and dark mode, or explained why mode testing does not apply.
 - [ ] Attached a video or images demonstrating the change, if this PR adds or changes a feature or fixes a UI bug.
+- [ ] If UI copy changed, updated the affected translations, checked them in context, and ran `bin/i18n-lint`.
+- [ ] If the UX changes across languages, attached screenshots in a small set of affected languages likely to expose copy or layout issues.

@@ -11,12 +11,12 @@ module Coplan
     def update
       library = current_user.library
       folder = library.folders.find_by(id: params[:id])
-      return render json: { error: "Unknown folder" }, status: :not_found unless folder
+      return render json: { error: I18n.t("coplan.common.messages.unknown_folder") }, status: :not_found unless folder
 
       parent = nil
       if params[:parent_id].present?
         parent = library.folders.find_by(id: params[:parent_id])
-        return render json: { error: "Unknown destination folder" }, status: :unprocessable_content unless parent
+        return render json: { error: I18n.t("coplan.library.messages.unknown_destination_folder") }, status: :unprocessable_content unless parent
       end
 
       old_path = folder.path
@@ -32,10 +32,10 @@ module Coplan
         render json: {
           parent_id: folder.parent_id,
           path: folder.path,
-          message: "Moved “#{folder.name}” to #{parent ? parent.path : "the top level"}."
+          message: I18n.t("coplan.common.messages.moved_name_to_level", name: folder.name, level: parent ? parent.path : "the top level")
         }
       else
-        render json: { error: "Couldn't move folder: #{folder.errors.full_messages.join(", ")}" },
+        render json: { error: I18n.t("coplan.library.messages.couldn_t_move_folder_errors", errors: folder.errors.full_messages.join(", ")) },
           status: :unprocessable_content
       end
     end
@@ -44,7 +44,7 @@ module Coplan
     def destroy
       folder = Folder.find_by(id: params[:id])
       unless folder && FolderPolicy.new(current_user, folder).destroy?
-        redirect_to helpers.own_library_browse_path(current_user), alert: "That folder no longer exists."
+        redirect_to helpers.own_library_browse_path(current_user), alert: I18n.t("coplan.common.messages.that_folder_no_longer_exists")
         return
       end
 
@@ -57,10 +57,10 @@ module Coplan
           metadata: { folder_name: folder.name }
         )
         redirect_to parent ? helpers.folder_browse_path(parent) : helpers.library_browse_path(folder.library),
-          notice: "Folder “#{folder.name}” deleted."
+          notice: I18n.t("coplan.library.messages.folder_name_deleted", name: folder.name)
       else
         redirect_to helpers.folder_browse_path(folder),
-          alert: "Couldn't delete folder: #{folder.errors.full_messages.join(", ")}"
+          alert: I18n.t("coplan.library.messages.couldn_t_delete_folder_errors", errors: folder.errors.full_messages.join(", "))
       end
     end
 
@@ -76,7 +76,7 @@ module Coplan
           # Don't silently create a root folder when the chosen parent has
           # since been deleted (matches the API's unknown-parent handling).
           redirect_back fallback_location: helpers.own_library_browse_path(current_user),
-            alert: "Couldn't create folder: the parent folder no longer exists."
+            alert: I18n.t("coplan.library.messages.couldn_t_create_folder_the")
           return
         end
       end
@@ -95,10 +95,10 @@ module Coplan
         )
         # Straight to the new folder's own address — it's a place now, so
         # that's where "created" lands.
-        redirect_to helpers.folder_browse_path(folder), notice: "Folder “#{folder.name}” created."
+        redirect_to helpers.folder_browse_path(folder), notice: I18n.t("coplan.library.messages.folder_name_created", name: folder.name)
       else
         redirect_back fallback_location: helpers.own_library_browse_path(current_user),
-          alert: "Couldn't create folder: #{folder.errors.full_messages.join(", ")}"
+          alert: I18n.t("coplan.library.messages.couldn_t_create_folder_errors", errors: folder.errors.full_messages.join(", "))
       end
     end
   end

@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { commandFor } from "coplan/shortcuts"
 
@@ -124,7 +125,7 @@ export default class extends Controller {
     this.draftTarget.inert = true
     this.linkPanelTarget.hidden = false
     this.linkPanelTarget.showPopover()
-    this.linkResultsTarget.textContent = "Search plans and people, or paste a link."
+    this.linkResultsTarget.textContent = t("coplan.client.discussions.link_help")
     this.positionLink()
     this.linkUrlTarget.focus({ preventScroll: true })
   }
@@ -148,11 +149,11 @@ export default class extends Controller {
     this._linkAbort?.abort()
     const query = this.linkUrlTarget.value.trim()
     if (!query || URI_SCHEME.test(query)) {
-      this.linkResultsTarget.textContent = query ? "" : "Search plans and people, or paste a link."
+      this.linkResultsTarget.textContent = query ? "" : t("coplan.client.discussions.link_help")
       this.positionLink()
       return
     }
-    this.linkResultsTarget.textContent = "Searching…"
+    this.linkResultsTarget.textContent = t("coplan.client.discussions.searching")
     this._linkDebounce = setTimeout(() => this.fetchLinks(query), 180)
   }
 
@@ -164,13 +165,13 @@ export default class extends Controller {
     url.searchParams.set("frame", "links")
     try {
       const response = await fetch(url, { signal: request.signal, headers: { Accept: "text/html" } })
-      if (!response.ok || response.redirected) throw new Error("Search unavailable")
+      if (!response.ok || response.redirected) throw new Error(t("coplan.client.discussions.search_unavailable"))
       const html = await response.text()
       if (request.signal.aborted || this.linkPanelTarget.hidden) return
       this.linkResultsTarget.innerHTML = html
     } catch (error) {
       if (error.name === "AbortError") return
-      this.linkResultsTarget.textContent = "Search unavailable. You can still paste a link."
+      this.linkResultsTarget.textContent = t("coplan.client.discussions.link_search_unavailable")
     }
     this.positionLink()
   }
@@ -222,14 +223,14 @@ export default class extends Controller {
   applyLink(suggestedLabel) {
     const href = this.linkUrlTarget.value.trim()
     if (!linkUri(href)) {
-      this.showLinkError("Enter a URI such as https://… or codex://… without spaces.")
+      this.showLinkError(t("coplan.client.discussions.invalid_link"))
       return
     }
     const selection = this._linkSelection
     // Dictation can update the draft while this field has focus. Keep the
     // URL available and explain why the original selection is no longer safe.
     if (!selection || this.inputTarget.value !== selection.value) {
-      this.showLinkError("Draft changed. Cancel and reselect text.")
+      this.showLinkError(t("coplan.client.discussions.draft_changed"))
       return
     }
     this.cancelLink()
@@ -377,7 +378,7 @@ export default class extends Controller {
     if (this._results.length === 0) {
       const empty = document.createElement("li")
       empty.className = "mention-picker__empty"
-      empty.textContent = "No matches"
+      empty.textContent = t("coplan.client.discussions.no_matches")
       this._picker.appendChild(empty)
     } else {
       this._results.forEach((user, idx) => {
@@ -389,11 +390,11 @@ export default class extends Controller {
 
         const name = document.createElement("span")
         name.className = "mention-picker__name"
-        name.textContent = user.username ? `${user.name} · @${user.username}` : (user.name || "(unnamed)")
+        name.textContent = user.username ? `${user.name} · @${user.username}` : (user.name || t("coplan.client.discussions.unnamed"))
         li.appendChild(name)
 
         const metaParts = [user.title, user.team, user.email].filter(Boolean)
-        if (!user.username) metaParts.unshift("no username — can't mention")
+        if (!user.username) metaParts.unshift(t("coplan.client.discussions.no_username"))
         if (metaParts.length) {
           const meta = document.createElement("span")
           meta.className = "mention-picker__meta"

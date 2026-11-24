@@ -1,0 +1,17 @@
+---
+es:
+  coplan:
+    sign_in:
+      choose_an_account_to_sign: Elige una cuenta para iniciar sesión.
+      demo_accounts: Cuentas de demostración
+      messages:
+        admin: " · Administración"
+        default_owner: Propietario predeterminado
+        email_address: Correo electrónico
+        sign_in: Iniciar sesión
+        sign_in_coplan: Iniciar sesión — Coplan
+        signed_in_as_name: Sesión iniciada como %{name}.
+        signed_out: Sesión cerrada.
+        signing_in_pending: Iniciando sesión…
+      sign_in_with_your_work: Inicia sesión con tu correo de trabajo
+      this_example_host_uses_email: Este sitio de ejemplo solo requiere tu correo para iniciar sesión. No necesitas contraseña.

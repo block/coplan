@@ -16,9 +16,9 @@ module Coplan
       # the interesting fact is that the plan just appeared.
       def summary_parts
         parts = []
-        parts << "new" if published
-        parts << "#{edits} #{edits == 1 ? "edit" : "edits"}" if edits.positive?
-        parts << "#{comments} #{comments == 1 ? "comment" : "comments"}" if comments.positive?
+        parts << I18n.t("coplan.interface.feed_new") if published
+        parts << I18n.t("coplan.interface.feed_edits", count: edits) if edits.positive?
+        parts << I18n.t("coplan.interface.feed_comments", count: comments) if comments.positive?
         parts
       end
     end

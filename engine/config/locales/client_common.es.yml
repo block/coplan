@@ -1,0 +1,24 @@
+---
+es:
+  coplan:
+    client:
+      common:
+        copied: "¡Copiado!"
+        copy_manually: Pulsa ⌘C para copiar
+        dictation_start_failed: No se pudo iniciar el dictado%{detail}. Revisa la configuración del micrófono y vuelve a intentarlo.
+        enable_notifications_failed: No se pudieron activar las notificaciones.
+        enabling_notifications: Activando…
+        mic_blocked: El micrófono está bloqueado. Permite el acceso en la configuración de privacidad del navegador y del sistema.
+        mic_capture_failed: No se pudo capturar el audio del micrófono. Revisa la configuración del micrófono y la entrada del sistema.
+        mic_connection_failed: El servicio de reconocimiento de voz del navegador no se pudo conectar. Prueba el dictado en Chrome o activa la transcripción en el servidor.
+        mic_language_unsupported: El reconocimiento de voz no admite este idioma. Prueba otro navegador o activa la transcripción en el servidor.
+        mic_no_speech: No se detectó voz. Revisa la entrada de audio y vuelve a intentarlo.
+        mic_not_found: No se encontró ningún micrófono. Conecta uno y elígelo en la configuración del micrófono.
+        mic_open_failed: No se pudo iniciar el micrófono. Comprueba si otra aplicación lo está usando o elige otra entrada.
+        mic_recognition_unavailable: El reconocimiento de voz no está disponible en este navegador. Prueba Chrome o activa la transcripción en el servidor.
+        mic_unavailable: El micrófono seleccionado no está disponible. Elige otra entrada de audio.
+        notification_permission_denied: No se concedió el permiso.
+        notifications_ready: "¡Todo listo!"
+        reply_notifications: Recibirás una notificación de escritorio cuando alguien responda.
+        save_setting_failed: No se pudo guardar la configuración. Vuelve a intentarlo.
+        save_theme_failed: No se pudo guardar el tema. Vuelve a intentarlo.

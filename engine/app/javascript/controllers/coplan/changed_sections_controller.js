@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { renderedBlocks } from "coplan/content_sections"
 
@@ -110,12 +111,12 @@ export default class extends Controller {
     // Introductions and headings share the same hoverable, focusable dot.
     const marker = this.markerTemplateTarget.content.firstElementChild.cloneNode(true)
     const update = this.updatesValue[key]
-    let description = "Updated since your last visit. Open History for details."
+    let description = t("coplan.client.reader.updated_since_visit")
     if (update) {
-      const when = new Date(update.at).toLocaleString(undefined, {
+      const when = new Date(update.at).toLocaleString(document.documentElement.lang, {
         month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short"
       })
-      description = `Updated by ${update.by}\n${update.ago} · ${when}`
+      description = t("coplan.client.reader.updated_by", { name: update.by, ago: update.ago, when })
     }
     marker.dataset.tooltip = description
     marker.setAttribute("aria-label", description)

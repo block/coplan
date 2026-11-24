@@ -1,0 +1,18 @@
+---
+en:
+  coplan:
+    client:
+      settings:
+        check_notifications_failed: Couldn’t check notifications. Check your connection and try again.
+        checking_notifications: Checking notifications…
+        disabling_notifications: Disabling…
+        notification_permission_denied: Permission was not granted.
+        notifications_active: Enabled on this device.
+        notifications_blocked: Notifications are blocked. Allow them in your browser settings to enable.
+        notifications_disabled: Notifications disabled on this device.
+        notifications_enabled: Notifications enabled on this device.
+        notifications_inactive: Not enabled on this device.
+        notifications_unsupported: This browser doesn't support web push notifications.
+        requesting_notification_permission: Requesting permission…
+        save_hotkey_failed: Couldn't save that — try again.
+        update_notifications_failed: Couldn’t update notifications. Check your connection and try again.

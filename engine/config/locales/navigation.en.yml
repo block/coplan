@@ -1,0 +1,11 @@
+---
+en:
+  coplan:
+    navigation:
+      esc: Esc
+      menu: Menu
+      messages:
+        administration: Administration
+      notifications: Notifications
+      sign_out: Sign out
+      your_library: Your library

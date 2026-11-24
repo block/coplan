@@ -1,21 +1,18 @@
 <div class="landing">
   <header class="landing__hero">
-    <p class="landing__kicker">Humans comment. AI agents edit.</p>
-    <h1 class="landing__title">Design docs, built for AI-assisted planning.</h1>
+    <p class="landing__kicker"><%= t("coplan.welcome.humans_comment_ai_agents_edit") %></p>
+    <h1 class="landing__title"><%= t("coplan.welcome.design_docs_built_for_ai") %></h1>
     <p class="landing__lede">
-      Coplan gives your plans a home where teammates and AI agents make them better together.
-      Domain experts leave inline feedback, Google-Docs-style. Agents respond to that feedback
-      and apply the edits. Every change becomes an immutable version with full provenance —
-      who changed what, why, and which comment triggered it.
+      <%= t("coplan.welcome.coplan_gives_your_plans_a") %>
     </p>
 
     <div class="landing__cta-row">
       <% if signed_in? %>
-        <%= link_to "Go to your library", own_library_browse_path(current_user), class: "btn btn--primary" %>
+        <%= link_to t("coplan.welcome.messages.go_to_your_library"), own_library_browse_path(current_user), class: "btn btn--primary" %>
       <% elsif Coplan.configuration.sign_in_path %>
-        <%= link_to "Sign in to get started", Coplan.configuration.sign_in_path, class: "btn btn--primary" %>
+        <%= link_to t("coplan.welcome.messages.sign_in_to_get_started"), Coplan.configuration.sign_in_path, class: "btn btn--primary" %>
       <% end %>
-      <%= link_to "Connect your agent", agent_setup_path, class: "btn btn--secondary" %>
+      <%= link_to t("coplan.welcome.messages.connect_your_agent"), agent_setup_path, class: "btn btn--secondary" %>
     </div>
   </header>
 
@@ -25,124 +22,109 @@
   <div class="landing-mock" aria-hidden="true">
     <div class="landing-mock__doc">
       <div class="landing-mock__doc-header">
-        <span class="landing-mock__doc-title">Payment retry pipeline</span>
-        <span class="landing-mock__badge landing-mock__badge--type">design doc</span>
+        <span class="landing-mock__doc-title"><%= t("coplan.welcome.payment_retry_pipeline") %></span>
+        <span class="landing-mock__badge landing-mock__badge--type"><%= t("coplan.welcome.design_doc") %></span>
         <span class="landing-mock__badge landing-mock__badge--version">v4</span>
       </div>
       <div class="landing-mock__doc-body">
-        <p class="landing-mock__heading">Failure handling</p>
+        <p class="landing-mock__heading"><%= t("coplan.welcome.failure_handling") %></p>
         <p class="landing-mock__line">
           Failed charges are retried immediately, up to
           <mark class="landing-mock__highlight">ten times in a tight loop</mark>,
           before the invoice is marked delinquent.
         </p>
         <p class="landing-mock__line landing-mock__line--dim">
-          Webhooks notify the billing service after the final attempt, and the
-          plan owner is paged if the failure rate crosses the alert threshold.
+          <%= t("coplan.welcome.webhooks_notify_the_billing_service") %>
         </p>
       </div>
     </div>
 
     <div class="landing-mock__thread">
       <div class="landing-mock__comment">
-        <div class="landing-mock__author">Priya — reviewer</div>
-        <p>Tight-loop retries will hammer the processor. Exponential backoff with a cap?</p>
+        <div class="landing-mock__author"><%= t("coplan.welcome.priya_reviewer") %></div>
+        <p><%= t("coplan.welcome.tight_loop_retries_will_hammer") %></p>
       </div>
       <div class="landing-mock__comment landing-mock__comment--agent">
-        <div class="landing-mock__author">Claude <span class="landing-mock__agent-chip">agent</span></div>
-        <p>Done — capped at 5 attempts with exponential backoff and jitter.</p>
-        <div class="landing-mock__provenance">applied edit &rarr; version 4</div>
+        <div class="landing-mock__author">Claude <span class="landing-mock__agent-chip"><%= t("coplan.common.agent") %></span></div>
+        <p><%= t("coplan.welcome.done_capped_at_5_attempts") %></p>
+        <div class="landing-mock__provenance"><%= t("coplan.welcome.applied_edit_version_4") %></div>
       </div>
     </div>
   </div>
 
   <section class="landing__how">
-    <h2 class="landing__section-title">How it works</h2>
+    <h2 class="landing__section-title"><%= t("coplan.welcome.how_it_works") %></h2>
 
     <div class="landing__steps">
       <div class="landing__step">
         <div class="landing__step-number">1</div>
-        <h3>Write a plan</h3>
+        <h3><%= t("coplan.welcome.write_a_plan") %></h3>
         <p>
-          A plan is a Markdown design doc. Draft it yourself or have an agent write it
-          through the API. Plans are listed for the whole org from the start — or keep one
-          Private (unlisted, link-only) until it's ready to share.
+          <%= t("coplan.welcome.a_plan_is_a_markdown") %>
         </p>
       </div>
 
       <div class="landing__step">
         <div class="landing__step-number">2</div>
-        <h3>Get inline feedback</h3>
+        <h3><%= t("coplan.welcome.get_inline_feedback") %></h3>
         <p>
-          Reviewers highlight any sentence and leave a threaded comment anchored to that exact
-          text, so context never gets lost. Mention people with <code>@username</code> to pull
-          them in. New comments appear for every viewer in realtime.
+          <%= t("coplan.interface.feedback_and_mentions_html", username: tag.code("@username")) %>
         </p>
       </div>
 
       <div class="landing__step">
         <div class="landing__step-number">3</div>
-        <h3>Agents apply the edits</h3>
+        <h3><%= t("coplan.welcome.agents_apply_the_edits") %></h3>
         <p>
-          You triage the feedback; agents do the typing. An agent reads the accepted comments,
-          applies targeted edits, and resolves the threads. Each edit creates a new immutable
-          version with full attribution — the actor, the model, and the comments that prompted it.
+          <%= t("coplan.welcome.you_triage_the_feedback_agents") %>
         </p>
       </div>
     </div>
   </section>
 
   <section class="landing__features">
-    <h2 class="landing__section-title">What you get</h2>
+    <h2 class="landing__section-title"><%= t("coplan.welcome.what_you_get") %></h2>
 
     <div class="landing__feature-grid">
       <div class="landing__feature">
-        <h3>Inline, anchored comments</h3>
+        <h3><%= t("coplan.welcome.inline_anchored_comments") %></h3>
         <p>
-          Select text in the rendered plan to start a thread, Google-Docs-style. Comments stay
-          pinned to the words they reference until you resolve them.
+          <%= t("coplan.welcome.select_text_in_the_rendered") %>
         </p>
       </div>
 
       <div class="landing__feature">
-        <h3>Immutable versions with provenance</h3>
+        <h3><%= t("coplan.welcome.immutable_versions_with_provenance") %></h3>
         <p>
-          Every edit produces a new version recording who (or what) made it, the AI model and
-          prompt used, and which comments triggered the change. History is always browsable
-          and never rewritten.
+          <%= t("coplan.welcome.every_edit_produces_a_new") %>
         </p>
       </div>
 
       <div class="landing__feature">
-        <h3>Realtime collaboration</h3>
+        <h3><%= t("coplan.welcome.realtime_collaboration") %></h3>
         <p>
-          Comments, edits, status changes, and new versions broadcast instantly to everyone
-          viewing the plan — no refresh needed.
+          <%= t("coplan.welcome.comments_edits_status_changes_and") %>
         </p>
       </div>
 
       <div class="landing__feature">
-        <h3>A semantic agent API</h3>
+        <h3><%= t("coplan.welcome.a_semantic_agent_api") %></h3>
         <p>
-          Agents edit through operations like <code>replace_exact</code> and
-          <code>insert_under_heading</code> — not brittle line numbers. An edit lease keeps
-          one agent writing at a time, and stale revisions are rejected cleanly.
+          <%= t("coplan.interface.semantic_api_html", replace: tag.code("replace_exact"), insert: tag.code("insert_under_heading")) %>
         </p>
       </div>
 
       <div class="landing__feature">
-        <h3>Humans comment, agents edit</h3>
+        <h3><%= t("coplan.welcome.humans_comment_agents_edit") %></h3>
         <p>
-          The editing model is intentionally asymmetric: people review and decide, agents type.
-          That keeps the version history clean, auditable, and tied to a reason for every change.
+          <%= t("coplan.welcome.the_editing_model_is_intentionally") %>
         </p>
       </div>
 
       <div class="landing__feature">
-        <h3>Works with any agent</h3>
+        <h3><%= t("coplan.welcome.works_with_any_agent") %></h3>
         <p>
-          Agent setup starts at <code>/_/agent/setup</code>. The skill then fetches the live
-          API reference at <code>/agent-instructions</code> whenever it needs it.
+          <%= t("coplan.interface.agent_instructions_html", setup: tag.code("/_/agent/setup"), reference: tag.code("/agent-instructions")) %>
         </p>
       </div>
     </div>
@@ -159,13 +141,12 @@
   <footer class="landing__footer">
     <% if signed_in? %>
       <p>
-        Signed in as <strong><%= current_user.name %></strong>.
-        <%= link_to "See what's happening →", home_path, class: "landing__inline-link" %>
+        <%= t("coplan.common.signed_in_as") %> <strong><%= current_user.name %></strong>.
+        <%= link_to t("coplan.welcome.messages.see_what_s_happening"), home_path, class: "landing__inline-link" %>
       </p>
     <% end %>
     <p class="landing__footer-oss">
-      Coplan is <%= link_to "open source", "https://github.com/block/coplan", class: "landing__inline-link" %>,
-      released under the Apache 2.0 license.
+      <%= t("coplan.interface.open_source_license_html", source: link_to(t("coplan.welcome.messages.open_source"), "https://github.com/block/coplan", class: "landing__inline-link")) %>
     </p>
   </footer>
 </div>

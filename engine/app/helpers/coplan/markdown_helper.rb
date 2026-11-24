@@ -48,6 +48,18 @@ module Coplan
     # casual `[foo](mention:bar)` typed by hand doesn't get rendered as a chip.
     MENTION_PATTERN = /\[@([\w.-]+)\]\(mention:\1\)/
 
+    # Only renderer-generated labels vary with the UI language. The same
+    # cached HTML can serve both locales for ordinary authored Markdown.
+    def markdown_cache_locale(source, footnotes: false, presentations: false)
+      source = source.to_s
+      if source.match?(/\[[ xX]\]/) ||
+          source.include?(ContentRegions::Iframe::PREFIX) ||
+          (footnotes && source.include?("[^")) ||
+          (presentations && source.include?("::: {.presentation"))
+        I18n.locale
+      end
+    end
+
     # footnote_prefix: pass a DOM-unique string when a page renders more than
     # one markdown fragment (e.g. each comment) — commonmarker numbers
     # footnote ids from #fn-1 per document, so unprefixed fragments collide
@@ -170,7 +182,7 @@ module Coplan
       doc.css("section[data-footnotes]").each do |section|
         heading = Nokogiri::XML::Node.new("h2", doc)
         heading["class"] = "footnotes-title"
-        heading.content = "References"
+        heading.content = I18n.t("coplan.documents.references")
         section.prepend_child(heading)
       end
 
@@ -355,7 +367,7 @@ module Coplan
       end
 
       text = nodes.map { |node| task_name_text(node) }.join.squish
-      text.empty? ? "Task" : "Task: #{text}"
+      text.empty? ? I18n.t("coplan.documents.messages.task") : I18n.t("coplan.documents.messages.task_text", text: text)
     end
 
     def task_name_text(node)

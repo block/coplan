@@ -186,6 +186,29 @@ The callback is called on every Coplan request. The engine automatically finds o
 
 Return `nil` to indicate the user is not authenticated (the engine will respond with `401 Unauthorized`).
 
+### UI language
+
+Coplan serves English by default. Hosts can enable more UI locales and
+configure the fallback. When multiple locales are enabled, a signed-in viewer
+can choose a language for their browser session in Settings. Coplan otherwise
+uses the browser's weighted language preferences. To use one locale for every browser,
+put it in `ui_locales` by itself and set `ui_default_locale` to the same tag.
+The engine ships English and Spanish UI catalogs.
+
+```ruby
+# config/initializers/coplan.rb
+Coplan.configure do |config|
+  config.ui_locales = %i[en es]
+  config.ui_default_locale = :en
+end
+```
+
+Include the enabled tags in `config.i18n.available_locales` if your host sets
+that list. The engine includes framework translations for dates, numbers,
+plurals, and validation messages. Locale selection applies to the web UI,
+including Turbo Streams and browser JSON responses. For catalog conventions and
+the rollout plan, see [internationalization](INTERNATIONALIZATION.md).
+
 ### Shared administration
 
 Hosts using ActiveAdmin can load the Coplan admin screens and add their own

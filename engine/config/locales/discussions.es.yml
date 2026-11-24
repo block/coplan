@@ -1,0 +1,57 @@
+---
+es:
+  coplan:
+    discussions:
+      add_reaction: Añadir reacción
+      cancel_link: Cancelar enlace
+      close_element_comments: Cerrar comentarios sobre elementos
+      comment_deleted: Comentario eliminado
+      commenting_on: 'Comentario sobre:'
+      copy_link: Copiar enlace
+      dictate: Dictar
+      dictate_a_comment: Dictar un comentario
+      drag_to_move_arrow_keys: Arrastra para mover · Usa las flechas para cambiar la posición
+      drag_to_resize_arrow_keys: Arrastra para cambiar el tamaño · Usa las flechas para ajustar
+      edited: "· editado"
+      element_comments: Comentarios sobre elementos
+      enter_a_uri_such_as: Introduce un URI como https://… o codex://… sin espacios.
+      insert_link: Insertar enlace
+      messages:
+        agent: Agente
+        ai_agent: Agente de IA
+        comment_added: Comentario añadido.
+        comment_deleted: Comentario eliminado.
+        comment_updated: Comentario actualizado.
+        couldn_t_make_out_the: No se pudo entender la grabación
+        delete: Eliminar
+        delete_this_comment: "¿Eliminar este comentario?"
+        didn_t_catch_that_try: No se entendió. Intenta decirlo de nuevo
+        didn_t_hear_anything: No se oyó nada
+        discussion: Conversación
+        edit_comment: Editar comentario
+        name_reacted_with_kind: "%{name} reaccionó con %{kind}"
+        name_s_agent: Agente de %{name}
+        new_comment: Nuevo comentario
+        not_authorized_to_delete_this: No tienes permiso para eliminar este comentario.
+        posting_pending: Publicando…
+        press_r_to_reply: Pulsa r para responder
+        reopen: Reabrir
+        reply: Responder
+        reply_added: Respuesta añadida.
+        resolve: Resolver
+        resolve_discussion_e: Resolver conversación (E)
+        saving_pending: Guardando…
+        thread_reopened: Conversación reabierta.
+        thread_resolved: Conversación resuelta.
+        unknown_reaction: Reacción desconocida.
+        user: Usuario
+        write_a_comment: Escribe un comentario...
+        you_can_t_react_to: No puedes reaccionar a un comentario eliminado.
+        your_reply: Tu respuesta
+      move_comment_window: Mover ventana de comentarios
+      out_of_date: desactualizado
+      outdated_element_comments: Comentarios sobre elementos desactualizados
+      reactions: Reacciones
+      resize_comment_window: Cambiar el tamaño de la ventana de comentarios
+      search_coplan_or_paste_a_pending: Busca en Coplan o pega un URI…
+      search_or_paste_a_link: Busca o pega un enlace

@@ -1,0 +1,49 @@
+---
+es:
+  coplan:
+    agent_access:
+      agent_setup: Configuración del agente
+      allow_this_computer_to_use: "¿Permitir que este equipo use Coplan?"
+      connect_this_computer: Conectar este equipo
+      connect_your_agent_in_three: Conecta tu agente en tres pasos
+      connect_your_ai_agent: Conecta tu agente de IA
+      connect_your_computer: Conecta tu equipo
+      connection_approval: Aprobación de conexión
+      connection_approved: Conexión aprobada
+      connection_declined: Conexión rechazada
+      connection_name_reported_by_your: 'Nombre de la conexión indicado por tu herramienta local:'
+      connection_request_expired: La solicitud de conexión caducó
+      copy_the_setup_url: Copia la URL de configuración
+      curious_about_what_your_agent: "¿Quieres ver qué leerá tu agente?"
+      enter_your_connection_code: Introduce el código de conexión
+      give_it_to_your_agent: Dale la URL a tu agente
+      give_this_url_to_your: Dale esta URL a tu agente para que configure la habilidad de Coplan.
+      let_it_set_up_the: Deja que configure la habilidad
+      local_agent_setup: Configuración del agente local
+      messages:
+        agent_access_settings: Configuración de acceso de agentes
+        checking_pending: Comprobando…
+        confirm_that_the_code_matches: Confirma que el código coincide con el que muestra tu agente local.
+        connect_your_ai_agent_coplan: Conecta tu agente de IA — Coplan
+        connect_your_computer_coplan: Conecta tu equipo · Coplan
+        connecting_pending: Conectando…
+        connection_code: Código de conexión
+        continue: Continuar
+        continue_after_signing_in: Continuar después de iniciar sesión
+        decline: Rechazar
+        declining_pending: Rechazando…
+        view_the_agent_instructions: Ver las instrucciones para agentes
+      no_new_access_can_be: Esta solicitud ya no puede conceder acceso. Pide a tu agente local que vuelva a iniciar la configuración.
+      only_approve_a_request_you: Aprueba solo las solicitudes que hayas iniciado. El código debe coincidir con el que muestra tu agente local.
+      paste_the_url_into_your: Pega la URL en el chat de tu agente.
+      return_to_your_local_agent: Vuelve a tu agente local. Guardará la credencial en tu equipo. Puedes revocar su token personal en Configuración en cualquier momento.
+      sign_in_in_a_new: Inicia sesión en otra pestaña y vuelve aquí para continuar. Abrir esta página no concede acceso.
+      sign_in_to_approve_this: Inicia sesión para aprobar esta conexión
+      start_setup_in_your_local: Inicia la configuración en tu agente local e introduce el código que te muestre.
+      that_connection_code_is_not: El código de conexión no es válido. Pide a tu agente local que vuelva a iniciar la configuración.
+      this_lets_local_tools_read: Esto permite que las herramientas locales lean y modifiquen planes y publiquen comentarios con los permisos de tu cuenta. Pueden crear sus propios tokens de sesión. El acceso dura hasta que revoques el token personal de este equipo en Configuración.
+      this_link_goes_straight_to: Este enlace lleva directamente a la guía para tu agente.
+      this_matches_the_code_shown: Este código coincide con el que muestra mi agente local.
+      this_request_is_no_longer: Esta solicitud ya no está disponible
+      your_agent_saves_the_coplan: Tu agente guarda la habilidad de Coplan y consulta las instrucciones vigentes cuando las necesita.
+      your_local_agent_will_receive: Tu agente local recibirá la decisión. No se creó ninguna credencial.

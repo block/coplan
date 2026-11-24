@@ -4,15 +4,15 @@ module Coplan
       user = comment_author_user(comment)
       user_name = user&.name || comment.author_type
 
-      comment.agent_name.present? ? "#{comment.agent_name} (via #{user_name})" : user_name
+      comment.agent_name.present? ? I18n.t("coplan.common.messages.agent_name_via_user_name", agent_name: comment.agent_name, user_name: user_name) : user_name
     end
 
     def comment_agent_owner_label(comment)
       owner = comment_author_user(comment)
-      return "AI agent" unless owner
+      return I18n.t("coplan.discussions.messages.ai_agent") unless owner
 
-      name = owner.name.to_s.split.first.presence || "User"
-      "#{name}'s agent"
+      name = owner.name.to_s.split.first.presence || I18n.t("coplan.discussions.messages.user")
+      I18n.t("coplan.discussions.messages.name_s_agent", name: name)
     end
 
     def comment_agent_icon_source(comment)

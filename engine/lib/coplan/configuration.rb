@@ -1,6 +1,7 @@
 module Coplan
   class Configuration
     attr_accessor :authenticate, :api_authenticate, :sign_in_path
+    attr_accessor :ui_locales, :ui_default_locale
     # AI provider, used for plan summaries and dictated comments. Any endpoint
     # speaking the OpenAI wire protocol works — Azure OpenAI, LiteLLM, vLLM,
     # Ollama, an internal gateway — by pointing `ai_base_url` at it. With no
@@ -172,6 +173,8 @@ module Coplan
 
     def initialize
       @authenticate = nil
+      @ui_locales = %i[en].freeze
+      @ui_default_locale = :en
       @reserved_handles = []
       @default_theme = "classic"
       @ai_base_url = "https://api.openai.com/v1"

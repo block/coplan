@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { openExpander, attachExpandAffordance, mountPanZoom, nearestHeading } from "coplan/expander"
 
@@ -80,7 +81,7 @@ export default class extends Controller {
       diagram.className = "mermaid-diagram"
       diagram.classList.toggle("is-comment-mode", sourceContainer.classList.contains("is-comment-mode"))
       diagram.setAttribute("role", "img")
-      diagram.setAttribute("aria-label", "Mermaid diagram")
+      diagram.setAttribute("aria-label", t("coplan.client.reader.mermaid_diagram"))
       diagram.dataset.mermaidSource = source
       diagram.dataset.mermaidTheme = theme
       if (sourceContainer.dataset.sourceTargets) diagram.dataset.sourceTargets = sourceContainer.dataset.sourceTargets
@@ -130,10 +131,10 @@ export default class extends Controller {
 
   makeExpandable(diagram) {
     diagram.tabIndex = 0
-    diagram.setAttribute("aria-label", "Diagram. Press C for comment mode, Enter to expand.")
+    diagram.setAttribute("aria-label", t("coplan.client.reader.diagram_controls"))
     attachExpandAffordance(diagram, {
-      label: "Expand diagram",
-      hint: "Expand diagram",
+      label: t("coplan.client.reader.expand_diagram"),
+      hint: t("coplan.client.reader.expand_diagram"),
       className: "mermaid-diagram__expand",
       onExpand: () => this.openExpanded(diagram)
     })
@@ -163,7 +164,9 @@ export default class extends Controller {
     const toggle = document.createElement("button")
     toggle.type = "button"
     toggle.className = "btn btn--secondary btn--sm diagram-comments__toggle"
-    toggle.innerHTML = "<kbd>C</kbd> Comment"
+    const key = document.createElement("kbd")
+    key.textContent = "C"
+    toggle.append(key, " " + t("coplan.client.reader.comment_on_item"))
     toggle.setAttribute("aria-pressed", "false")
     toggle.hidden = surface.matches(".mermaid-diagram")
     const hint = document.createElement("span")
@@ -173,11 +176,11 @@ export default class extends Controller {
       ...surface.querySelectorAll("svg g.node[data-source-target]"),
       ...surface.querySelectorAll("svg path.flowchart-link[data-source-target]:not(.source-edge-hit)")
     ]
-    hint.textContent = targets().length ? "Hover an item to comment · Esc to browse" : "Whole-diagram comments available · Esc to browse"
+    hint.textContent = targets().length ? t("coplan.client.reader.diagram_hover") : t("coplan.client.reader.diagram_whole_hint")
     const whole = document.createElement("button")
     whole.type = "button"
     whole.className = "btn btn--secondary btn--sm diagram-comments__whole"
-    whole.textContent = "Comment on whole diagram"
+    whole.textContent = t("coplan.client.reader.comment_whole_diagram")
     whole.dataset.sourceTarget = JSON.stringify(map.diagram)
     whole.dataset.action = "click->coplan--source-comments#commentOnDiagram"
     whole.hidden = true
@@ -222,7 +225,7 @@ export default class extends Controller {
     const { width, height } = naturalSize(svg)
     const expander = openExpander({
       title: nearestHeading(diagram) || "Diagram",
-      label: "Expanded Mermaid diagram",
+      label: t("coplan.client.reader.expanded_mermaid"),
       variant: "diagram",
       container: this.element.closest('[data-controller~="coplan--source-comments"]') || document.body,
       status: true,
@@ -270,7 +273,7 @@ export default class extends Controller {
         element.dataset.action = "click->coplan--source-comments#select keydown->coplan--source-comments#key"
         element.setAttribute("tabindex", "0")
         element.setAttribute("role", "button")
-        element.setAttribute("aria-label", `${target.label}. Enter to comment.`)
+        element.setAttribute("aria-label", t("coplan.client.reader.diagram_element_comment", { label: target.label }))
       }
       const matching = (selector, id) => Array.from(diagram.querySelectorAll(selector))
         .filter(el => el.id === id || el.id.endsWith(`-${id}`))
@@ -332,7 +335,7 @@ export default class extends Controller {
 
     const message = document.createElement("span")
     message.className = "mermaid-diagram__error-message"
-    message.textContent = "Diagram could not be rendered."
+    message.textContent = t("coplan.client.reader.diagram_failed")
     sourceContainer.prepend(message)
   }
 }

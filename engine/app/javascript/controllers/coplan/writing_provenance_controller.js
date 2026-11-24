@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
@@ -31,7 +32,7 @@ export default class extends Controller {
     if (!this.hasHighlightTarget) return
     const editing = this.editing || document.querySelector('[data-editing="true"]')
     this.highlightTarget.disabled = Boolean(editing)
-    this.highlightTarget.textContent = editing ? "Finish editing to inspect" : "Inspect writing"
+    this.highlightTarget.textContent = editing ? t("coplan.client.reader.finish_editing") : t("coplan.client.reader.inspect_writing")
   }
   preventEdit(event) { if (this.highlighted) { event.preventDefault(); event.stopImmediatePropagation() } }
   inspectionKey(event) {
@@ -69,16 +70,16 @@ export default class extends Controller {
     if (this.hovered !== entry) {
       this.hovered = entry
       const source = entry.source || {kind:"unknown"}
-      const agent = [...new Set([source.agent_name, source.harness_name].filter(Boolean))].join(" · ") || "AI agent"
-      const who = source.kind === "human" ? source.user_name || "Human" : source.kind === "ai" ? agent : "Unknown author"
+      const agent = [...new Set([source.agent_name, source.harness_name].filter(Boolean))].join(" · ") || t("coplan.client.reader.ai_agent")
+      const who = source.kind === "human" ? source.user_name || "Human" : source.kind === "ai" ? agent : t("coplan.client.reader.unknown_author")
       const title = document.createElement("strong"); title.textContent = who
       const detail = document.createElement("span")
       const date = source.origin_at && new Date(source.origin_at)
       const minutes = date ? Math.round((date.getTime() - Date.now()) / 60000) : null
       const relative = minutes === null ? null : new Intl.RelativeTimeFormat(undefined,{numeric:"auto"}).format(Math.abs(minutes) < 60 ? minutes : Math.abs(minutes) < 1440 ? Math.round(minutes / 60) : Math.round(minutes / 1440), Math.abs(minutes) < 60 ? "minute" : Math.abs(minutes) < 1440 ? "hour" : "day")
-      detail.textContent = [source.origin_revision && `Added in v${source.origin_revision}`, relative].filter(Boolean).join(" · ") || "Origin unrecorded"
+      detail.textContent = [source.origin_revision && t("coplan.client.reader.added_in_version", { revision: source.origin_revision }), relative].filter(Boolean).join(" · ") || t("coplan.client.reader.origin_unrecorded")
       const context = document.createElement("small")
-      context.textContent = [source.model, source.kind === "unknown" && source.user_name && `Added by ${source.user_name}`, date && date.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"})].filter(Boolean).join(" · ")
+      context.textContent = [source.model, source.kind === "unknown" && source.user_name && t("coplan.client.reader.added_by", { name: source.user_name }), date && date.toLocaleString(document.documentElement.lang,{dateStyle:"medium",timeStyle:"short"})].filter(Boolean).join(" · ")
       this.tooltipTarget.replaceChildren(title, detail, context)
       this.tooltipTarget.showPopover()
     }
@@ -104,12 +105,12 @@ export default class extends Controller {
     try {
       const response = await fetch(this.urlValue, { headers: { Accept: "text/html" }, signal: this.abort.signal })
       if (response.status === 202) {
-        this.detailsTarget.textContent = "Calculating writing provenance…"
+        this.detailsTarget.textContent = t("coplan.client.reader.calculating_origin")
         if (++this.attempts < 5) this.retryTimer = setTimeout(() => this.load(), 1500)
-        else this.showRetry("Still calculating. Try again in a moment.")
+        else this.showRetry(t("coplan.client.reader.still_calculating"))
         return
       }
-      if (!response.ok || response.redirected) throw new Error("Could not load writing provenance.")
+      if (!response.ok || response.redirected) throw new Error(t("coplan.client.reader.load_origin_failed"))
       const html = await response.text()
       if (this.abort.signal.aborted) return
       this.detailsTarget.innerHTML = html
@@ -117,7 +118,7 @@ export default class extends Controller {
       this.updateAvailability()
       this.position()
     } catch (error) {
-      if (error.name !== "AbortError") this.showRetry("Could not load writing provenance.")
+      if (error.name !== "AbortError") this.showRetry(t("coplan.client.reader.load_origin_failed"))
     } finally {
       this.loading = false
       if (!this.abort.signal.aborted) this.detailsTarget.removeAttribute("aria-busy")
@@ -126,7 +127,7 @@ export default class extends Controller {
 
   showRetry(message) {
     const text = document.createElement("p"); text.textContent = message
-    const retry = document.createElement("button"); retry.type = "button"; retry.textContent = "Retry"
+    const retry = document.createElement("button"); retry.type = "button"; retry.textContent = t("coplan.client.reader.retry")
     retry.className = "btn btn--ghost btn--sm"; retry.dataset.action = "coplan--writing-provenance#retry"
     this.detailsTarget.replaceChildren(text, retry)
     this.position()
@@ -137,39 +138,39 @@ export default class extends Controller {
     if (this.highlighted) { this.finish(); return }
     if (this.editing || document.querySelector('[data-editing="true"]')) { this.updateAvailability(); return }
     if (!globalThis.Highlight || !globalThis.CSS?.highlights) {
-      this.highlightTarget.textContent = "Source highlights unavailable in this browser"
+      this.highlightTarget.textContent = t("coplan.client.reader.source_highlights_unavailable")
       this.highlightTarget.disabled = true
       return
     }
     const root = document.getElementById("plan-content-body")
     if (!root || root.querySelector("[contenteditable=true]")) {
-      this.highlightTarget.textContent = "Close the editor to highlight sources"
+      this.highlightTarget.textContent = t("coplan.client.reader.close_editor")
       return
     }
     this.highlightTarget.disabled = true
-    this.highlightTarget.textContent = "Loading sources…"
+    this.highlightTarget.textContent = t("coplan.client.reader.loading_sources")
     if (this.hasErrorTarget) this.errorTarget.hidden = true
     try {
       const response = await fetch(this.urlValue, { headers: { Accept: "application/json" }, signal: this.abort.signal })
       if (response.status === 422) throw new Error((await response.json()).error)
-      if (!response.ok || response.redirected || response.status === 202) throw new Error("Sources unavailable. Try again.")
+      if (!response.ok || response.redirected || response.status === 202) throw new Error(t("coplan.client.reader.sources_unavailable"))
       const data = await response.json()
       if (this.abort.signal.aborted) return
-      if (data.revision !== this.revisionValue) throw new Error("Document changed. Reopen writing provenance.")
+      if (data.revision !== this.revisionValue) throw new Error(t("coplan.client.reader.source_document_changed"))
       if (this.editing || document.querySelector('[data-editing="true"]')) { this.updateAvailability(); return }
       const ranges = this.sourceRanges(root, data.rendered)
-      if (!Object.values(ranges).some(list => list.length)) throw new Error("No matching prose or code to highlight.")
+      if (!Object.values(ranges).some(list => list.length)) throw new Error(t("coplan.client.reader.no_source_matches"))
       for (const [kind, list] of Object.entries(ranges)) CSS.highlights.set(`coplan-writing-${kind}`, new Highlight(...list))
       this.highlighted = true
       window.getSelection()?.removeAllRanges()
       this.inspectionTarget.hidden = false
       document.body.dataset.writingInspection = "true"
       this.dismiss()
-      this.highlightTarget.textContent = "Inspect writing"
+      this.highlightTarget.textContent = t("coplan.client.reader.inspect_writing")
       this.highlightTarget.setAttribute("aria-pressed", "true")
     } catch (error) {
       if (error.name !== "AbortError") {
-        this.highlightTarget.textContent = "Inspect writing"
+        this.highlightTarget.textContent = t("coplan.client.reader.inspect_writing")
         if (this.hasErrorTarget) { this.errorTarget.textContent = error.message; this.errorTarget.hidden = false }
         this.position()
       }
@@ -201,7 +202,7 @@ export default class extends Controller {
         const span = spans[index]
         if (!ranges[span.kind] || span.to <= start || span.from >= start + text.length) continue
         const from = Math.max(start, span.from) - start, to = Math.min(start + text.length, span.to) - start
-        if (++rangeCount > 10000) throw new Error("This document is too large to inspect. Writing percentages are still available.")
+        if (++rangeCount > 10000) throw new Error(t("coplan.client.reader.too_large_to_inspect"))
         const range = document.createRange()
         range.setStart(node, offsets[from]); range.setEnd(node, offsets[to - 1] + 1)
         ranges[span.kind].push(range)

@@ -1,3 +1,4 @@
+pin "coplan/ui_messages", to: "coplan/ui_messages.js", preload: true
 pin "@rails/actioncable", to: "actioncable.esm.js"
 pin "coplan/web_push", to: "coplan/web_push.js"
 pin "coplan/deck_ink", to: "coplan/deck_ink.js"

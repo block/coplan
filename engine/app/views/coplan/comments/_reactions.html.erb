@@ -13,12 +13,12 @@
   <% Coplan::CommentReaction.summarize(comment.reactions).each do |entry| %>
     <%= render "coplan/comments/reaction_chip", kind: entry[:kind], users: entry[:reactions].map(&:user) %>
   <% end %>
-  <button type="button" class="comment-reactions__add" aria-label="Add reaction" title="Add reaction" aria-expanded="false"
+  <button type="button" class="comment-reactions__add" aria-label="<%= t("coplan.discussions.add_reaction") %>" title="<%= t("coplan.discussions.add_reaction") %>" aria-expanded="false"
           data-coplan--comment-reactions-target="add"
           data-action="pointerdown->coplan--comment-reactions#notePicker coplan--comment-reactions#openPicker">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 10.5A9 9 0 1 1 13.5 3.2"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/><path d="M19 2v6M16 5h6"/></svg>
   </button>
-  <div popover="auto" class="comment-reactions__picker" role="group" aria-label="Reactions"
+  <div popover="auto" class="comment-reactions__picker" role="group" aria-label="<%= t("coplan.discussions.reactions") %>"
        data-coplan--comment-reactions-target="picker"
        data-action="toggle->coplan--comment-reactions#pickerToggled">
     <% Coplan::CommentReaction::KINDS.each do |kind, details| %>
