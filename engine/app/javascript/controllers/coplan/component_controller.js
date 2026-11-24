@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 // Only one embedded view can be under the pointer. Some browsers omit a
 // leave event when crossing directly between an opaque frame and the page.
+const CAPTURE_TIMEOUT_MS = 3500
 let hoveredFrame
 function clearPageHover(event) {
   if (!hoveredFrame?.contains(event.target)) setHoveredFrame(null)
@@ -42,7 +43,6 @@ export default class extends Controller {
     const program = this.programValue
     this.port = event.ports[0]
     this.port.onmessage = ({data}) => {
-      if (data?.cancelTextCapture && this.gesture?.point.quote) this.cancel()
       if (data && Object.hasOwn(data, "textSelection") && this.hasSelectionTarget && program.textComments) {
         this.textSelection(data.textSelection, data.startComment === true)
       }
@@ -129,8 +129,13 @@ export default class extends Controller {
   beginCapture(point, pointerId) {
     const id = ++this.captureSequence
     const snapshot = new Promise(resolve => {
-      const timer = setTimeout(() => resolve({}), 3500)
-      this.pending = {id, resolve: value => { clearTimeout(timer); resolve(value) }}
+      const finish = value => {
+        clearTimeout(timer)
+        if (this.pending?.id === id) this.pending = null
+        resolve(value)
+      }
+      const timer = setTimeout(() => finish({}), CAPTURE_TIMEOUT_MS)
+      this.pending = {id, resolve: finish}
     })
     this.gesture = {point, pointerId, snapshot}
     this.port?.postMessage({capture: {id, x: point.x, y: point.y}})
@@ -169,17 +174,30 @@ export default class extends Controller {
     }
   }
 
-  async compose(region) {
-    const gesture = this.gesture
-    this.selectionTarget.style.cursor = "progress"
-    const result = await gesture.snapshot
-    const png = await this.markSnapshot(result.png, region)
-    if (this.gesture !== gesture || !this.element.isConnected) return
-    const label = typeof result.label === "string" ? result.label.slice(0, 160) : ""
-    this.cancel()
+  compose(region) {
+    const {snapshot} = this.gesture
+    this.gesture = null
+    this.hideSelection()
     this.commentButton.dispatchEvent(new CustomEvent("coplan:component-annotation", {
-      bubbles: true, detail: {region: {...region, label}, png}
+      bubbles: true, detail: {region, capture: this.prepareSnapshot(snapshot, region)}
     }))
+  }
+
+  async prepareSnapshot(snapshot, region) {
+    // Bound the whole attachment pipeline, including the browser's image decode.
+    const attachment = {}
+    let timer
+    const timeout = new Promise(resolve => { timer = setTimeout(resolve, CAPTURE_TIMEOUT_MS) })
+    try {
+      const marked = snapshot.then(result => {
+        if (typeof result.label === "string") attachment.label = result.label.slice(0, 160)
+        return this.markSnapshot(result.png, region)
+      })
+      attachment.png = await Promise.race([marked, timeout])
+      return attachment
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   async markSnapshot(blob, region) {
@@ -211,12 +229,13 @@ export default class extends Controller {
   }
 
   cancel() {
-    this.pending?.resolve({})
-    this.pending = null
+    if (this.gesture) this.pending?.resolve({})
     this.gesture = null
-    if (!this.hasSelectionTarget) return
-    this.selectionTarget.style.cursor = ""
-    if (this.selectionTarget.hidden) return
+    this.hideSelection()
+  }
+
+  hideSelection() {
+    if (!this.hasSelectionTarget || this.selectionTarget.hidden) return
     this.selectionTarget.hidden = true
     this.selectionTarget.firstElementChild.style.display = "none"
     this.commentButton.setAttribute("aria-pressed", "false")
@@ -261,6 +280,7 @@ export default class extends Controller {
     if (hoveredFrame === this.element) setHoveredFrame(null)
     this.collapse()
     this.scheme.removeEventListener("change", this.schemeChanged)
+    this.pending?.resolve({})
     this.port?.close()
     this.port = null
     this.measured = false

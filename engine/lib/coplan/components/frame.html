@@ -74,7 +74,7 @@
       document.addEventListener("keydown", event => {
         if (!event.isTrusted || event.isComposing || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
         if (event.key === "Escape") {
-          port.postMessage({textSelection: null, cancelTextCapture: true})
+          port.postMessage({textSelection: null})
           return
         }
         if (event.key.toLowerCase() !== "c") return

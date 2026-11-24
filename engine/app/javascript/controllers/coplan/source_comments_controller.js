@@ -7,7 +7,7 @@ import { revealSections } from "coplan/collapsed_sections"
 // Only signed source ranges cross the wire; SVG ids are render-time lookup
 // keys, and never become comment identities.
 export default class extends Controller {
-  static targets = ["panel", "quote", "discussions", "token", "body", "outdated", "composer", "threadTools", "preview", "region", "file", "discard"]
+  static targets = ["panel", "quote", "discussions", "token", "body", "outdated", "composer", "threadTools", "preview", "imageStatus", "attachment", "region", "file", "discard"]
 
   connect() {
     this.drafts = new Map()
@@ -132,20 +132,7 @@ export default class extends Controller {
     if (annotation) {
       this.annotation = annotation
       this.discardTarget.hidden = false
-      const {region, png} = annotation
-      this.regionTarget.value = JSON.stringify(region)
-      this.regionTarget.disabled = false
-      const area = region.w || region.h ? `${region.w} × ${region.h} at (${region.x}, ${region.y})` : `Point (${region.x}, ${region.y})`
-      this.quoteTarget.textContent = [target.label, region.quote || region.label, area, !png && "Image unavailable"].filter(Boolean).join(" · ")
-      if (png) {
-        const transfer = new DataTransfer()
-        transfer.items.add(new File([png], "component.png", {type: "image/png"}))
-        this.fileTarget.files = transfer.files
-        this.fileTarget.disabled = false
-        this.previewURL = URL.createObjectURL(png)
-        this.previewTarget.src = this.previewURL
-        this.previewTarget.hidden = false
-      }
+      this.renderAnnotation()
     }
     this.tokenTarget.value = target.token
     this.bodyTarget.value = annotation ? annotation.body || "" : this.drafts.get(target.token) || ""
@@ -186,8 +173,10 @@ export default class extends Controller {
     if (!this.selection) return
     const token = this.selection.token
     if (!this.annotation) this.drafts.set(token, this.bodyTarget.value)
-    else if (this.bodyTarget.value.trim()) this.annotationDrafts.set(token, {...this.annotation, body: this.bodyTarget.value})
-    else this.annotationDrafts.delete(token)
+    else if (this.bodyTarget.value.trim()) {
+      this.annotation.body = this.bodyTarget.value
+      this.annotationDrafts.set(token, this.annotation)
+    } else this.annotationDrafts.delete(token)
   }
 
   resumeAnnotation(event) {
@@ -203,7 +192,45 @@ export default class extends Controller {
   }
 
   componentAnnotation(event) {
-    this.show(event.target, this.showResolved, true, event.detail)
+    const annotation = event.detail
+    this.show(event.target, this.showResolved, true, annotation)
+    annotation.capture.then(({label, png}) => {
+      annotation.capture = null
+      if (label) annotation.region.label = label
+      annotation.png = png
+      if (this.annotation !== annotation) return
+      this.renderAnnotation()
+      if (this.postAfterCapture) {
+        this.postAfterCapture = false
+        this.composerTarget.requestSubmit(this.composerTarget.querySelector('[type="submit"]'))
+      }
+    })
+  }
+
+  waitForImage(event) {
+    if (!this.annotation?.capture) return
+    event.preventDefault()
+    this.postAfterCapture = true
+    this.imageStatusTarget.textContent = "Preparing image before posting…"
+  }
+
+  renderAnnotation() {
+    const {region, capture, png} = this.annotation
+    this.regionTarget.value = JSON.stringify(region)
+    this.regionTarget.disabled = false
+    const area = region.w || region.h ? `${region.w} × ${region.h} at (${region.x}, ${region.y})` : `Point (${region.x}, ${region.y})`
+    this.quoteTarget.textContent = [this.selection.label, region.quote || region.label, area, !capture && !png && "Image unavailable"].filter(Boolean).join(" · ")
+    this.imageStatusTarget.textContent = capture ? "Preparing image…" : ""
+    this.attachmentTarget.hidden = !capture && !png
+    this.attachmentTarget.style.aspectRatio = `${region.width} / ${region.height}`
+    if (!png) return
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([png], "component.png", {type: "image/png"}))
+    this.fileTarget.files = transfer.files
+    this.fileTarget.disabled = false
+    this.previewURL = URL.createObjectURL(png)
+    this.previewTarget.src = this.previewURL
+    this.previewTarget.hidden = false
   }
 
   componentDiscussions(event) {
@@ -214,8 +241,10 @@ export default class extends Controller {
     if (this.previewURL) URL.revokeObjectURL(this.previewURL)
     this.previewURL = null
     this.annotation = null
+    this.postAfterCapture = false
     if (!this.hasRegionTarget) return
-    this.discardTarget.hidden = true
+    this.attachmentTarget.hidden = this.discardTarget.hidden = true
+    this.imageStatusTarget.textContent = ""
     this.regionTarget.disabled = this.fileTarget.disabled = this.previewTarget.hidden = true
     this.fileTarget.value = this.regionTarget.value = ""
     this.previewTarget.removeAttribute("src")

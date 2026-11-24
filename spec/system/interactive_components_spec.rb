@@ -157,28 +157,75 @@ RSpec.describe "Interactive components", type: :system do
     expect(page).to have_css("#new-comment-form textarea:focus")
   end
 
-  it "cancels text commenting while the PNG is being decoded" do
+  def comment_with_delayed_image
     plan = Coplan::Plans::Create.call(content: source, user: author, actor_type: "human")
     visit plan_page_path(plan)
     page.execute_script(<<~JS)
-      const decode = window.createImageBitmap.bind(window);
+      const decode = window.createImageBitmap.bind(window)
       window.createImageBitmap = async blob => {
-        const bitmap = await decode(blob);
-        return new Promise(resolve => { window.finishDecode = () => resolve(bitmap) });
-      };
+        window.createImageBitmap = decode
+        const bitmap = await decode(blob)
+        return new Promise(resolve => { window.finishDecode = () => resolve(bitmap) })
+      }
     JS
-    frame = find("iframe[title='Diagram']")
-    within_frame(frame) do
+    within_frame(find("iframe[title='Diagram']")) do
       find("svg text", exact_text: "Checkout").double_click
       find("body").send_keys("c")
     end
+    expect(page).to have_css(".source-comments textarea:focus")
+    expect(page).to have_css(".source-comments [role=status]", text: "Preparing image…")
+    expect(page).to have_css(".source-comments blockquote", text: "Checkout")
     expect(page).to have_css("body") { page.evaluate_script("typeof window.finishDecode === 'function'") }
-    within_frame(frame) { find("body").send_keys(:escape) }
-    expect(page).to have_css("figure:has(iframe[title='Diagram'])") { |figure|
-      page.evaluate_script("!window.Stimulus.getControllerForElementAndIdentifier(arguments[0], 'coplan--component').gesture", figure)
-    }
+    plan
+  end
+
+  it "accepts typing during capture and posts once when the image arrives" do
+    plan = comment_with_delayed_image
+    find("#source-comment-body").send_keys("Why retry?", :enter)
+    expect(page).to have_css(".source-comments [role=status]", text: "Preparing image before posting…")
+    within(".source-comments") { click_button "Comment" }
+    expect(plan.comments.reload).to be_empty
     page.execute_script("window.finishDecode()")
-    expect(page).to have_no_css(".source-comments textarea", visible: true)
+    expect(page).to have_css(".source-comments .comment__body img.component-snapshot")
+    expect(plan.comments.reload.sole.body_markdown).to eq("Why retry?")
+    expect(plan.comments.sole.component_selection).to include("quote" => "Checkout", "image" => true)
+  end
+
+  it "cancels a queued post on dismissal and keeps the image with its draft" do
+    plan = comment_with_delayed_image
+    find("#source-comment-body").set("Which checkout?")
+    within(".source-comments") { click_button "Comment" }
+    expect(page).to have_css(".source-comments [role=status]", text: "before posting")
+    find("#source-comment-body").send_keys(:escape)
+    simulator = find("figure:has(iframe[title='Component'])")
+    simulator.hover
+    simulator.find("button[data-source-target]").click
+    simulator.find(".document-component__selection").click
+    find("#source-comment-body").set("A different draft")
+    page.execute_script("window.finishDecode()")
+    expect(page).to have_no_css(".source-comments blockquote", text: "Checkout")
+    expect(find("#source-comment-body").value).to eq("A different draft")
+    find("#source-comment-body").send_keys(:escape)
+    within_frame(find("iframe[title='Diagram']")) do
+      find("svg text", exact_text: "Retry queue").double_click
+      find("body").send_keys("c")
+    end
+    expect(page).to have_css(".source-comments img[src^='blob:']")
+    expect(page).to have_css(".source-comments blockquote", text: "Checkout")
+    expect(find("#source-comment-body").value).to eq("Which checkout?")
+    expect(plan.comments.reload).to be_empty
+  end
+
+  it "posts the quote and bounds if image preparation times out" do
+    plan = comment_with_delayed_image
+    find("#source-comment-body").send_keys("Explain this step.", :enter)
+    expect(page).to have_css(".source-comments .comment__body", text: "Explain this step.", wait: 6)
+    comment = plan.comments.reload.sole
+    expect(comment.component_selection).to include("quote" => "Checkout", "image" => false)
+    expect(comment.component_selection["w"]).to be_positive
+    expect(comment.component_snapshot).not_to be_attached
+    page.execute_script("window.finishDecode()")
+    expect(page).to have_no_css(".source-comments img[src^='blob:']")
   end
 
   it "keeps native C typing in a component's editable text" do
