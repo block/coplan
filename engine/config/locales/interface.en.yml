@@ -22,7 +22,6 @@ en:
       ctrl_space: Ctrl+Space
       current_version: 'Current: v%{revision}'
       default_theme: Default (%{theme})
-      demo_sign_in_html: Try the demo as %{email}. Open “Demo library” for presentations, architecture, and review examples.
       diff_counts: "%{added} added / %{removed} removed lines"
       draft_preserved: This plan was updated to v%{revision}. Your draft is preserved.
       edit_locked_retry: "%{message}. Try again when the edit lock is released."

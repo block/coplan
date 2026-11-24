@@ -26,7 +26,8 @@ class ApplicationController < ActionController::Base
 
   def authenticate_user!
     unless signed_in?
-      redirect_to main_app.sign_in_path, alert: I18n.t("coplan.display.sign_in_required")
+      locale = Coplan::UiLocale.for_request(request)
+      redirect_to main_app.sign_in_path, alert: I18n.t("coplan_demo.sign_in.required", locale: locale)
     end
   end
 

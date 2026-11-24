@@ -1,37 +1,37 @@
-<% content_for(:title) { t("coplan.sign_in.messages.sign_in_coplan") } %>
+<% content_for(:title) { t("coplan_demo.sign_in.title") } %>
 
 <div class="sign-in-page">
   <div class="sign-in-card card">
     <h1>Coplan</h1>
-    <p class="text-muted text-sm"><%= t("coplan.sign_in.sign_in_with_your_work") %></p>
+    <p class="text-muted text-sm"><%= t("coplan_demo.sign_in.instructions") %></p>
 
     <div class="sign-in-warning">
-      <%= t("coplan.sign_in.this_example_host_uses_email") %>
+      <%= t("coplan_demo.sign_in.example_warning") %>
     </div>
 
     <% if @demo_user %>
-      <p class="text-muted text-sm"><%= t("coplan.interface.demo_sign_in_html", email: tag.strong(@demo_user.email)) %></p>
+      <p class="text-muted text-sm"><%= t("coplan_demo.sign_in.demo_hint_html", email: tag.strong(@demo_user.email)) %></p>
     <% end %>
 
     <%= form_with url: sign_in_path, method: :post, class: "sign-in-form" do |f| %>
       <div class="form-group">
-        <%= f.label :email, t("coplan.sign_in.messages.email_address") %>
+        <%= f.label :email, t("coplan_demo.sign_in.email_address") %>
         <%= f.email_field :email, value: @demo_user&.email, autofocus: true, required: true, placeholder: "you@company.com" %>
       </div>
 
-      <%= f.submit t("coplan.sign_in.messages.sign_in"), class: "btn btn--primary sign-in-submit" %>
+      <%= f.submit t("coplan_demo.sign_in.submit"), class: "btn btn--primary sign-in-submit" %>
     <% end %>
 
     <% if @demo_users.present? %>
       <section class="demo-accounts" aria-labelledby="demo-accounts-heading">
-        <h2 id="demo-accounts-heading" class="text-sm"><%= t("coplan.sign_in.demo_accounts") %></h2>
-        <p class="text-muted text-sm"><%= t("coplan.sign_in.choose_an_account_to_sign") %></p>
+        <h2 id="demo-accounts-heading" class="text-sm"><%= t("coplan_demo.sign_in.demo_accounts") %></h2>
+        <p class="text-muted text-sm"><%= t("coplan_demo.sign_in.choose_demo_account") %></p>
         <ul class="demo-account-list">
           <% @demo_users.each do |user| %>
             <li>
-              <%= button_to sign_in_path, method: :post, params: { email: user.email }, class: "btn btn--secondary demo-account-button", data: { turbo_submits_with: t("coplan.sign_in.messages.signing_in_pending") } do %>
+              <%= button_to sign_in_path, method: :post, params: { email: user.email }, class: "btn btn--secondary demo-account-button", data: { turbo_submits_with: t("coplan_demo.sign_in.submitting") } do %>
                 <span><%= user.email %></span>
-                <span class="text-muted text-sm"><%= user == @demo_user ? t("coplan.sign_in.messages.default_owner") : user.title %><%= t("coplan.sign_in.messages.admin") if user.admin? %></span>
+                <span class="text-muted text-sm"><%= user == @demo_user ? t("coplan_demo.sign_in.default_owner") : user.title %><%= t("coplan_demo.sign_in.admin_role") if user.admin? %></span>
               <% end %>
             </li>
           <% end %>

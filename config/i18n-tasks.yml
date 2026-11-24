@@ -4,6 +4,7 @@ locales: [en, es]
 data:
   read:
     - engine/config/locales/**/*.%{locale}.yml
+    - config/locales/**/*.%{locale}.yml
   yaml:
     write:
       line_width: -1

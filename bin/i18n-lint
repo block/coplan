@@ -8,7 +8,7 @@ class LocaleLint
     @locations = {}
   end
 
-  def check(file)
+  def check(file, namespace:)
     locale = File.basename(file)[/\A.+\.([a-zA-Z0-9-]+)\.yml\z/, 1]
     abort "#{file}: expected a <surface>.<locale>.yml catalog" unless locale
     abort "#{file}: add #{locale} to the checked locales in config/i18n-tasks.yml" unless @locales.include?(locale)
@@ -18,8 +18,8 @@ class LocaleLint
     catalog = Psych.safe_load_file(file)
     unless catalog.is_a?(Hash) &&
         catalog.keys == [ locale ] && catalog[locale].is_a?(Hash) &&
-        catalog[locale].keys == [ "coplan" ] && catalog[locale]["coplan"].is_a?(Hash)
-      abort "#{file}: expected a catalog under #{locale}.coplan"
+        catalog[locale].keys == [ namespace ] && catalog[locale][namespace].is_a?(Hash)
+      abort "#{file}: expected a catalog under #{locale}.#{namespace}"
     end
 
     document, extra = Psych.parse_stream(File.read(file), filename: file).children
@@ -63,6 +63,13 @@ end
 Dir.chdir(File.expand_path("..", __dir__)) do
   config = Psych.safe_load_file("config/i18n-tasks.yml")
   lint = LocaleLint.new(config.fetch("locales"))
-  Dir.glob("engine/config/locales/**/*").select { |path| File.file?(path) }.each { |file| lint.check(file) }
+  {
+    "engine/config/locales" => "coplan",
+    "config/locales" => "coplan_demo"
+  }.each do |directory, namespace|
+    Dir.glob("#{directory}/**/*").select { |path| File.file?(path) }.each do |file|
+      lint.check(file, namespace: namespace)
+    end
+  end
   exec "bundle", "exec", "i18n-tasks", "health"
 end

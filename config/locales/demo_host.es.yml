@@ -1,0 +1,21 @@
+---
+es:
+  coplan_demo:
+    navigation:
+      settings: Configuración
+      sign_out: Cerrar sesión
+    sign_in:
+      admin_role: " · Administración"
+      choose_demo_account: Elige una cuenta para iniciar sesión.
+      default_owner: Propietario predeterminado
+      demo_accounts: Cuentas de demostración
+      demo_hint_html: Prueba la demostración con %{email}. Abre «Demo library» para ver ejemplos de presentaciones, arquitectura y revisiones.
+      email_address: Correo electrónico
+      example_warning: Este sitio de ejemplo solo requiere tu correo para iniciar sesión. No necesitas contraseña.
+      instructions: Inicia sesión con tu correo de trabajo
+      required: Inicia sesión.
+      signed_in: Sesión iniciada como %{name}.
+      signed_out: Sesión cerrada.
+      submit: Iniciar sesión
+      submitting: Iniciando sesión…
+      title: Iniciar sesión — Coplan

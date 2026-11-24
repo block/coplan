@@ -9,6 +9,19 @@ RSpec.describe "Sessions", type: :request do
     expect(response.body).to include("email")
   end
 
+  it "uses the example host's Spanish catalog on the sign-in page" do
+    allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
+    allow(Rails.env).to receive(:development?).and_return(true)
+    create(:coplan_user, external_id: "seed:hampton", email: "hampton@example.com", name: "Hampton")
+
+    get sign_in_path, headers: { "Accept-Language" => "es" }
+
+    expect(response).to have_http_status(:success)
+    expect(response.headers["Content-Language"]).to eq("es")
+    expect(response.body).to include("Correo electrónico", "Cuentas de demostración",
+      "Prueba la demostración con <strong>hampton@example.com</strong>")
+  end
+
   it "prefills the seeded demo author only in development" do
     create(:coplan_user, external_id: "seed:hampton", email: "hampton@example.com", name: "Hampton")
     create(:coplan_user, external_id: "seed:alex", email: "alex@example.com", name: "Alex Morgan")

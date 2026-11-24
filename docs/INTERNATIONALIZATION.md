@@ -8,9 +8,11 @@ locales and configure the fallback.
 ## Change copy
 
 1. Find the view, controller, or Stimulus behavior where the person reads
-   the message. Pick a semantic key under `coplan.<surface>` and add it to
-   `engine/config/locales/<surface>.en.yml` and its counterpart for each
-   other catalog language. Use the same PR for English and translations.
+   the message. Put engine copy under `coplan.<surface>` in
+   `engine/config/locales/<surface>.<locale>.yml`. Put example-host copy,
+   including its sign-in screen and demo accounts, under `coplan_demo` in
+   `config/locales/demo_host.<locale>.yml`. Use the same PR for English and
+   translations. The engine gem ships its own catalogs.
 2. Agents can draft the translations as part of implementing the feature.
    Give them the full sentence, the surrounding UI, and what the action
    does. Read the translations in context and keep terminology consistent.
@@ -73,8 +75,9 @@ bundle exec i18n-tasks normalize
 bin/i18n-lint
 ```
 
-The lint job checks translation usage, missing keys, interpolation
-variables, normalization, duplicate keys, and plain-text catalog values.
+The lint job checks both catalog directories for the correct namespace,
+translation usage, missing keys, interpolation variables, normalization,
+duplicate keys, and plain-text catalog values.
 Use literal keys where practical so the scanner can follow them. If keys
 genuinely depend on data, document the finite set at the call site and
 configure a narrow scanner exception if needed. The lint job checks

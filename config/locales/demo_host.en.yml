@@ -1,0 +1,21 @@
+---
+en:
+  coplan_demo:
+    navigation:
+      settings: Settings
+      sign_out: Sign out
+    sign_in:
+      admin_role: " · Admin"
+      choose_demo_account: Choose an account to sign in.
+      default_owner: Default owner
+      demo_accounts: Demo accounts
+      demo_hint_html: Try the demo as %{email}. Open “Demo library” for presentations, architecture, and review examples.
+      email_address: Email address
+      example_warning: This example host uses email-only sign in. No password is required.
+      instructions: Sign in with your work email
+      required: Please sign in.
+      signed_in: Signed in as %{name}.
+      signed_out: Signed out.
+      submit: Sign In
+      submitting: Signing in…
+      title: Sign In — Coplan

@@ -25,14 +25,14 @@ class SessionsController < ApplicationController
 
     session[:user_id] = user.id
     flash.delete(:alert)
-    redirect_to coplan.root_path, notice: I18n.t("coplan.sign_in.messages.signed_in_as_name", name: user.name)
+    redirect_to coplan.root_path, notice: I18n.t("coplan_demo.sign_in.signed_in", name: user.name)
   end
 
   def destroy
     language = session[:coplan_ui_locale]
     reset_session
     session[:coplan_ui_locale] = language if language.present?
-    redirect_to sign_in_path, notice: I18n.t("coplan.sign_in.messages.signed_out")
+    redirect_to sign_in_path, notice: I18n.t("coplan_demo.sign_in.signed_out")
   end
 
   private
