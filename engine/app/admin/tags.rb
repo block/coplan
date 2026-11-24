@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::Tag, as: "Tag" do
+ActiveAdmin.register Coplan::Tag, as: "Tag" do
   permit_params :name
 
   index do

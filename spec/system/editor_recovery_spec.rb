@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Editor draft recovery", type: :system do
   let(:author) { create(:coplan_user, email: "editor-recovery@example.com") }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Recovery", content: "Saved content", user: author, actor_type: "human") }
+  let(:plan) { Coplan::Plans::Create.call(title: "Recovery", content: "Saved content", user: author, actor_type: "human") }
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
   let(:legacy_key) { "coplan-editor-draft-#{plan.id}" }
 
@@ -19,6 +19,57 @@ RSpec.describe "Editor draft recovery", type: :system do
 
   def rich
     find('[aria-label="Document body"]', wait: 20)
+  end
+
+  [ false, true ].each do |failed_create|
+    it "recovers the separate legacy title from a #{failed_create ? 'failed-create snapshot' : 'new-document draft'}" do
+      visit new_plan_path
+      rich
+      scope = find('[data-coplan--editor-draft-scope-value]', visible: :all)['data-coplan--editor-draft-scope-value']
+      snapshot = { content: "Recovered 😀 body.", title: "A *literal* legacy title", tags: "" }
+      draft = snapshot.merge(base: { content: "", title: "", tags: "", revision: 0 }, revision: 0, creationKey: SecureRandom.uuid)
+      if failed_create
+        draft[:creationSnapshot] = snapshot
+        draft[:creationInputSources] = { runs: [ [ snapshot[:content].encode(Encoding::UTF_16LE).bytesize / 2, "human" ] ] }
+        draft[:content] += " Newer typing."
+      end
+      store("coplan-rich-draft-#{author.id}-new-#{scope}-legacy", draft)
+      page.refresh
+      expect(rich).to have_css("h1", text: "A *literal* legacy title", exact_text: true)
+      rich.click
+      page.driver.browser.action.key_down(mod).send_keys("s").key_up(mod).perform
+      expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", wait: 15, visible: :all)
+      created = author.created_plans.find_by!(title: "A *literal* legacy title")
+      expect(created.current_content).to include("# A \\*literal\\* legacy title", "Recovered 😀 body.")
+      if failed_create
+        expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", wait: 15, visible: :all)
+        expect(created.reload.current_content).to include("Newer typing.")
+        first = created.plan_versions.find_by!(revision: 1)
+        provenance = first.writing_provenance
+        start = first.content_markdown.index(snapshot[:content])
+        runs = Coplan::Plans::WritingProvenance.slice(provenance.fetch("runs"), start, start + snapshot[:content].length)
+        expect(runs.map { |_, key| provenance.fetch("sources").fetch(key).fetch("kind") }).to all(eq("human"))
+      end
+    end
+  end
+
+  [
+    [ "# Current title", "Current title" ], [ "Current title\n===", "Current title" ], [ "#", "" ],
+    [ "\n# Current title", "Current title" ], [ " \t\n\nCurrent title\n===", "Current title" ], [ "\n#", "" ]
+  ].each do |heading, title|
+    it "keeps the recovered new document's canonical heading #{heading.inspect}" do
+      visit new_plan_path
+      rich
+      scope = find('[data-coplan--editor-draft-scope-value]', visible: :all)['data-coplan--editor-draft-scope-value']
+      content = "#{heading}\n\nBody."
+      store("coplan-rich-draft-#{author.id}-new-#{scope}-canonical", {
+        content: content, title: "Stale metadata", tags: "", revision: 0,
+        base: { content: "", title: "", tags: "", revision: 0 }
+      })
+      page.refresh
+      expect(rich).to have_css("h1", count: 1)
+      expect(find(".ProseMirror > h1:first-child").text).to eq(title)
+    end
   end
 
   [ 1, 0 ].each do |revision|
@@ -54,7 +105,7 @@ RSpec.describe "Editor draft recovery", type: :system do
     expect(plan.reload.current_content).to eq("# Recovery\n\nSaved content")
   end
 
-  it "waits for an in-flight save before installing a legacy draft that needs consent" do
+  it "waits for an in-flight save before installing a legacy draft that needs consent", browser_sync: :manual do
     store(legacy_key, { content: "Legacy content", revision: 1 })
     visit plan_edit_page_path(plan)
     rich

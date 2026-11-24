@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="<%= I18n.locale %>">
   <head>
+    <%= capybara_lockstep if defined?(Capybara::Lockstep) %>
     <title><%= content_for(:title) || "Coplan" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">

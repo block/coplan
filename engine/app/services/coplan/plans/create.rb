@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     class Create
       # Plans are shared by default: they're created published unless the
@@ -53,7 +53,7 @@ module CoPlan
         # behind an analytics event for a plan that never existed. Outside
         # any transaction this runs immediately.
         ActiveRecord.after_all_transactions_commit do
-          CoPlan::Analytics.track(
+          Coplan::Analytics.track(
             "plan_created",
             user: @user,
             plan_id: plan.id,

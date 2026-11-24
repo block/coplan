@@ -9,8 +9,6 @@ import { Controller } from "@hotwired/stimulus"
 //
 // On success we show a toast, then refresh the page so row breadcrumbs,
 // group counts, and sidebar folder counts all re-render consistently.
-// No-JS fallback: each draggable row also has a "Move to folder" menu that
-// submits a plain form to the same endpoint.
 const PLAN_MIME = "application/x-coplan-plan"
 const FOLDER_MIME = "application/x-coplan-folder"
 const DROP_CLASS = "dnd-drop"
@@ -227,7 +225,6 @@ export default class extends Controller {
   async #tunnel(url) {
     let doc
     try { doc = await this.#prefetchPane(url) } catch { return }
-    // The world may have moved on while the fetch ran.
     if (!this.dragActive) return
     const main = this.element.querySelector(".workspace__main")
     const incoming = doc.querySelector(".workspace__main")
@@ -321,13 +318,10 @@ export default class extends Controller {
     if (!payload.url) return
 
     if (payload.type === FOLDER_MIME) {
-      // Dropping a folder on itself or where it already sits is a quiet
-      // no-op, not a PATCH + reload + toast.
       if (payload.id && payload.id === targetFolderId) return
       if ((payload.parentId || "") === targetFolderId) return
       this.#patch(payload.url, { parent_id: targetFolderId }, "Folder moved.", target)
     } else {
-      // Same quiet no-op when the plan is already filed right here.
       if ((payload.folderId || "") === targetFolderId) return
       this.#patch(payload.url, { folder_id: targetFolderId }, "Plan moved.", target)
     }

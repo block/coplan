@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Reference, type: :model do
+RSpec.describe Coplan::Reference, type: :model do
   describe "validations" do
     let(:plan) { create(:plan) }
 
@@ -155,7 +155,7 @@ RSpec.describe CoPlan::Reference, type: :model do
       let(:folder) { create(:folder, name: "LiveOrder", created_by_user: author) }
       let!(:plan) do
         create(:plan, :published, created_by_user: author, title: "Cart Roadmap").tap do |p|
-          CoPlan::Plans::Place.call(plan: p, folder: folder, actor: author)
+          Coplan::Plans::Place.call(plan: p, folder: folder, actor: author)
         end
       end
 

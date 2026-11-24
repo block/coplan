@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # "What did I just say, and what was I looking at?" — asked by the voice
   # control after recording, before it posts the comment.
   #
@@ -174,7 +174,7 @@ module CoPlan
     end
 
     def recent_comments
-      # kept: a deleted comment's text was removed on purpose, and this
+      # kept: deleted comments are hidden from normal readers, and this
       # context leaves the building — it must not resurface there.
       Comment.kept.joins(:comment_thread)
         .where(comment_thread: { plan_id: @plan.id })

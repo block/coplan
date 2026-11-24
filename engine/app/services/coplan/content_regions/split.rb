@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module ContentRegions
     # A small fenced-div extension over CommonMark. Only standalone top-level
     # paragraphs can be delimiters, so code examples and quoted fences remain
@@ -21,7 +21,7 @@ module CoPlan
       def call
         lines = @source.split("\n", -1)
         markers = {}
-        CoPlan::Markdown.parse(@source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).each do |node|
+        Coplan::Markdown.parse(@source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).each do |node|
           next unless node.type == :paragraph
           pos = node.source_position
           next unless pos[:start_line] == pos[:end_line]

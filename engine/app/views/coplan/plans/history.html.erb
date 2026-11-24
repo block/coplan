@@ -3,8 +3,6 @@
 <%# New versions/events broadcast into #plan-history-list while you watch. %>
 <%= turbo_stream_from @plan %>
 
-<%# The plan's time machine: a full page, not a tab. Backspace (or the back
-    link) returns to the document. %>
 <div data-controller="coplan--plan-keys"
      data-coplan--plan-keys-fallback-url-value="<%= plan_browse_path(@plan) %>">
   <div class="page-header page-header--plan">

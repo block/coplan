@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Exact lines carry their original character sources when reordered. Keep
     # bounded deleted-line evidence so autosaving a cut does not erase it before

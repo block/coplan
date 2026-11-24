@@ -36,12 +36,14 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
       expect(response).to have_http_status(:not_found)
       delete api_v1_plan_review_request_path(plan, task), headers: headers("reviews-owner")
       expect(response).to have_http_status(:not_found)
-      expect(CoPlan::ReviewResponse.exists?(old_response_id)).to be(false)
+      expect(Coplan::ReviewResponse.find(old_response_id).decision).to eq("changes_requested")
       expect(fresh.reload.status).to eq("pending")
       get api_v1_plan_review_requests_path(plan), headers: headers("reviews-owner")
       requests = response.parsed_body.fetch("review_requests")
-      expect(requests.map { |request| request.fetch("id") }).to eq([ fresh.id ])
-      expect(requests.first.fetch("responses")).to be_empty
+      expect(requests.map { |request| request.fetch("id") }).to contain_exactly(task.id, fresh.id)
+      expect(requests.find { |item| item["id"] == task.id }).to include("status" => "removed")
+      expect(requests.find { |item| item["id"] == task.id }.fetch("responses").first.fetch("id")).to eq(old_response_id)
+      expect(requests.find { |item| item["id"] == fresh.id }.fetch("responses")).to be_empty
     end
   end
 
@@ -56,21 +58,21 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
       first_token.update!(expires_at: 1.second.ago)
       post respond_api_v1_plan_review_request_path(plan, task), params: payload, headers: headers(first_secret), as: :json
       expect(response).to have_http_status(:unauthorized)
-      CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+      Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
       renewed_token, renewed_secret = reviewer_token.mint_session_token!(agent_name: "Renewedbot")
       expect(renewed_token.id).not_to eq(first_token.id)
-      counts = [ CoPlan::ReviewResponse.count, CoPlan::CommentThread.count, CoPlan::Notification.count ]
+      counts = [ Coplan::ReviewResponse.count, Coplan::CommentThread.count, Coplan::Notification.count ]
       post respond_api_v1_plan_review_request_path(plan, task), params: payload, headers: headers(renewed_secret), as: :json
       expect(response).to have_http_status(:created)
       expect(response.parsed_body).to include("id" => first.id, "agent_name" => "Originalbot")
       expect(first.reload).to have_attributes(api_token_id: first_token.id, agent_name: "Originalbot")
       expect(task.reload.status).to eq("pending")
-      expect([ CoPlan::ReviewResponse.count, CoPlan::CommentThread.count, CoPlan::Notification.count ]).to eq(counts)
+      expect([ Coplan::ReviewResponse.count, Coplan::CommentThread.count, Coplan::Notification.count ]).to eq(counts)
     end
   end
 
   it "lists suggested reviewers for the author's agent only" do
-    allow(CoPlan.configuration).to receive(:suggest_reviewers).and_return(->(_plan) { [ { user: reviewer, reason: "Owns app/models" } ] })
+    allow(Coplan.configuration).to receive(:suggest_reviewers).and_return(->(_plan) { [ { user: reviewer, reason: "Owns app/models" } ] })
     get suggestions_api_v1_plan_review_requests_path(plan), headers: headers("reviews-owner")
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body).to eq("suggestions" => [ {
@@ -88,19 +90,19 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
       expect(response).to have_http_status(:created)
       request = plan.review_requests.find(response.parsed_body.fetch("id"))
       if state == "withdrawn"
-        CoPlan::Reviews::Withdraw.call(request: request, actor: author)
+        Coplan::Reviews::Withdraw.call(request: request, actor: author)
       elsif state != "pending"
-        CoPlan::Reviews::Respond.call(request: request, actor: reviewer,
+        Coplan::Reviews::Respond.call(request: request, actor: reviewer,
           revision: plan.current_revision, decision: state, note: "Recorded decision")
       end
       original = request.reload.attributes
-      counts = [ CoPlan::Notification.count, CoPlan::PlanEvent.count, CoPlan::ReviewResponse.count, CoPlan::CommentThread.count ]
+      counts = [ Coplan::Notification.count, Coplan::PlanEvent.count, Coplan::ReviewResponse.count, Coplan::CommentThread.count ]
       post api_v1_plan_review_requests_path(plan), params: payload, headers: headers("reviews-owner"), as: :json
       expect(response).to have_http_status(:created)
       expect(response.parsed_body).to include("id" => request.id, "status" => state)
       expect(plan.review_requests.count).to eq(1)
       expect(request.reload.attributes).to eq(original)
-      expect([ CoPlan::Notification.count, CoPlan::PlanEvent.count, CoPlan::ReviewResponse.count, CoPlan::CommentThread.count ]).to eq(counts)
+      expect([ Coplan::Notification.count, Coplan::PlanEvent.count, Coplan::ReviewResponse.count, Coplan::CommentThread.count ]).to eq(counts)
     end
   end
 
@@ -128,11 +130,11 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
   end
 
   it "preserves the author's unread response when withdrawing a review" do
-    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     response_notice = author.notifications.find_by!(review_request: task, reason: "review_response")
-    request_notice = CoPlan::Notification.create!(user: reviewer, plan: plan, review_request: task, reason: "review_requested")
+    request_notice = Coplan::Notification.create!(user: reviewer, plan: plan, review_request: task, reason: "review_requested")
     watcher = reviewer_token
-    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    Coplan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
     delete api_v1_plan_review_request_path(plan, task), headers: headers("reviews-owner")
     expect(response).to have_http_status(:no_content)
     expect(task.reload.status).to eq("withdrawn")
@@ -143,10 +145,10 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
   end
 
   it "distinguishes requirement updates from new requests in live events" do
-    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    Coplan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     requested_at = task.requested_at
     watcher = reviewer_token
-    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    Coplan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
     patch api_v1_plan_review_request_path(plan, task), params: { requirement: "optional" }, headers: headers("reviews-owner"), as: :json
     expect(response).to have_http_status(:ok)
     expect(task.reload).to have_attributes(requirement: "optional", status: "approved", requested_at: requested_at)

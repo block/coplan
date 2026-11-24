@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::CommentThread, "analytics" do
+RSpec.describe Coplan::CommentThread, "analytics" do
   let(:user) { create(:coplan_user) }
   let(:thread) { create(:comment_thread) }
 

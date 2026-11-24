@@ -35,7 +35,7 @@
           </div>
           <div class="inbox-row__body">
             <% if triggering_comment %>
-              <%= truncate(triggering_comment.body_markdown, length: 100) %>
+              <%= truncate(triggering_comment.public_body_markdown, length: 100) %>
             <% else %>
               Thread <%= notification.reason.humanize.downcase %>
             <% end %>

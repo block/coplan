@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class CommentThreadsController < ApplicationController
     include ActionView::RecordIdentifier
 
@@ -9,7 +9,7 @@ module CoPlan
       authorize!(@plan, :show?)
 
       thread_params = params.expect(
-        comment_thread: [ :anchor_text, :anchor_context, :anchor_occurrence,
+        comment_thread: [ :anchor_text, :anchor_context, :anchor_occurrence, :anchor_occurrence_source,
                           :start_line, :end_line, :body_markdown, :source_token ]
       )
       thread = @plan.comment_threads.new(
@@ -17,6 +17,7 @@ module CoPlan
         anchor_text: thread_params[:anchor_text].presence,
         anchor_context: thread_params[:anchor_context].presence,
         anchor_occurrence: thread_params[:anchor_occurrence].presence&.to_i,
+        anchor_from_rendered_text: thread_params[:anchor_occurrence_source] == "rendered",
         source_token: thread_params[:source_token].presence,
         start_line: thread_params[:start_line].presence,
         end_line: thread_params[:end_line].presence,

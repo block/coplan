@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+require_relative "../config/boot"
+require_relative "../lib/ci_database"
+
+database = CiDatabase.new
+arguments = case ARGV
+when [ "prepare" ] then database.prepare
+when [ "drop" ] then [ "db:drop" ]
+when [ "seed" ] then [ "db:seed" ]
+else abort "Usage: bin/ci-db prepare|drop|seed (called by bin/ci)"
+end
+exec "bin/rails", *arguments

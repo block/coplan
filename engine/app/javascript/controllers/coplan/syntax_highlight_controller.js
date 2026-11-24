@@ -22,7 +22,7 @@ export default class extends Controller {
 
   async highlightBlocks() {
     const blocks = Array.from(
-      this.element.querySelectorAll('pre[lang]:not([lang="mermaid"]) > code:not(.hljs)')
+      this.element.querySelectorAll('pre[lang]:not([lang="mermaid"]):not([data-math-style]) > code:not(.hljs)')
     )
 
     try {

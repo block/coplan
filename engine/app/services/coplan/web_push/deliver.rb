@@ -1,6 +1,6 @@
 require "web-push"
 
-module CoPlan
+module Coplan
   module WebPush
     # Sends a single push payload to a single browser subscription using the
     # configured VAPID key pair. Returns one of:
@@ -11,6 +11,11 @@ module CoPlan
     # Anything else (transient 5xx, rate limiting, network errors) raises so
     # SolidQueue can retry with backoff.
     class Deliver
+      # Every queue shares one small worker pool, so a slow push service must
+      # not hold a thread for Net::HTTP's 60 s defaults. Matches the wake
+      # webhook timeouts (WakeWebhookJob).
+      TIMEOUT = 5
+
       def self.call(subscription:, payload:)
         new(subscription: subscription, payload: payload).call
       end
@@ -21,7 +26,7 @@ module CoPlan
       end
 
       def call
-        unless CoPlan.configuration.web_push_configured?
+        unless Coplan.configuration.web_push_configured?
           raise ConfigurationError, "Web Push VAPID keys are not configured"
         end
 
@@ -32,7 +37,10 @@ module CoPlan
           message: @payload.to_json,
           vapid: vapid_options,
           ttl: 24 * 60 * 60, # 24h — push service drops the message after this
-          urgency: "normal"
+          urgency: "normal",
+          open_timeout: TIMEOUT,
+          read_timeout: TIMEOUT,
+          ssl_timeout: TIMEOUT
         )
 
         @subscription.record_delivery!
@@ -49,9 +57,9 @@ module CoPlan
 
       def vapid_options
         {
-          subject: CoPlan.configuration.vapid_subject,
-          public_key: CoPlan.configuration.vapid_public_key,
-          private_key: CoPlan.configuration.vapid_private_key
+          subject: Coplan.configuration.vapid_subject,
+          public_key: Coplan.configuration.vapid_public_key,
+          private_key: Coplan.configuration.vapid_private_key
         }
       end
     end

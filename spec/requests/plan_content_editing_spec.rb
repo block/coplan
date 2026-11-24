@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "Plan content editing (web UI)", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
+  after { travel_back }
+
   let(:author) { create(:coplan_user) }
   let(:other_user) { create(:coplan_user) }
   let(:plan) { create(:plan, :considering, created_by_user: author) }
@@ -28,12 +32,34 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
   end
 
   describe "GET content_body" do
+    it "refreshes stale rendered fragments after 15 minutes without changing the plan" do
+      set_version_fixture(plan.current_plan_version, content_markdown: "# 1 Overview\n\nOpening text.\n")
+      cache = ActiveSupport::Cache::MemoryStore.new
+      allow_any_instance_of(Coplan::PlansController).to receive(:perform_caching).and_return(true)
+      allow_any_instance_of(Coplan::PlansController).to receive(:cache_store).and_return(cache)
+      # Simulate an older renderer's output, retaining the real cache expiry.
+      strip_alias = true
+      allow(cache).to receive(:write).and_wrap_original do |write, key, value, options|
+        value = value.gsub(/<span[^>]*data-heading-alias[^>]*><\/span>/, "") if strip_alias
+        write.call(key, value, options)
+      end
+      get content_body_plan_path(plan)
+      strip_alias = false
+      get content_body_plan_path(plan)
+      expect(Nokogiri::HTML.fragment(response.body).at_css("#section-1")).to be_nil
+
+      travel 15.minutes + 1.second
+      get content_body_plan_path(plan)
+      expect(response).to have_http_status(:ok)
+      expect(Nokogiri::HTML.fragment(response.body).at_css("h1#plan-title #section-1")).to be_present
+    end
+
     it "returns the latest rendered body and revision without caching" do
       get content_body_plan_path(plan)
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("Original body.")
-      expect(response.headers["X-CoPlan-Revision"]).to eq(plan.current_revision.to_s)
+      expect(response.headers["X-Coplan-Revision"]).to eq(plan.current_revision.to_s)
       expect(response.headers["Cache-Control"]).to include("no-store")
     end
 
@@ -63,14 +89,19 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
   end
 
   describe "PATCH update_content" do
-    it "creates a new human-authored version through ReplaceContent" do
+    it "creates a new human-authored version and immediately refreshes cached content" do
+      allow_any_instance_of(Coplan::PlansController).to receive(:perform_caching).and_return(true)
+      allow_any_instance_of(Coplan::PlansController).to receive(:cache_store).and_return(ActiveSupport::Cache::MemoryStore.new)
+      get content_body_plan_path(plan)
+      expect(response.body).to include("Original body.")
+
       expect {
         patch update_content_plan_path(plan), params: {
           content: "# Plan\n\nEdited body.\n",
           base_revision: plan.current_revision,
           change_summary: "Tightened wording"
         }
-      }.to change(CoPlan::PlanVersion, :count).by(1)
+      }.to change(Coplan::PlanVersion, :count).by(1)
 
       expect(response).to redirect_to(plan_page_path(plan))
       plan.reload
@@ -79,6 +110,9 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       expect(version.actor_type).to eq("human")
       expect(version.actor_id).to eq(author.id)
       expect(version.change_summary).to eq("Tightened wording")
+      get content_body_plan_path(plan)
+      expect(response.body).to include("Edited body.")
+      expect(response.body).not_to include("Original body.")
     end
 
     it "defaults the change summary" do
@@ -95,7 +129,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
           content: plan.current_content,
           base_revision: plan.current_revision
         }
-      }.not_to change(CoPlan::PlanVersion, :count)
+      }.not_to change(Coplan::PlanVersion, :count)
       expect(response).to redirect_to(plan_page_path(plan))
     end
 
@@ -138,7 +172,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
           content: "# Plan\n\nMy conflicting draft.\n",
           base_revision: stale
         }
-      }.not_to change(CoPlan::PlanVersion, :count)
+      }.not_to change(Coplan::PlanVersion, :count)
       expect(response).to have_http_status(:conflict)
       expect(plan.reload.current_content).to eq("# Plan\n\nSomeone else edited.\n")
     end
@@ -155,7 +189,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
           base_revision: stale,
           overwrite_revision: new_version.revision
         }
-      }.to change(CoPlan::PlanVersion, :count).by(1)
+      }.to change(Coplan::PlanVersion, :count).by(1)
 
       expect(response).to redirect_to(plan_page_path(plan))
       expect(plan.reload.current_content).to eq("# Plan\n\nMy conflicting draft.\n")
@@ -176,7 +210,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
           base_revision: stale,
           overwrite_revision: v2.revision
         }
-      }.not_to change(CoPlan::PlanVersion, :count)
+      }.not_to change(Coplan::PlanVersion, :count)
 
       expect(response).to have_http_status(:conflict)
       expect(plan.reload.current_content).to eq("# Plan\n\nEdit three.\n")
@@ -199,7 +233,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
     [ false, true ].each do |edit_body|
       it "broadcasts an inline rename with body editing #{edit_body}" do
         targets = []
-        allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+        allow(Coplan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
 
         patch update_content_plan_path(plan), params: {
           content: "# Renamed inline\n\n#{edit_body ? "Updated body." : "Original body."}",
@@ -214,7 +248,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
 
     it "does not broadcast the document title for tag-only editor saves" do
       targets = []
-      allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+      allow(Coplan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
 
       patch update_content_plan_path(plan), params: {
         content: plan.current_content, base_revision: plan.current_revision,

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Keeps an old URL working after the thing it named moved or was renamed.
   #
   # This table is a **cache, not the record**. Every rename is already

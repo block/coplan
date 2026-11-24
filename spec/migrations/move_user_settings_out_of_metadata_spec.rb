@@ -1,5 +1,5 @@
 require "rails_helper"
-require CoPlan::Engine.root.join("db/migrate/20261006000000_move_user_settings_out_of_metadata.rb")
+require Coplan::Engine.root.join("db/migrate/20261006000000_move_user_settings_out_of_metadata.rb")
 
 RSpec.describe MoveUserSettingsOutOfMetadata do
   subject(:migration) { described_class.new }

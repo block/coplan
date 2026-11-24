@@ -3,7 +3,7 @@
 Install the engine migrations into a consuming host before deployment:
 
 ```sh
-bin/rails co_plan:install:migrations
+bin/rails coplan:install:migrations
 ```
 
 Deploy with the normal `db:prepare` or `db:migrate` step and running background workers. The example host already runs `db:prepare` from its Docker entrypoint. No manual per-document reconstruction or maintenance window for replaying history is required.
@@ -18,7 +18,7 @@ Reconstruction changes attribution metadata only. It does not change document te
 
 ## Background work and recovery
 
-`CoPlan::WritingProvenanceBackfillJob` scans 100 document records at a time without loading version content. `CoPlan::WritingProvenanceJob` works for up to 20 versions or three seconds before yielding. Each processed version commits a durable revision checkpoint.
+`Coplan::WritingProvenanceBackfillJob` scans 100 document records at a time without loading version content. `Coplan::WritingProvenanceJob` works for up to 20 versions or three seconds before yielding. Each processed version commits a durable revision checkpoint.
 
 A database-backed claim prevents separate workers from claiming the same document for five minutes; each committed checkpoint renews it. Computation occurs outside the document lock. A worker must still own the claim and checkpoint before saving its result. Older workers cannot overwrite a replacement worker's progress. A separate finalized revision advances only when the current summary is published, so a crash after the last version checkpoint still leaves recoverable work.
 
@@ -27,7 +27,7 @@ The coordinator revisits pending documents after the lease horizon, recovering a
 Watch the normal job failure/retry dashboard and the pending document count. In a Rails console:
 
 ```ruby
-CoPlan::Plan.find_each.count { |plan| CoPlan::Plans::WritingProvenanceBackfill.pending?(plan) }
+Coplan::Plan.find_each.count { |plan| Coplan::Plans::WritingProvenanceBackfill.pending?(plan) }
 ```
 
 A restart scans pending work again; it does not erase checkpoints or move the historical cutoff. A completed document advances its checkpoint with normal subsequent saves. History policy 2 automatically revisits documents completed under the original policy. Checkpoints from older workers are replayed from the start; checkpoints from the current policy remain resumable. New saves cannot certify unrepaired retained history. The corrected summary and source ranges replace the old attribution in the background without changing content or creating versions. This repair needs no new schema migration or manual per-document task.

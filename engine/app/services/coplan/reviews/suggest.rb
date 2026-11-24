@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     # Asks the host who should review a plan. Suggestions are advice for the
     # author: nothing is requested until someone acts on one.
@@ -19,7 +19,7 @@ module CoPlan
       end
 
       def call
-        hook = CoPlan.configuration.suggest_reviewers
+        hook = Coplan.configuration.suggest_reviewers
         return [] unless hook
 
         taken = @plan.review_requests.active.pluck(:reviewer_id) << @plan.created_by_user_id
@@ -27,7 +27,7 @@ module CoPlan
           .reject { |suggestion| taken.include?(suggestion.user.id) }
           .uniq { |suggestion| suggestion.user.id }
       rescue StandardError => e
-        CoPlan.configuration.error_reporter&.call(e, { source: "suggest_reviewers", plan_id: @plan.id })
+        Coplan.configuration.error_reporter&.call(e, { source: "suggest_reviewers", plan_id: @plan.id })
         []
       end
 

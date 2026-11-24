@@ -2,7 +2,7 @@
   <table class="review-table" aria-label="Reviewers">
     <thead><tr><th scope="col">Reviewer</th><th scope="col">Review</th><th scope="col">Decision</th><th scope="col">Version</th><th scope="col">Actions</th></tr></thead>
     <tbody>
-      <% active_requests.sort_by { |request| [CoPlan::ReviewRequest::REQUIREMENTS.index(request.requirement), request.reviewer.name.downcase, request.id] }.each do |request| %>
+      <% active_requests.sort_by { |request| [Coplan::ReviewRequest::REQUIREMENTS.index(request.requirement), request.reviewer.name.downcase, request.id] }.each do |request| %>
         <% response = request.recorded_response %>
         <% approval = request.latest_approval %>
         <tr class="review-person" data-reviewer-id="<%= request.reviewer_id %>">

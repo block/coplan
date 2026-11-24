@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::AiProviders::OpenAi do
+RSpec.describe Coplan::AiProviders::OpenAi do
   let(:model) { "gpt-4o" }
   let(:system_prompt) { "You are a reviewer." }
   let(:user_content) { "# My Plan\n\nSome content." }
@@ -51,7 +51,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       end
 
       it "uses the model the host configured" do
-        allow(CoPlan.configuration).to receive(:ai_model).and_return("gpt-4o-mini")
+        allow(Coplan.configuration).to receive(:ai_model).and_return("gpt-4o-mini")
         mock_client = stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content)
@@ -63,7 +63,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       # Callers that need a particular model for a particular prompt still
       # get to say so.
       it "lets an explicit model argument win" do
-        allow(CoPlan.configuration).to receive(:ai_model).and_return("gpt-4o-mini")
+        allow(Coplan.configuration).to receive(:ai_model).and_return("gpt-4o-mini")
         mock_client = stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content, model: "o3")
@@ -73,7 +73,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       end
 
       it "falls back to a working default when the host clears the model" do
-        allow(CoPlan.configuration).to receive(:ai_model).and_return(nil)
+        allow(Coplan.configuration).to receive(:ai_model).and_return(nil)
         mock_client = stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content)
@@ -85,7 +85,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       # The point of the whole exercise: self-hosting against something
       # that isn't OpenAI.
       it "points the client at the host's base URL" do
-        allow(CoPlan.configuration).to receive(:ai_base_url).and_return("http://localhost:11434/v1")
+        allow(Coplan.configuration).to receive(:ai_base_url).and_return("http://localhost:11434/v1")
         stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content)
@@ -95,7 +95,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       end
 
       it "falls back to OpenAI when the host clears the base URL" do
-        allow(CoPlan.configuration).to receive(:ai_base_url).and_return(nil)
+        allow(Coplan.configuration).to receive(:ai_base_url).and_return(nil)
         stub_chat
 
         described_class.call(system_prompt: system_prompt, user_content: user_content)
@@ -134,7 +134,7 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
 
       expect {
         described_class.call(system_prompt: system_prompt, user_content: user_content, model: model)
-      }.to raise_error(CoPlan::AiProviders::OpenAi::Error, "No response content from OpenAI")
+      }.to raise_error(Coplan::AiProviders::OpenAi::Error, "No response content from OpenAI")
     end
 
     [ Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::ServerError ].each do |error_class|
@@ -153,13 +153,155 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
     end
 
     it "raises an error when API key is not configured" do
-      allow(CoPlan.configuration).to receive(:ai_api_key).and_return(nil)
+      allow(Coplan.configuration).to receive(:ai_api_key).and_return(nil)
       allow(ENV).to receive(:[]).with("OPENAI_API_KEY").and_return(nil)
       allow(Rails.application.credentials).to receive(:dig).with(:openai, :api_key).and_return(nil)
 
       expect {
         described_class.call(system_prompt: system_prompt, user_content: user_content, model: model)
-      }.to raise_error(CoPlan::AiProviders::OpenAi::Error, "OpenAI API key not configured")
+      }.to raise_error(Coplan::AiProviders::OpenAi::Error, "OpenAI API key not configured")
     end
+  end
+
+  shared_examples "bounded provider diagnostics" do |operation, prefix|
+    let(:mock_client) { instance_double(OpenAI::Client) }
+    let(:detail) do
+      { "error" => { "type" => "invalid_request_error", "code" => "context_length_exceeded",
+                     "message" => "This model supports at most 128000 tokens.",
+                     "request" => { "content" => "private-plan-content", "api_key" => "sk-secret-key" } } }
+    end
+    let(:body) { detail }
+    let(:failure) { Faraday::BadRequestError.new("the server responded with status 400", { status: 400, body: body }) }
+
+    before do
+      allow(OpenAI::Client).to receive(:new).and_return(mock_client)
+      if operation == :chat
+        allow(mock_client).to receive(:chat).and_raise(failure)
+      else
+        audio = double("audio")
+        allow(mock_client).to receive(:audio).and_return(audio)
+        allow(audio).to receive(:transcribe).and_raise(failure)
+      end
+    end
+
+    def request
+      if operation == :chat
+        described_class.call(system_prompt: system_prompt, user_content: user_content)
+      else
+        described_class.transcribe(file: double("audio file"), context: "private context")
+      end
+    end
+
+    let(:operation) { operation }
+
+    it "keeps the provider explanation without appending other response fields" do
+      expect { request }.to raise_error(described_class::Error,
+        "#{prefix}: the server responded with status 400 (invalid_request_error/context_length_exceeded: This model supports at most 128000 tokens.)") { |error|
+          expect(error.cause).to equal(failure)
+        }
+    end
+
+    context "with a JSON body" do
+      let(:body) { detail.to_json }
+
+      it "keeps the same provider explanation" do
+        expect { request }.to raise_error(described_class::Error,
+          "#{prefix}: the server responded with status 400 (invalid_request_error/context_length_exceeded: This model supports at most 128000 tokens.)")
+      end
+    end
+
+    [ nil, "", "<html>Bad gateway</html>", "{broken", "null", "[]", '"error"', [],
+      { "error" => nil }, { "error" => [] }, { "error" => {} }, { "error" => " \n " },
+      { "error" => { "message" => { "prompt" => "private-plan-content" } } },
+      { "error" => { "type" => [ "invalid_request_error" ], "code" => { "secret" => "value" } } },
+      { "error" => { "type" => true, "code" => false, "message" => 123 } }
+    ].each_with_index do |malformed_body, index|
+      context "with an unusable error body (#{index})" do
+        let(:body) { malformed_body }
+
+        it "falls back to the original status without masking the failure" do
+          expect { request }.to raise_error(described_class::Error, "#{prefix}: the server responded with status 400") { |error|
+            expect(error.cause).to equal(failure)
+          }
+        end
+      end
+    end
+
+    it "keeps gateway-specific error types, codes and messages" do
+      detail["error"] = { "type" => "gateway_request_error", "code" => "custom_limit", "message" => "Try a smaller request." }
+      expect { request }.to raise_error(described_class::Error,
+        "#{prefix}: the server responded with status 400 (gateway_request_error/custom_limit: Try a smaller request.)")
+    end
+
+    it "keeps a gateway's plain-string error" do
+      detail["error"] = "prompt too long"
+      expect { request }.to raise_error(described_class::Error, "#{prefix}: the server responded with status 400 (prompt too long)")
+    end
+
+    it "normalizes whitespace and control characters in every field" do
+      detail["error"] = { "type" => " gateway\nerror ", "code" => " custom\tlimit ", "message" => " Try\u0000 again. " }
+      expect { request }.to raise_error(described_class::Error,
+        "#{prefix}: the server responded with status 400 (gateway error/custom limit: Try again.)")
+    end
+
+    it "handles invalid string encoding in decoded gateway bodies" do
+      detail["error"] = { "message" => "bad \xFF response".force_encoding("UTF-8") }
+      expect { request }.to raise_error(described_class::Error,
+        "#{prefix}: the server responded with status 400 (bad \uFFFD response)")
+    end
+
+    %w[type code message].each do |field|
+      it "bounds an oversized #{field}" do
+        detail["error"] = { field => "x" * 10_000 }
+        expect { request }.to raise_error(described_class::Error,
+          "#{prefix}: the server responded with status 400 (#{'x' * 297}...)")
+      end
+    end
+
+    it "bounds the combined diagnostic" do
+      detail["error"] = { "type" => "t" * 100, "code" => "c" * 100, "message" => "m" * 100 }
+      expect { request }.to raise_error(described_class::Error) { |error|
+        suffix = error.message.delete_prefix("#{prefix}: the server responded with status 400")
+        expect(suffix.length).to eq(303)
+        expect(suffix).to end_with("...)")
+      }
+    end
+
+    context "when Faraday cannot parse the gateway response" do
+      let(:failure) do
+        connection = Faraday.new do |faraday|
+          faraday.response :raise_error
+          faraday.response :json
+          faraday.adapter :test do |stub|
+            stub.post("/failure") { [ 502, { "Content-Type" => "application/json" }, "<html>Bad gateway</html>" ] }
+          end
+        end
+        begin
+          connection.post("/failure")
+        rescue Faraday::ParsingError => error
+          error
+        end
+      end
+
+      it "preserves the parsing failure without raising a formatter error" do
+        expect(failure.response).to be_a(Faraday::Response)
+        expect { request }.to raise_error(described_class::Error, "#{prefix}: #{failure.message}") { |error|
+          expect(error.cause).to equal(failure)
+        }
+      end
+    end
+
+    it "handles errors without a response" do
+      allow(failure).to receive(:response).and_return(nil)
+      expect { request }.to raise_error(described_class::Error, "#{prefix}: the server responded with status 400")
+    end
+  end
+
+  describe "chat errors" do
+    include_examples "bounded provider diagnostics", :chat, "Chat request failed"
+  end
+
+  describe "transcription errors" do
+    include_examples "bounded provider diagnostics", :transcribe, "Transcription failed"
   end
 end

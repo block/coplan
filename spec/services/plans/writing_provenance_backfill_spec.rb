@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
+RSpec.describe Coplan::Plans::WritingProvenanceBackfill do
   let(:user) { create(:coplan_user) }
   let(:plan) { create_historical_plan(title: "Legacy", content: "Old editor", user: user, actor_type: "human") }
 
@@ -18,7 +18,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     kept = "# Proposal\n\nConnect devices directly.\n"
     moved = create_historical_plan(title: "Moved writing", content: original + kept, user: user, actor_type: "human",
       input_sources: { "runs" => [ [ (original + kept).length, "human" ] ] })
-    allow(CoPlan::Plans::WritingProvenanceMoves).to receive(:call) { |**args| [ args.fetch(:runs), [] ] }
+    allow(Coplan::Plans::WritingProvenanceMoves).to receive(:call) { |**args| [ args.fetch(:runs), [] ] }
     append_historical_content(plan: moved, new_content: kept, base_revision: 1, actor_type: "human", actor_id: user.id)
     pasted = kept + "\n" + original
     append_historical_content(plan: moved, new_content: pasted, base_revision: 2, actor_type: "human", actor_id: user.id,
@@ -28,7 +28,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
       version.update_columns(writing_provenance: version.writing_provenance.merge("history_policy" => 2))
     end
     moved.update_columns(writing_provenance_backfill: { "legacy_revision" => 0, "revision" => 3, "finalized_revision" => 3, "policy_version" => 2 })
-    allow(CoPlan::Plans::WritingProvenanceMoves).to receive(:call).and_call_original
+    allow(Coplan::Plans::WritingProvenanceMoves).to receive(:call).and_call_original
     expect(described_class.pending?(moved)).to be(true)
 
     run_batch(moved)
@@ -48,7 +48,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     old.update_columns(created_at: Time.utc(2026, 7, 9), writing_provenance: old.writing_provenance.except("history_policy"))
     rollout(plan)
     old.input_sources = { "runs" => [ [ old.content_markdown.length, "human" ] ] }
-    old_snapshot = CoPlan::Plans::WritingProvenance.call(version: old, historical_human: true)
+    old_snapshot = Coplan::Plans::WritingProvenance.call(version: old, historical_human: true)
     old.update_columns(writing_provenance: old_snapshot.except("history_policy"))
     plan.update_columns(writing_provenance_summary: old_snapshot.fetch("summary"),
       writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1 })
@@ -77,7 +77,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
   end
 
   it "uses surviving revoked token evidence ahead of an incorrect human snapshot" do
-    token, = CoPlan::ApiToken.create_with_raw_token(user: user, name: "Claude", agent_name: "Claude",
+    token, = Coplan::ApiToken.create_with_raw_token(user: user, name: "Claude", agent_name: "Claude",
       revoked_at: Time.current, metadata: { "harness" => "claude-code", "model" => "recorded-model" })
     version = plan.current_plan_version
     version.update_columns(created_at: Time.utc(2026, 7, 9), api_token_id: token.id,
@@ -115,7 +115,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     old = plan.current_plan_version
     old.input_sources = { "runs" => [ [ old.content_markdown.length, "human" ] ] }
     old.update_columns(created_at: Time.utc(2026, 7, 9))
-    snapshot = CoPlan::Plans::WritingProvenance.call(version: old, historical_human: true).except("history_policy")
+    snapshot = Coplan::Plans::WritingProvenance.call(version: old, historical_human: true).except("history_policy")
     old.update_columns(writing_provenance: snapshot)
     plan.update_columns(writing_provenance_summary: snapshot.fetch("summary"),
       writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1 })
@@ -133,7 +133,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
       input_sources: { "runs" => [ [ 10, "unknown" ], [ 6, "unknown" ] ] })
     run_batch(plan)
     expect(plan.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 9, "ai" => 0, "unknown" => 5)
-    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => CoPlan::Plans::WritingProvenance::HISTORY_POLICY)
+    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => Coplan::Plans::WritingProvenance::HISTORY_POLICY)
   end
 
   it "keeps retained agent writing when a historical human adds text" do
@@ -187,9 +187,9 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
   it "uses a database claim across instances and rejects an expired worker's checkpoint" do
     rollout(plan)
     original = described_class.claim(plan)
-    expect(described_class.claim(CoPlan::Plan.find(plan.id))).to be_nil
+    expect(described_class.claim(Coplan::Plan.find(plan.id))).to be_nil
     travel described_class::LEASE + 1.second
-    replacement = described_class.claim(CoPlan::Plan.find(plan.id))
+    replacement = described_class.claim(Coplan::Plan.find(plan.id))
     expect(replacement).not_to eq(original)
     expect(run_batch(plan, original)).to be(false)
     expect(plan.reload.writing_provenance_backfill.fetch("revision")).to eq(0)
@@ -201,14 +201,14 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     rollout(plan)
     append_historical_content(plan: plan, new_content: "Old editor new", base_revision: 1, actor_type: "human", actor_id: user.id)
     token = described_class.claim(plan)
-    allow(CoPlan::Plans::WritingProvenance).to receive(:call).and_wrap_original do |method, **args|
+    allow(Coplan::Plans::WritingProvenance).to receive(:call).and_wrap_original do |method, **args|
       raise "worker interrupted" if args.fetch(:version).revision == 2
       method.call(**args)
     end
     expect { run_batch(plan, token) }.to raise_error("worker interrupted")
     expect(plan.reload.writing_provenance_backfill.fetch("revision")).to eq(1)
-    allow(CoPlan::Plans::WritingProvenance).to receive(:call).and_call_original
-    expect(CoPlan::Plans::WritingProvenance).not_to receive(:call).with(version: have_attributes(revision: 1), previous: anything, historical_human: anything)
+    allow(Coplan::Plans::WritingProvenance).to receive(:call).and_call_original
+    expect(Coplan::Plans::WritingProvenance).not_to receive(:call).with(version: have_attributes(revision: 1), previous: anything, historical_human: anything)
     run_batch(plan, token)
     expect(plan.reload.writing_provenance_backfill.fetch("revision")).to eq(2)
   end
@@ -221,7 +221,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     expect(run_batch(plan, token)).to be(false)
     append_historical_content(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ 16, "human" ] ] })
-    expect(plan.reload.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => CoPlan::Plans::WritingProvenance::HISTORY_POLICY)
+    expect(plan.reload.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => Coplan::Plans::WritingProvenance::HISTORY_POLICY)
     expect(described_class.pending?(plan)).to be(false)
   end
 
@@ -236,10 +236,10 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
   it "does not let a worker that loses its claim during computation write a checkpoint" do
     rollout(plan)
     token = described_class.claim(plan)
-    allow(CoPlan::Plans::WritingProvenance).to receive(:call).and_wrap_original do |method, **args|
+    allow(Coplan::Plans::WritingProvenance).to receive(:call).and_wrap_original do |method, **args|
       snapshot = method.call(**args)
       travel described_class::LEASE + 1.second
-      described_class.claim(CoPlan::Plan.find(plan.id))
+      described_class.claim(Coplan::Plan.find(plan.id))
       snapshot
     end
     expect(run_batch(plan, token)).to be(false)
@@ -254,7 +254,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     expect(plan.reload.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
     expect(described_class.pending?(plan)).to be(true)
     travel described_class::LEASE + 1.second
-    replacement = described_class.claim(CoPlan::Plan.find(plan.id))
+    replacement = described_class.claim(Coplan::Plan.find(plan.id))
     expect(replacement).to be_present
     expect(run_batch(plan, replacement)).to be(false)
     expect(plan.reload.writing_provenance_summary.dig("shares", "human")).to eq(1.0)

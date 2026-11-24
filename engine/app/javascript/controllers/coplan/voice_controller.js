@@ -8,7 +8,7 @@ import { pageShortcutsAllowed } from "coplan/shortcuts"
  * Push-to-talk commenting. Hold the key (or tap the mic), say "this
  * section is way too formal", and what you said is posted as a comment
  * pinned to the passage you were looking at. Which key is a setting —
- * see HOTKEYS below, and CoPlan::User::VOICE_HOTKEYS for the list.
+ * see HOTKEYS below, and Coplan::User::VOICE_HOTKEYS for the list.
  *
  * Two ways to capture, and which one is in play matters:
  *
@@ -706,6 +706,7 @@ export default class extends Controller {
     if (anchor) {
       body.append("comment_thread[anchor_text]", anchor.text)
       body.append("comment_thread[anchor_occurrence]", anchor.occurrence)
+      body.append("comment_thread[anchor_occurrence_source]", this._contentRoot()?.closest(".inline-editor") ? "source" : "rendered")
     }
 
     try {

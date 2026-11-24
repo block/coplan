@@ -58,12 +58,18 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | reference-gallery | All five reference types, a resolved Coplan target, explicit/extracted references, named citations, repeated URLs, footnotes |
 | api-comment-anchors | Markdown text and table-row highlights; source-only discussion in Comments |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
+| rendered-comment-anchors | Comment on either visible "the"; hidden speaker notes and link URLs must not shift the pin |
 | comment-reactions | Discussions with emoji reactions; your own are pressed in blue, hover a chip for who reacted, add or remove one in place. Re-seeding keeps reactions you removed removed |
+| collapsed-discussions | Discussions inside closed `<details>`, one nested; each summary counts the open discussions it hides. Select a count, press j, follow a `?thread=` link, or open a section to reach them |
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
 | discussion-margins | Crowded prose discussions, multiple participants, resolved visibility, and slide navigation/scrolling; avatars identify starters, not unread activity |
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
 | document-title | One editable title; autosave keeps the URL stable until Done; title boundaries and empty-title behavior |
-| image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
+| image-resizing | Drop or paste files to upload and embed; duplicate drops reuse files; resize images, wrap prose, Shift+Enter beside, Enter below |
+| file-uploads | Drop the same image or file again: one attachment and stored copy, multiple embeds; renamed copies, Dual, and Undo |
+| nested-outline | Ten numbered sections with sub-sections. The outline starts folded except where you are reading; chevrons and Left/Right toggle it; clicking a heading toggles its branch and remembers the choice; scrolling or a `#section` link unfolds temporarily, then closes when you leave; manually opened sections stay open; folded sections total their discussions; toggles survive reload |
+| callout-gallery | `> [!SUMMARY]`, `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]` callouts, a custom label, nested list and code, plain and escaped quotes, and both deck themes; comment inside a callout, or edit one in Editor and check Raw |
+| math-gallery | KaTeX math: inline, display, and fenced formulas, math in lists and tables, a six-row slide equation, dollar amounts that stay text, and invalid math shown as source; comment on the text around a formula |
 
 Flowcharts currently support source-backed node and edge comments. Other
 Mermaid types support whole-diagram comments. The demos label this boundary;
@@ -91,7 +97,9 @@ look up this key rather than copying generated UUIDs.
 | writing-mixed | Human input, unknown imported context, and an agent proposal; opt-in source inspection |
 | writing-word-edit | Agent text with a human-added “not” in v2; hover for Hampton, version, and time |
 | pending-review | Two approvers, neither approved |
+| review-reassignment | Alex Pending after reassignment; earlier approval and removal remain in activity, Noura stays Approved |
 | approved-review | Two approvers, both approved |
+| deleted-comments | A retained soft-deleted comment, a visible reply, and an explicit admin-only permanent deletion form |
 | collab-showcase | Agent edit, human and agent comments, open/resolved and overlapping anchors, general thread, citations and references |
 | api-gateway | Architecture proposal with a wide flowchart, trust-boundary table, rollout, external links |
 | launch-deck | Presentation with speaker notes |
@@ -99,6 +107,7 @@ look up this key rather than copying generated UUIDs.
 | experiment-results | Wide research table with cohort comparisons |
 | code-walkthrough | Dense code, inline discussion, and related-reading target |
 | long-mobile-toc | More than 30 meaningful sections for navigation checks |
+| nested-outline | 10 numbered sections, nested headings through H6, four open discussions in sub-sections 4.2, 4.3, and 7.1 |
 | draft-notes | Unlisted author draft; its original title URL redirects after a retitle |
 | archived-proposal | Archived document available through a direct link |
 | spanish-brief / japanese-roadmap / arabic-research | Multilingual and right-to-left content |

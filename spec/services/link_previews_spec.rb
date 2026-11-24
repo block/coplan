@@ -1,16 +1,15 @@
 require "cgi"
 require "rails_helper"
 
-RSpec.describe CoPlan::LinkPreviews do
+RSpec.describe Coplan::LinkPreviews do
   let(:base_url) { "https://coplan.example.test/app" }
   let(:plan) { create(:plan, :draft, summary: nil) }
 
-  it "resolves canonical, history, and version URLs across every state without visibility policy" do
-    expect(CoPlan::Plan).not_to receive(:visible_to)
-    expect(CoPlan::PlanPolicy).not_to receive(:new)
+  it "resolves published canonical, history, and version URLs, including archived plans" do
+    expect(Coplan::Plan).not_to receive(:visible_to)
+    expect(Coplan::PlanPolicy).not_to receive(:new)
 
     [
-      { visibility: "draft", archived_at: nil },
       { visibility: "published", archived_at: nil },
       { visibility: "published", archived_at: Time.current }
     ].each do |state|
@@ -26,9 +25,26 @@ RSpec.describe CoPlan::LinkPreviews do
     end
   end
 
+  [ nil, Time.current ].each do |archived_at|
+    it "ignores #{archived_at ? 'archived' : 'active'} private plans across legacy and browsable paths" do
+      plan.update!(archived_at: archived_at)
+      version = plan.current_plan_version
+      [
+        "/plans/#{plan.id}",
+        "/plans/#{plan.id}/history",
+        "/plans/#{plan.id}/versions/#{version.id}/diff",
+        "/#{plan.reload.url_path}",
+        "/#{plan.url_path}/edit",
+        "/#{plan.url_path}/history/#{version.revision}/diff"
+      ].each do |path|
+        expect(described_class.resolve(url: "#{base_url}#{path}", base_url: base_url)).to be_nil
+      end
+    end
+  end
+
   it "resolves browsable URLs — canonical, edit, history, and version sub-pages" do
-    expect(CoPlan::Plan).not_to receive(:visible_to)
-    expect(CoPlan::PlanPolicy).not_to receive(:new)
+    expect(Coplan::Plan).not_to receive(:visible_to)
+    expect(Coplan::PlanPolicy).not_to receive(:new)
 
     plan.update!(visibility: "published")
     plan.reload

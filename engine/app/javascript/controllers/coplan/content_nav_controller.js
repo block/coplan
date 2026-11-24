@@ -1,11 +1,17 @@
 import { Controller } from "@hotwired/stimulus"
 import { registerShortcuts, commandFor } from "coplan/shortcuts"
+import { readableText } from "coplan/math_text"
 
 const STORAGE_KEY = "coplan:content-nav-visible"
+const OUTLINE_STATE_PREFIX = "coplan:outline-expanded:"
+// Outlines with more entries than this open with their subtrees folded.
+// Shorter ones render flat, exactly as before collapsing existed.
+const COLLAPSE_THRESHOLD = 12
+const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>'
 
 export default class extends Controller {
   static targets = ["sidebar", "list", "content", "toggleBtn", "showBtn", "editorToggleBtn", "commentsCount"]
-  static values = { visible: { type: Boolean, default: true } }
+  static values = { visible: { type: Boolean, default: true }, planId: String }
 
   connect() {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -14,9 +20,17 @@ export default class extends Controller {
     }
 
     this.buildToc()
+    this.revealHashTarget()
     this.setupScrollTracking()
 
     this.releaseShortcuts = registerShortcuts(this, "outline", event => this.handleKeydown(event))
+
+    // Turbo can replace back-matter counts without changing the document.
+    const backMatter = this.sidebarTarget.querySelector(".content-nav__list--footnotes")
+    if (backMatter) {
+      this._backMatterObserver = new MutationObserver(() => this.updateEditorToggle())
+      this._backMatterObserver.observe(backMatter, { childList: true, characterData: true, subtree: true })
+    }
 
     this._handleAnchorsUpdated = () => this.updateCommentBadges()
     this.element.addEventListener("coplan:anchors-updated", this._handleAnchorsUpdated)
@@ -30,6 +44,7 @@ export default class extends Controller {
     if (this._handleAnchorsUpdated) {
       this.element.removeEventListener("coplan:anchors-updated", this._handleAnchorsUpdated)
     }
+    this._backMatterObserver?.disconnect()
     clearTimeout(this._editorTocTimer)
   }
 
@@ -45,22 +60,26 @@ export default class extends Controller {
     const documentRoot = this.contentTarget
     if (!documentRoot.querySelector(".markdown-rendered") && !documentRoot.classList.contains("markdown-rendered")) return
 
-    this.listTarget.innerHTML = ""
     this._itemsById = new Map()
     // A document renders one .markdown-rendered; a deck renders one per
     // slide. Scan the whole content column either way — scanning the first
     // rendered block gave a deck an outline of slide 1 and nothing else.
-    const headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3"))
-    // The title is part of the document and is a navigable heading too.
-    this._headings = headings
+    const headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3, .markdown-rendered h4, .markdown-rendered h5, .markdown-rendered h6"))
+    // The leading document title already lives in the navigation bar. Only
+    // omit that node: later H1 sections and presentation slide titles remain.
+    const body = documentRoot.querySelector("#plan-content-body") || documentRoot
+    const documentTitle = body.querySelector(":scope > .markdown-rendered:first-child > h1:first-child")
+    this._headings = headings.filter(heading => heading !== documentTitle)
 
-    if (headings.length === 0) {
-      this.sidebarTarget.style.display = "none"
-      if (this.hasShowBtnTarget) this.showBtnTarget.style.display = "none"
-      return
-    }
+    // Back-matter navigation is useful even without section headings. CSS
+    // also responds when Turbo replaces its counts without rebuilding the TOC.
+    this.sidebarTarget.classList.toggle("content-nav--no-headings", this._headings.length === 0)
     this.sidebarTarget.style.display = ""
     if (this.hasShowBtnTarget) Object.assign(this.showBtnTarget.style, { display: "", visibility: "" })
+    if (this._headings.length === 0) {
+      this.assembleOutline([])
+      return
+    }
 
     // Commonmarker supplies an empty self-link inside each heading. Promote
     // its generated fragment to the heading itself when that heading does
@@ -84,11 +103,12 @@ export default class extends Controller {
     )
     const pageUrl = new URL(window.location.href)
     pageUrl.search = ""
+    const entries = []
 
     this._headings.forEach((heading, index) => {
       heading.querySelector(":scope > .section-permalink")?.remove()
       const promotedAnchor = promotedAnchors.get(heading)
-      const headingText = heading.textContent.trim().replace(/\s+/g, " ")
+      const headingText = readableText(heading).trim().replace(/\s+/g, " ")
       let baseId = heading.id || promotedAnchor?.id || this.slugify(headingText) || `section-${index + 1}`
       let id = baseId
       let suffix = 2
@@ -120,25 +140,10 @@ export default class extends Controller {
       permalink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
       heading.appendChild(permalink)
 
-      const li = document.createElement("li")
-      li.className = `content-nav__item content-nav__item--${heading.tagName.toLowerCase()}`
-      li.dataset.headingId = id
-
-      const a = document.createElement("a")
-      a.className = "content-nav__link"
-      a.href = `#${id}`
-      a.addEventListener("click", (e) => this.handleLinkClick(e, heading))
-
-      const text = document.createElement("span")
-      text.className = "content-nav__link-text"
-      text.textContent = headingText
-      a.appendChild(text)
-
-      li.appendChild(a)
-      this.listTarget.appendChild(li)
-      this._itemsById.set(id, li)
+      entries.push(this.outlineEntry(id, heading.tagName, headingText, event => this.handleLinkClick(event, heading)))
     })
 
+    this.assembleOutline(entries)
     this.updateCommentBadges()
   }
 
@@ -149,50 +154,281 @@ export default class extends Controller {
   buildEditorToc(root) {
     // Keep the column fixed for this edit session. Removing or adding the
     // last heading must not move the caret or a toolbar button mid-click.
-    if (this._editorRoot !== root) this._editorSidebarDisplayed = this.sidebarTarget.style.display !== "none"
+    if (this._editorRoot !== root) this._editorSidebarDisplayed = getComputedStyle(this.sidebarTarget).display !== "none"
     this._editorRoot = root
     this._headings = this.editorHeadings()
+    // Freeze the column during editing, including when its final heading is removed.
+    this.sidebarTarget.classList.remove("content-nav--no-headings")
     this._editorHeadingSignature = this.editorHeadingSignature(this._headings)
     this._outlineIds = []
     this._itemsById = new Map()
-    this.listTarget.replaceChildren()
     this.sidebarTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
     // The toolbar owns this action while editing. The reader's floating
     // button would cover formatting when an empty notice no longer reserves
     // a row above the editor. Hide it without giving up its width: it sizes
     // the column the title and body share, which must not jump on Edit.
-    if (this.hasShowBtnTarget) this.showBtnTarget.style.visibility = "hidden"
+    if (this.hasShowBtnTarget) {
+      this.showBtnTarget.style.visibility = "hidden"
+      this.showBtnTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
+    }
     this.updateEditorToggle()
 
     const used = new Set()
+    const entries = []
     this._headings.forEach((heading, index) => {
-      const title = heading.textContent.trim().replace(/\s+/g, " ")
+      const title = readableText(heading).trim().replace(/\s+/g, " ")
       const base = this.slugify(title) || `section-${index + 1}`
       let id = base, suffix = 2
       while (used.has(id)) id = `${base}-${suffix++}`
       used.add(id)
       this._outlineIds.push(id)
 
-      const item = document.createElement("li")
-      item.className = `content-nav__item content-nav__item--${heading.tagName.toLowerCase()}`
-      item.dataset.headingId = id
-      const link = document.createElement("a")
-      link.className = "content-nav__link"
-      link.href = `#${id}`
-      const label = document.createElement("span")
-      label.className = "content-nav__link-text"
-      label.textContent = title
-      link.append(label)
-      link.addEventListener("click", event => this.handleLinkClick(event, this.editorHeadings()[index], id))
-      item.append(link)
-      this.listTarget.append(item)
-      this._itemsById.set(id, item)
+      entries.push(this.outlineEntry(id, heading.tagName, title, event => this.handleLinkClick(event, this.editorHeadings()[index], id)))
     })
+    this.assembleOutline(entries)
     this.updateCommentBadges()
   }
 
+  outlineEntry(id, tagName, text, onClick) {
+    const item = document.createElement("li")
+    item.className = `content-nav__item content-nav__item--${tagName.toLowerCase()}`
+    item.dataset.headingId = id
+    const row = document.createElement("div")
+    row.className = "content-nav__row"
+    const link = document.createElement("a")
+    link.className = "content-nav__link"
+    link.href = `#${id}`
+    const label = document.createElement("span")
+    label.className = "content-nav__link-text"
+    label.textContent = text
+    link.append(label)
+    link.addEventListener("click", onClick)
+    row.append(link)
+    item.append(row)
+    this._itemsById.set(id, item)
+    return { id, level: Number(tagName[1]), text, item, row, children: [] }
+  }
+
+  // Nest each heading under the nearest shallower one before it. Rebuilds
+  // (live updates, editor typing) carry each subtree's state over by id,
+  // the reader's remembered toggle, heading text, then outline position —
+  // typing in a heading changes both its editor id and its text.
+  assembleOutline(entries) {
+    const previousById = new Map([...(this._expanded || [])].map(([id, expanded]) =>
+      [id, { expanded, automatic: this._autoExpanded?.has(id) || false }]))
+    const previousByText = new Map()
+    const previousByPosition = new Map()
+    previousById.forEach((state, id) => {
+      previousByText.set(this._textById.get(id), state)
+      previousByPosition.set(this._positionById.get(id), state)
+    })
+    const stored = this.storedOutlineState()
+    this._expanded = new Map()
+    this._autoExpanded = new Set()
+    this._textById = new Map()
+    this._positionById = new Map()
+    this._parentById = new Map()
+    this._childIds = new Map()
+    this._outlineIdBySectionKey = new Map()
+
+    const roots = []
+    const stack = []
+    entries.forEach((entry, index) => {
+      // Live updates name sections by rendered text, not permalink ids
+      // (numbered headings use ids such as section-9-1).
+      const baseKey = this.slugify(entry.text) || "section"
+      let sectionKey = baseKey
+      let suffix = 2
+      while (this._outlineIdBySectionKey.has(sectionKey)) sectionKey = `${baseKey}-${suffix++}`
+      this._outlineIdBySectionKey.set(sectionKey, entry.id)
+      this._textById.set(entry.id, entry.text)
+      this._positionById.set(entry.id, `${index}:${entry.level}`)
+      while (stack.length && stack.at(-1).level >= entry.level) stack.pop()
+      const parent = stack.at(-1)
+      if (parent) {
+        parent.children.push(entry)
+        this._parentById.set(entry.id, parent.id)
+      } else roots.push(entry)
+      stack.push(entry)
+    })
+
+    // A lone root (usually the document title) holds the whole outline;
+    // folding it would leave a single line.
+    const collapsible = entries.length > COLLAPSE_THRESHOLD
+    const foldable = entry => collapsible && entry.children.length > 0 && !(roots.length === 1 && entry === roots[0])
+    const anyFoldable = entries.some(foldable)
+    // A section that first becomes foldable in a rebuild (say the outline
+    // grows past the threshold) must not fold away the reader's position.
+    const activeAncestors = new Set()
+    for (let parent = this._parentById.get(this._revealedActiveId); parent; parent = this._parentById.get(parent)) activeAncestors.add(parent)
+
+    const place = (entry, list) => {
+      list.append(entry.item)
+      this._childIds.set(entry.id, entry.children.map(child => child.id))
+      if (!entry.children.length) {
+        if (anyFoldable) entry.row.prepend(Object.assign(document.createElement("span"), { className: "content-nav__disclosure-spacer" }))
+        return
+      }
+      const group = document.createElement("ul")
+      group.className = "content-nav__children"
+      group.id = `content-nav-group-${entry.id}`
+      entry.item.append(group)
+      entry.children.forEach(child => place(child, group))
+      if (!foldable(entry)) return
+
+      const button = document.createElement("button")
+      button.type = "button"
+      button.className = "content-nav__disclosure"
+      button.setAttribute("aria-controls", group.id)
+      button.setAttribute("aria-label", `${entry.text} sub-sections`)
+      button.dataset.action = "coplan--content-nav#toggleSection"
+      button.innerHTML = CHEVRON
+      entry.row.prepend(button)
+      const remembered = typeof stored[entry.id] === "boolean" ? { expanded: stored[entry.id], automatic: false } : undefined
+      const state = previousById.get(entry.id) ?? remembered ?? previousByText.get(entry.text) ??
+        previousByPosition.get(this._positionById.get(entry.id)) ??
+        { expanded: activeAncestors.has(entry.id), automatic: activeAncestors.has(entry.id) }
+      this._expanded.set(entry.id, state.expanded)
+      if (state.automatic) this._autoExpanded.add(entry.id)
+      this.renderExpanded(entry.id)
+    }
+    const focused = this.listTarget.contains(document.activeElement) ? document.activeElement : null
+    const focusedId = focused?.closest(".content-nav__item")?.dataset.headingId
+    const focusSelector = focused?.matches(".content-nav__disclosure") ? ".content-nav__disclosure" : ".content-nav__link"
+    this.listTarget.replaceChildren()
+    roots.forEach(root => place(root, this.listTarget))
+    if (focusedId) {
+      this.visibleItem(focusedId)?.querySelector(`:scope > .content-nav__row > ${focusSelector}`)?.focus({ preventScroll: true })
+    }
+  }
+
+  renderExpanded(id) {
+    const item = this._itemsById.get(id)
+    const expanded = this._expanded.get(id)
+    const button = item.querySelector(":scope > .content-nav__row > .content-nav__disclosure")
+    button.setAttribute("aria-expanded", String(expanded))
+    button.title = expanded ? "Collapse" : "Expand"
+    item.querySelector(":scope > .content-nav__children").hidden = !expanded
+  }
+
+  // Only `remember` (a reader's own toggle) reaches sessionStorage;
+  // following the scroll position or a link is not a preference.
+  setExpanded(ids, expanded, { remember = false } = {}) {
+    if (!this._expanded) return
+    const state = remember ? this.storedOutlineState() : null
+    let changed = false
+    ids.forEach(id => {
+      if (!this._expanded.has(id)) return
+      if (state) {
+        state[id] = expanded
+        this._autoExpanded?.delete(id)
+      }
+      if (this._expanded.get(id) === expanded) return
+      this._expanded.set(id, expanded)
+      this.renderExpanded(id)
+      changed = true
+    })
+    if (state) this.storeOutlineState(state)
+    if (changed) this.renderBadges()
+  }
+
+  revealEntry(id, { includeSelf = false } = {}) {
+    const ids = includeSelf ? [ id ] : []
+    for (let parent = this._parentById?.get(id); parent; parent = this._parentById.get(parent)) ids.push(parent)
+    this._autoExpanded ||= new Set()
+    // Keep automatically opened sections only while reading inside them.
+    // Explicit toggles relinquish automatic ownership in setExpanded.
+    const currentPath = new Set([ id, ...ids ])
+    const leaving = [...this._autoExpanded].filter(section => !currentPath.has(section))
+    this.setExpanded(leaving, false)
+    leaving.forEach(section => this._autoExpanded.delete(section))
+    ids.forEach(section => {
+      if (this._expanded.get(section) === false) this._autoExpanded.add(section)
+    })
+    this.setExpanded(ids, true)
+  }
+
+  revealHashTarget() {
+    let id
+    try { id = decodeURIComponent(window.location.hash.slice(1)) } catch { return }
+    if (id && this._itemsById?.has(id)) this.revealEntry(id, { includeSelf: true })
+  }
+
+  toggleLinkedEntry(id) {
+    const expanded = this._expanded?.get(id)
+    this.revealEntry(id)
+    // A clicked branch and its path belong to the reader, not scroll tracking.
+    const ancestors = []
+    for (let parent = this._parentById?.get(id); parent; parent = this._parentById.get(parent)) ancestors.push(parent)
+    this.setExpanded(ancestors, true, { remember: true })
+    if (typeof expanded === "boolean") this.setExpanded([id], !expanded, { remember: true })
+  }
+
+  toggleSection(event) {
+    const id = event.currentTarget.closest(".content-nav__item").dataset.headingId
+    this.setExpanded([ id ], !this._expanded.get(id), { remember: true })
+  }
+
+  // Tree-view keys on a focused entry of a collapsible outline: Right opens
+  // a folded subtree, then moves into it; Left folds an open one, then
+  // moves to the parent.
+  outlineKeydown(event) {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    if (!this._expanded?.size) return
+    const id = event.target.closest(".content-nav__item")?.dataset.headingId
+    if (!id || !this._itemsById.has(id)) return
+    const expanded = this._expanded.get(id)
+    const children = this._childIds.get(id) || []
+    let focusId = null
+    if (event.key === "ArrowRight") {
+      if (expanded === false) this.setExpanded([ id ], true, { remember: true })
+      else if (children.length) focusId = children[0]
+      else return
+    } else if (expanded === true) {
+      this.setExpanded([ id ], false, { remember: true })
+    } else {
+      focusId = this._parentById.get(id)
+      if (!focusId) return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    if (focusId) this._itemsById.get(focusId).querySelector(":scope > .content-nav__row > .content-nav__link").focus()
+  }
+
+  hashChanged() {
+    this.revealHashTarget()
+  }
+
+  outlineStateKey() {
+    return OUTLINE_STATE_PREFIX + (this.planIdValue || window.location.pathname)
+  }
+
+  // Keys for headings that no longer exist are simply never looked up.
+  storedOutlineState() {
+    try {
+      const state = JSON.parse(sessionStorage.getItem(this.outlineStateKey()))
+      return state && typeof state === "object" && !Array.isArray(state) ? state : {}
+    } catch {
+      return {}
+    }
+  }
+
+  storeOutlineState(state) {
+    try { sessionStorage.setItem(this.outlineStateKey(), JSON.stringify(state)) } catch { /* storage unavailable */ }
+  }
+
+  // The entry a reader can see for `id`: itself, or the outermost folded
+  // ancestor hiding it.
+  visibleItem(id) {
+    let visible = id
+    for (let parent = this._parentById?.get(id); parent; parent = this._parentById.get(parent)) {
+      if (this._expanded.get(parent) === false) visible = parent
+    }
+    return this._itemsById?.get(visible)
+  }
+
   editorHeadings() {
-    return Array.from(this._editorRoot?.querySelectorAll(":scope > h1, :scope > h2, :scope > h3") || [])
+    return Array.from(this._editorRoot?.querySelectorAll(":scope > h1:not(:first-child), :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6") || [])
   }
 
   editorHeadingSignature(headings) {
@@ -233,7 +469,7 @@ export default class extends Controller {
       }
       if (!this._scrollTicking) {
         requestAnimationFrame(() => {
-          this._updateActiveFromScroll()
+          if (!this._ignoreScroll) this._updateActiveFromScroll()
           this._scrollTicking = false
         })
         this._scrollTicking = true
@@ -261,7 +497,8 @@ export default class extends Controller {
 
   remoteChange(event) {
     for (const key of event.detail.keys || []) {
-      const item = this._itemsById?.get(key)
+      // A change inside a folded subtree pulses the entry that hides it.
+      const item = this.visibleItem(this._outlineIdBySectionKey?.get(key) || key)
       if (!item) continue
       item.classList.remove("content-nav__item--remote-change")
       // Restart the pulse when consecutive revisions touch one section.
@@ -295,6 +532,12 @@ export default class extends Controller {
     const id = this._editorRoot ? this._outlineIds[Math.max(index, 0)] : active?.id || headings[0]?.id
     if (id && id !== this._activeHeadingId) {
       this._activeHeadingId = id
+      // Unfold the active entry's ancestors once per section reached. A
+      // rebuild must not reopen a subtree the reader folded around it.
+      if (id !== this._revealedActiveId) {
+        this._revealedActiveId = id
+        this.revealEntry(id)
+      }
       this._setActiveLink(id)
     }
   }
@@ -305,8 +548,11 @@ export default class extends Controller {
     this.closeOutlinePopover()
     history.replaceState(null, "", `#${outlineId}`)
 
+    clearTimeout(this._scrollEndTimer)
     this._ignoreScroll = true
     this._activeHeadingId = outlineId
+    this._revealedActiveId = outlineId
+    this.toggleLinkedEntry(outlineId)
     this._setActiveLink(outlineId)
 
     this._revealDeckSlide(heading)
@@ -357,6 +603,7 @@ export default class extends Controller {
     this.closeOutlinePopover()
     history.replaceState(null, "", `#${id}`)
 
+    clearTimeout(this._scrollEndTimer)
     this._ignoreScroll = true
     target.querySelector("details.document-support__disclosure")?.setAttribute("open", "")
     this._revealDeckSlide(target)
@@ -390,7 +637,7 @@ export default class extends Controller {
       else this.showOutline()
       return
     }
-    if (this._editorRoot && !this._editorSidebarDisplayed && this._headings.length) {
+    if (this._editorRoot && !this._editorSidebarDisplayed && this.hasNavigationEntries()) {
       // The first heading does not open a column mid-typing. An explicit
       // outline request can still reveal it during the edit session.
       this.showOutline()
@@ -449,9 +696,13 @@ export default class extends Controller {
     this.updateEditorToggle()
   }
 
+  hasNavigationEntries() {
+    return Boolean(this._headings?.length || this.sidebarTarget.querySelector(".content-nav__list--footnotes .section-count:not(:empty)"))
+  }
+
   updateEditorToggle() {
     if (!this.hasEditorToggleBtnTarget) return
-    this.editorToggleBtnTarget.disabled = !this._headings?.length
+    this.editorToggleBtnTarget.disabled = !this.hasNavigationEntries()
     this.editorToggleBtnTarget.setAttribute("aria-expanded", String(Boolean(this._editorSidebarDisplayed && this.visibleValue)))
   }
 
@@ -474,23 +725,34 @@ export default class extends Controller {
     // headings live in different slides, so the span between two of them
     // crosses .markdown-rendered blocks.
     const headings = this._editorRoot ? this.editorHeadings() : this._headings
+    this._ownCounts = new Map()
     headings.forEach((heading, index) => {
-      const nextHeading = headings[index + 1]
-      const count = this.countOpenThreadsBetween(heading, nextHeading, container)
-
-      const item = this._itemsById?.get(this._editorRoot ? this._outlineIds[index] : heading.id)
-      if (!item) return
-
-      const existing = item.querySelector(".content-nav__badge")
-      if (existing) existing.remove()
-
-      if (count > 0) {
-        const badge = document.createElement("span")
-        badge.className = "content-nav__badge content-nav__badge--open"
-        badge.textContent = count
-        item.querySelector(".content-nav__link").appendChild(badge)
-      }
+      const id = this._editorRoot ? this._outlineIds[index] : heading.id
+      this._ownCounts.set(id, this.countOpenThreadsBetween(heading, headings[index + 1], container))
     })
+    this.renderBadges()
+  }
+
+  // A folded entry adds its hidden sub-sections' counts to its own.
+  renderBadges() {
+    if (!this._ownCounts || !this._itemsById) return
+    this._itemsById.forEach((item, id) => {
+      const link = item.querySelector(":scope > .content-nav__row > .content-nav__link")
+      link.querySelector(".content-nav__badge")?.remove()
+      const hidden = this._expanded?.get(id) === false ? this.descendantCount(id) : 0
+      const count = (this._ownCounts.get(id) || 0) + hidden
+      if (count === 0) return
+
+      const badge = document.createElement("span")
+      badge.className = "content-nav__badge content-nav__badge--open"
+      badge.textContent = count
+      if (hidden) badge.title = `${count} open discussion${count === 1 ? "" : "s"}, including collapsed sub-sections`
+      link.appendChild(badge)
+    })
+  }
+
+  descendantCount(id) {
+    return (this._childIds.get(id) || []).reduce((sum, child) => sum + (this._ownCounts.get(child) || 0) + this.descendantCount(child), 0)
   }
 
   countOpenThreadsBetween(startHeading, endHeading, container) {

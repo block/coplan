@@ -4,8 +4,8 @@ RSpec.describe "Resizing editor images", type: :system do
   let(:author) { create(:coplan_user, email: "image-editor@example.com") }
   let(:image_source) { "![Console & mockup](#{image_url} \"A title\")" }
   let(:source) { "# Image resizing\n\nBefore image.\n\n#{image_source}\n\nAfter image.\n" }
-  let(:image_url) { CoPlan::DevelopmentSeed.demo_logo_url }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Image resizing", content: source, user: author, visibility: "draft", actor_type: "human") }
+  let(:image_url) { Coplan::DevelopmentSeed.demo_logo_url }
+  let(:plan) { Coplan::Plans::Create.call(title: "Image resizing", content: source, user: author, visibility: "draft", actor_type: "human") }
 
   before do
     require "coplan/development_seed"

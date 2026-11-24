@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::WebPushDeliveryJob, type: :job do
+RSpec.describe Coplan::WebPushDeliveryJob, type: :job do
   let(:user)         { create(:coplan_user) }
   let(:subscription) { create(:coplan_web_push_subscription, user: user) }
   let(:plan)         { create(:plan, created_by_user: user) }
@@ -23,24 +23,24 @@ RSpec.describe CoPlan::WebPushDeliveryJob, type: :job do
   end
 
   before do
-    CoPlan.configuration.vapid_public_key  = "pub"
-    CoPlan.configuration.vapid_private_key = "priv"
-    CoPlan.configuration.vapid_subject     = "mailto:test@example.com"
+    Coplan.configuration.vapid_public_key  = "pub"
+    Coplan.configuration.vapid_private_key = "priv"
+    Coplan.configuration.vapid_subject     = "mailto:test@example.com"
   end
 
   after do
-    CoPlan.configuration.vapid_public_key  = nil
-    CoPlan.configuration.vapid_private_key = nil
-    CoPlan.configuration.vapid_subject     = nil
+    Coplan.configuration.vapid_public_key  = nil
+    Coplan.configuration.vapid_private_key = nil
+    Coplan.configuration.vapid_subject     = nil
   end
 
   describe "#perform" do
     it "calls Deliver with the notification's payload and the subscription" do
-      allow(CoPlan::WebPush::Deliver).to receive(:call).and_return(:delivered)
+      allow(Coplan::WebPush::Deliver).to receive(:call).and_return(:delivered)
 
       described_class.perform_now(notification_id: notification.id, subscription_id: subscription.id)
 
-      expect(CoPlan::WebPush::Deliver).to have_received(:call).with(
+      expect(Coplan::WebPush::Deliver).to have_received(:call).with(
         subscription: subscription,
         payload: hash_including(:title, :body, :url, :tag)
       )
@@ -51,11 +51,11 @@ RSpec.describe CoPlan::WebPushDeliveryJob, type: :job do
       # job itself does, not the let-driven setup.
       subscription_id = subscription.id
       notification_id = notification.id
-      allow(CoPlan::WebPush::Deliver).to receive(:call).and_return(:expired)
+      allow(Coplan::WebPush::Deliver).to receive(:call).and_return(:expired)
 
       expect {
         described_class.perform_now(notification_id: notification_id, subscription_id: subscription_id)
-      }.to change(CoPlan::WebPushSubscription, :count).by(-1)
+      }.to change(Coplan::WebPushSubscription, :count).by(-1)
     end
 
     it "no-ops if the notification was already deleted" do
@@ -74,6 +74,14 @@ RSpec.describe CoPlan::WebPushDeliveryJob, type: :job do
       expect {
         described_class.perform_now(notification_id: notification.id, subscription_id: subscription_id)
       }.not_to raise_error
+    end
+
+    it "retries a push that timed out instead of dropping it" do
+      allow(Coplan::WebPush::Deliver).to receive(:call).and_raise(Net::ReadTimeout)
+
+      expect {
+        described_class.perform_now(notification_id: notification.id, subscription_id: subscription.id)
+      }.to have_enqueued_job(described_class).with(notification_id: notification.id, subscription_id: subscription.id)
     end
   end
 end

@@ -5,8 +5,8 @@ class DebouncedJobSpecError < StandardError; end
 
 # Stand-in for a host's job. Deliberately touches nothing but the concern:
 # the primitive is supposed to know nothing about comments or delivery.
-class DebouncedJobSpecJob < CoPlan::ApplicationJob
-  include CoPlan::DebouncedJob
+class DebouncedJobSpecJob < Coplan::ApplicationJob
+  include Coplan::DebouncedJob
 
   retry_on DebouncedJobSpecError, wait: 5.minutes, attempts: 3
 
@@ -25,7 +25,7 @@ class DebouncedJobSpecJob < CoPlan::ApplicationJob
   end
 end
 
-RSpec.describe CoPlan::DebouncedJob, type: :job do
+RSpec.describe Coplan::DebouncedJob, type: :job do
   include ActiveJob::TestHelper
 
   let(:job) { DebouncedJobSpecJob }
@@ -375,14 +375,14 @@ RSpec.describe CoPlan::DebouncedJob, type: :job do
 
   describe "configuration" do
     it "defaults to the concern's window and retry horizon" do
-      default_job = Class.new(CoPlan::ApplicationJob) { include CoPlan::DebouncedJob }
+      default_job = Class.new(Coplan::ApplicationJob) { include Coplan::DebouncedJob }
 
-      expect(default_job.debounce_window).to eq(CoPlan::DebouncedJob::DEFAULT_WINDOW)
-      expect(default_job.debounce_retry_horizon).to eq(CoPlan::DebouncedJob::DEFAULT_RETRY_HORIZON)
+      expect(default_job.debounce_window).to eq(Coplan::DebouncedJob::DEFAULT_WINDOW)
+      expect(default_job.debounce_retry_horizon).to eq(Coplan::DebouncedJob::DEFAULT_RETRY_HORIZON)
     end
 
     it "rejects a non-positive window or retry horizon" do
-      klass = Class.new(CoPlan::ApplicationJob) { include CoPlan::DebouncedJob }
+      klass = Class.new(Coplan::ApplicationJob) { include Coplan::DebouncedJob }
 
       expect { klass.debounces_with(window: -1.minute) }.to raise_error(ArgumentError, /positive duration/)
       expect { klass.debounces_with(retry_horizon: "soon") }.to raise_error(ArgumentError, /positive duration/)

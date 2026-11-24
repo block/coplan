@@ -1,10 +1,10 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       class AttachmentsController < BaseController
         # For attachment_markdown_snippet — keeps the embed-snippet format in
         # one place so the API and the web UI can't drift apart.
-        include CoPlan::AttachmentsHelper
+        include Coplan::AttachmentsHelper
 
         before_action :set_plan, only: [ :index, :create, :destroy ]
         # authorize_plan_access! (PlanPolicy#show?): attachments follow the
@@ -37,7 +37,7 @@ module CoPlan
           )
 
           if result.success?
-            render json: attachment_json(result.attachment), status: :created
+            render json: attachment_json(result.attachment).merge(reused: result.reused?), status: :created
           else
             render json: { error: result.error }, status: :unprocessable_content
           end

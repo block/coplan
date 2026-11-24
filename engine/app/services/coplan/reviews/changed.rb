@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Reviews
     class Changed
       def self.call(request:, event_type:, actor_token_id: nil, payload: {}, broadcast_controls: true)
@@ -21,8 +21,7 @@ module CoPlan
         attrs = payload["removed"] ? { "data-removed-review-request-id" => request.id } : {}
         Broadcaster.custom_action_to(request.plan, action: "coplan-review-changed", target: "plan-review-controls", html: "", attrs: attrs) if @broadcast_controls
         if payload["removed"]
-          # Public notes survive removal; their deleted review decisions must
-          # disappear from the discussion labels in open tabs as well.
+          # Mark surviving decisions as past reviews in open tabs too.
           Broadcaster.replace_to(request.plan, target: "plan-general-comment-list", partial: "coplan/plans/general_comment_list",
             locals: { threads: request.plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) })
         end

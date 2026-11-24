@@ -1,0 +1,15 @@
+<% if results.empty? && people.empty? %>
+  <p>No matches. Try another name or paste a link.</p>
+<% end %>
+<% results.each do |plan| %>
+  <button type="button" class="composer__link-result" data-action="coplan--comment-form#selectLink"
+          data-link-href="<%= plan_browse_path(plan) %>" data-link-title="<%= plan.title %>">
+    <%= plan.title %><small>Plan</small>
+  </button>
+<% end %>
+<% people.each do |person| %>
+  <button type="button" class="composer__link-result" data-action="coplan--comment-form#selectLink"
+          data-link-href="<%= profile_path_for(person) %>" data-link-title="<%= person.name %>">
+    <%= person.name %><small>Person</small>
+  </button>
+<% end %>

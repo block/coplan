@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Editor toolbar", type: :system do
   let(:author) { create(:coplan_user, email: "editor-toolbar@example.com") }
   let(:content) { "Original prose.\n" }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Toolbar test", content: content, user: author, visibility: "draft", actor_type: "human") }
+  let(:plan) { Coplan::Plans::Create.call(title: "Toolbar test", content: content, user: author, visibility: "draft", actor_type: "human") }
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
   before do
@@ -218,7 +218,7 @@ RSpec.describe "Editor toolbar", type: :system do
     end
   end
 
-  it "shows saving through in-flight typing, then fades the acknowledged autosave without moving the toolbar" do
+  it "shows saving through in-flight typing, then fades the acknowledged autosave without moving the toolbar", browser_sync: :manual do
     click_button "Raw", exact: true
     bounds = find(".document-editor__close-inline").rect
     page.execute_script(<<~'JS')
@@ -318,7 +318,7 @@ RSpec.describe "Editor toolbar", type: :system do
 
   it "does not show an autosave check for incoming edits and retains their tags on the next save" do
     plan.update!(tag_names: [ "remote-tag" ])
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Incoming prose.", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: "Incoming prose.", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(page).to have_css('[aria-label="Document body"]', text: "Incoming prose.", wait: 10)
     expect(status["data-state"]).to eq("idle")
     expect(page).not_to have_css(".document-editor__save-check")

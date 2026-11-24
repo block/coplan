@@ -1,10 +1,10 @@
-module CoPlan
+module Coplan
   class PlanCollaborator < ApplicationRecord
     ROLES = %w[author reviewer viewer approver highlighted].freeze
 
     belongs_to :plan
-    belongs_to :user, class_name: "CoPlan::User"
-    belongs_to :added_by_user, class_name: "CoPlan::User", optional: true
+    belongs_to :user, class_name: "Coplan::User"
+    belongs_to :added_by_user, class_name: "Coplan::User", optional: true
 
     validates :role, presence: true, inclusion: { in: ROLES }
     validates :user_id, uniqueness: { scope: :plan_id }

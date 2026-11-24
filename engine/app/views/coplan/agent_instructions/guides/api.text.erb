@@ -27,6 +27,16 @@ return 429. Invalid names return 422 with `invalid_request`.
 | `POST /api/v1/tokens` | Mint a session token: `agent_name`, `metadata`, `ttl_seconds`. |
 | `DELETE /api/v1/tokens/current` | Revoke the token that makes the request. |
 
+## Browser push settings
+
+Browser push settings use a signed-in browser session, not an agent token.
+`GET /_/web_push/subscription?endpoint_digest=SHA256` returns `{ "subscribed": true }`
+only when that endpoint is among the current person's ten active delivery registrations.
+Use the lowercase SHA-256 hex digest of the endpoint, not the endpoint URL.
+An evicted or missing registration returns `{ "subscribed": false }` (200).
+Web push disabled by the host returns 503. Settings can re-register an evicted browser
+with Enable on this device; enabling an eleventh device evicts the least recently registered one.
+
 ## Plans
 
 | Method and path | Purpose | Guide |
@@ -43,7 +53,7 @@ return 429. Invalid names return 422 with `invalid_request`.
 | `PUT /api/v1/plans/:id/content` | Replace the content. | editing |
 | `POST /api/v1/plans/:id/operations` | Apply targeted edits. | editing |
 | `POST /api/v1/plans/:id/sessions` | Open an edit session (10 minutes): returns `id` and `base_revision`. Send `session_id` and that `base_revision` on each operation request to collect operations without saving. | editing |
-| `GET /api/v1/plans/:id/sessions/:session_id` | Get an edit session: `status`, `expires_at`, `operations_count`. | editing |
+| `GET /api/v1/plans/:id/sessions/:session_id` | Get an edit session: `status`, `expires_at`, `operations_count`. Failed expiry commits send `session.commit_failed` to the owning token; read the plan and use fresh operations or a new session. | editing |
 | `POST /api/v1/plans/:id/sessions/:session_id/commit` | Save the session's operations as one version: `change_summary`. | editing |
 | `POST`, `PATCH`, `DELETE /api/v1/plans/:id/lease` | Take, renew, or release the edit lock (optional). | editing |
 | `GET /api/v1/plans/:id/versions` | List the versions. | editing |
@@ -66,19 +76,26 @@ Agents can read reactions but cannot add them. There is no reactions endpoint.
 
 ## References and attachments
 
+The browser editor uses session-authenticated multipart `POST /plans/:id/attachments`
+with `files[]` and `Accept: application/json`. It returns `attachments` (id, filename,
+content_type, url, download_url, reused), per-file `errors`, and browser Turbo `streams`.
+Status is 201 when any file succeeds, including partial success, or 422 when none
+succeed. Browser draft creation returns `attachments_url` for uploads.
+Agents use the `/api/v1` routes below with their API credential.
+
 | Method and path | Purpose | Guide |
 |---|---|---|
 | `GET`, `POST /api/v1/plans/:id/references` | List or add references. Adding is for the plan author only. | creating |
 | `DELETE /api/v1/plans/:id/references/:reference_id` | Remove a reference. Plan author only. | creating |
 | `GET /api/v1/references/search?url=` | Find the plans that refer to a URL. | creating |
-| `GET`, `POST /api/v1/plans/:id/attachments` | List or upload files (multipart `file`). Uploading is for the plan author only. | markdown |
+| `GET`, `POST /api/v1/plans/:id/attachments` | List or upload files (multipart `file`). Uploading is for the plan author only. POST returns 201 with `reused: true` for identical contents already attached to this plan, or `false` for a new file. | markdown |
 | `DELETE /api/v1/plans/:id/attachments/:attachment_id` | Delete a file. Plan author only. | markdown |
 
 ## Review requests and decisions
 
 | Method and path | Purpose | Guide |
 |---|---|---|
-| `GET /api/v1/plans/:id/review_requests` | List reviewers and their recorded decisions. | comments |
+| `GET /api/v1/plans/:id/review_requests` | List current and removed review assignments with their recorded decisions. | comments |
 | `GET /api/v1/plans/:id/review_requests/suggestions` | List reviewers this Coplan deployment suggests, such as owners of linked code. Plan author only. | comments |
 | `POST /api/v1/plans/:id/review_requests` | Request required or optional review. Plan author only. | comments |
 | `PATCH /api/v1/plans/:id/review_requests/:request_id` | Change the requirement without reopening, or request another look. Plan author only. | comments |
@@ -125,6 +142,12 @@ Guides: `<%= @base %>/agent-instructions/<guide>`, for example <<%= @base %>/age
 | `409` | A stale `base_revision`, a hand edit that you have not read (`"code": "human_edit_pending"`), or someone holds the edit lock (`"code": "edit_locked"`). See the editing guide. |
 | `422` | The request is not valid, or an operation cannot apply. The `error` field says why. |
 
+Stale operations and edit-session commits return `409` if their base version is missing or their target cannot be safely rebased. No partial version is saved. An operations target mismatch includes `expected` and `found` text; these also replace the former `expected_needle` and `expected_heading` fields. Session conflicts report the reason in `error`. Read the plan again before retrying.
+
+A non-string `new_content` for `replace_section` is invalid (`422`). A stale session rejected for this validation error remains open.
+
 ## Iframe domains
 
 `GET /api/v1/embed_domains` returns `{"hostnames":["embed.example.com"]}`. This is the exact-host allowlist for iframe content blocks. It requires your Bearer token. An empty list means no hosts are approved. Only an administrator can change the list, through Coplan Admin. See <<%= @base %>/agent-instructions/embeds> for block syntax.
+
+Comment DELETE requests soft-delete the record. Stored text is retained for admin access; ordinary API reads return a deleted placeholder. Permanent deletion is available only in the admin interface, not the agent API.

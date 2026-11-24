@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "Comments", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
+  after { travel_back }
+
   let(:alice) { create(:coplan_user, :admin) }
   let(:plan) { create(:plan, :considering, created_by_user: alice) }
   let(:thread_record) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice) }
@@ -12,9 +16,9 @@ RSpec.describe "Comments", type: :request do
       post plan_comment_thread_comments_path(plan, thread_record), params: {
         comment: { body_markdown: "I agree with this." }
       }
-    }.to change(CoPlan::Comment, :count).by(1)
+    }.to change(Coplan::Comment, :count).by(1)
     expect(response).to redirect_to(plan_page_path(plan))
-    comment = CoPlan::Comment.last
+    comment = Coplan::Comment.last
     expect(comment.author_type).to eq("human")
     expect(comment.author_id).to eq(alice.id)
   end
@@ -25,7 +29,7 @@ RSpec.describe "Comments", type: :request do
       headers: { "Accept" => "text/vnd.turbo-stream.html" }
 
     expect(response).to have_http_status(:ok)
-    comment = CoPlan::Comment.last
+    comment = Coplan::Comment.last
     expect(response.body).to include(%(action="append"))
     expect(response.body).to include("comments_comment_thread_#{thread_record.id}")
     expect(response.body).to include(ActionView::RecordIdentifier.dom_id(comment))
@@ -35,7 +39,7 @@ RSpec.describe "Comments", type: :request do
   it "broadcasts via requestless partial render, never the request-scoped HTML" do
     # Request-rendered HTML embeds the actor's session authenticity token in
     # any forms; broadcasting it would send that secret to every viewer.
-    expect(CoPlan::Broadcaster).to receive(:append_to) do |_streamable, **kwargs|
+    expect(Coplan::Broadcaster).to receive(:append_to) do |_streamable, **kwargs|
       expect(kwargs[:partial]).to eq("coplan/comments/comment")
       expect(kwargs[:html]).to be_nil
     end
@@ -61,8 +65,31 @@ RSpec.describe "Comments", type: :request do
     ActionController::Base.perform_caching = original_perform_caching
   end
 
+  it "refreshes cached comment links after 15 minutes" do
+    comment = create(:comment, comment_thread: thread_record, author_id: alice.id,
+      body_markdown: "[Open chat](codex://threads/123)")
+    original_caching = Coplan::ApplicationController.perform_caching
+    Coplan::ApplicationController.perform_caching = true
+    memory = ActiveSupport::Cache::MemoryStore.new
+    allow(Rails).to receive(:cache).and_return(memory)
+    allow_any_instance_of(Coplan::ApplicationController).to receive(:cache_store).and_return(memory)
+    link_scrubber = Coplan::LinkScrubber
+    render_comment = -> { Coplan::ApplicationController.render(partial: "coplan/comments/comment", locals: { comment: comment }) }
+
+    stub_const("Coplan::LinkScrubber", Rails::HTML::PermitScrubber)
+    expect(render_comment.call).not_to include('href="codex://threads/123"')
+    stub_const("Coplan::LinkScrubber", link_scrubber)
+    # The old renderer's cached fragment really is still being served.
+    expect(render_comment.call).not_to include('href="codex://threads/123"')
+
+    travel 15.minutes + 1.second
+    expect(render_comment.call).to include('href="codex://threads/123"')
+  ensure
+    Coplan::ApplicationController.perform_caching = original_caching
+  end
+
   it "refreshes public comment previews after a reply without sharing request HTML" do
-    expect(CoPlan::Broadcaster).to receive(:replace_to).with(plan,
+    expect(Coplan::Broadcaster).to receive(:replace_to).with(plan,
       target: "plan-general-comment-list", partial: "coplan/plans/general_comment_list", locals: anything)
     post plan_comment_thread_comments_path(plan, thread_record),
       params: { comment: { body_markdown: "New public reply" } },
@@ -79,9 +106,12 @@ RSpec.describe "Comments", type: :request do
         headers: { "Accept" => "text/vnd.turbo-stream.html" }
     end
 
-    it "updates the author's comment and broadcasts a requestless replacement" do
-      allow(CoPlan::Broadcaster).to receive(:replace_to)
-      expect(CoPlan::Broadcaster).to receive(:replace_to).with(plan,
+    it "updates the author's cached comment and broadcasts a requestless replacement" do
+      allow_any_instance_of(Coplan::ApplicationController).to receive(:perform_caching).and_return(true)
+      allow_any_instance_of(Coplan::ApplicationController).to receive(:cache_store).and_return(ActiveSupport::Cache::MemoryStore.new)
+      expect(Coplan::ApplicationController.render(partial: "coplan/comments/comment", locals: { comment: comment })).to include("Original")
+      allow(Coplan::Broadcaster).to receive(:replace_to)
+      expect(Coplan::Broadcaster).to receive(:replace_to).with(plan,
         target: ActionView::RecordIdentifier.dom_id(comment), partial: "coplan/comments/comment", locals: { comment: comment })
       update_comment
       expect(response).to have_http_status(:ok)

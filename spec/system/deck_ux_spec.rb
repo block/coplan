@@ -43,7 +43,7 @@ RSpec.describe "Deck UX", type: :system do
 
   let(:plan) do
     p = create(:plan, :published, created_by_user: user, plan_type: deck_type, title: "Readout deck")
-    version = CoPlan::PlanVersion.create!(
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 2,
       content_markdown: "::: {.presentation}\n\n#{deck_content}\n:::", actor_type: "human", actor_id: user.id
     )
@@ -119,7 +119,7 @@ RSpec.describe "Deck UX", type: :system do
 
       Closing analysis.
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
 
@@ -251,7 +251,7 @@ RSpec.describe "Deck UX", type: :system do
 
       :::
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
     all(".deck-region").first.find(".deck-toolbar__step--next").click
@@ -308,7 +308,7 @@ RSpec.describe "Deck UX", type: :system do
 
       :::
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
     2.times { all(".deck-region").first.find(".deck-toolbar__step--next").click }
@@ -351,7 +351,7 @@ RSpec.describe "Deck UX", type: :system do
 
       :::
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
     find(".deck-toolbar__step--next").click
@@ -391,7 +391,7 @@ RSpec.describe "Deck UX", type: :system do
 
       :::
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
     find(".deck-toolbar__step--next").click
@@ -428,7 +428,7 @@ RSpec.describe "Deck UX", type: :system do
 
       :::
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
     find(".deck-toolbar__step--next").click
@@ -465,7 +465,7 @@ RSpec.describe "Deck UX", type: :system do
 
       :::
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
     expect(page).to have_css(".deck-slide--split .deck-body h2", text: "Results")
@@ -517,7 +517,7 @@ RSpec.describe "Deck UX", type: :system do
 
   it "reveals a hidden slide targeted by a direct link" do
     content = ("Long introduction.\n\n" * 40) + "::: {.presentation}\n\n#{deck_content}\n:::"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit "#{plan_page_path(plan)}#how-a-slide-finds-its-shape"
 
@@ -563,7 +563,7 @@ RSpec.describe "Deck UX", type: :system do
 
       :::
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit "#{plan_page_path(plan)}#present-2-2"
     send_keys("p")
@@ -622,11 +622,11 @@ RSpec.describe "Deck UX", type: :system do
 
       :::
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     content = plan.reload.current_content
     html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
-    mapped = CoPlan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
+    mapped = Coplan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
     cell = mapped.css("[data-source-target]").find { |node| node.text.include?("Review") }
     token = JSON.parse(cell["data-source-target"])["token"]
     thread = create(:comment_thread, plan: plan, created_by_user: user, source_token: token)
@@ -656,7 +656,7 @@ RSpec.describe "Deck UX", type: :system do
 
       Fresh closing text.
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
     page.execute_script(<<~JS)
@@ -670,7 +670,7 @@ RSpec.describe "Deck UX", type: :system do
 
   it "keeps update markers out of discussion bodies" do
     content = "## Closing\n\nFresh closing text."
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     thread = create(:comment_thread, plan: plan, created_by_user: user)
     create(:comment, comment_thread: thread, author_id: user.id, body_markdown: "Unchanged discussion text.")
@@ -703,7 +703,7 @@ RSpec.describe "Deck UX", type: :system do
 
       Old closing text.
     MD
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit plan_page_path(plan)
     page.execute_script(<<~JS)

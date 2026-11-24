@@ -1,6 +1,4 @@
-require "diff/lcs"
-
-module CoPlan
+module Coplan
   module Plans
     # A three-way, character-range merge. Both sides are compared with the
     # same immutable base. Only disjoint edits (or identical edits) combine.
@@ -8,25 +6,7 @@ module CoPlan
       class Conflict < StandardError; end
 
       def self.hunks(before, after)
-        result = []
-        position = 0
-        pending = nil
-        Diff::LCS.sdiff(before.each_char.to_a, after.each_char.to_a).each do |change|
-          if change.action == "="
-            result << pending if pending
-            pending = nil
-            position += 1
-          else
-            pending ||= { from: position, to: position, text: "" }
-            unless change.action == "+"
-              position += 1
-              pending[:to] = position
-            end
-            pending[:text] += change.new_element unless change.action == "-"
-          end
-        end
-        result << pending if pending
-        result
+        TextDiff.hunks(before, after)
       end
 
       def self.overlap?(left, right)

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class Plan < ApplicationRecord
     include BroadcastsLibraryChanges
 
@@ -21,7 +21,7 @@ module CoPlan
       application/zip
     ].freeze
 
-    belongs_to :created_by_user, class_name: "CoPlan::User"
+    belongs_to :created_by_user, class_name: "Coplan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
     # Lean handle on the current version for list pages: the preview cache
     # key needs content_sha256, nothing else — preloading the full row drags
@@ -30,7 +30,7 @@ module CoPlan
       class_name: "PlanVersion", foreign_key: :current_plan_version_id, optional: true
     belongs_to :plan_type
     # At most one: a plan is filed in a single folder of a single library.
-    has_one :placement, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
+    has_one :placement, class_name: "Coplan::PlanPlacement", inverse_of: :plan, dependent: :destroy
     has_many :review_requests, dependent: :destroy
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_events, dependent: :destroy
@@ -299,7 +299,7 @@ module CoPlan
     def stripped_content
       @stripped_content ||= begin
         content = current_content
-        content.present? ? Plans::MarkdownTextExtractor.call(content) : [ +"", [] ]
+        content.present? ? CommentThread.strip_markdown(content) : [ +"", [] ]
       end
     end
 

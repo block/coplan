@@ -1,10 +1,11 @@
 import { diffArrays } from "diff"
 import { codeHighlight } from "coplan/code_highlight"
+import { richUploads } from "coplan/rich_uploads"
 import { textHunks } from "coplan/merge_text"
 import { citationLabelKey } from "coplan/citation_labels"
 import { enableLetteredLists, letterOrder, letterMarker } from "coplan/lettered_lists"
 export { citationLabelKey } from "coplan/citation_labels"
-import { Schema, Fragment, Slice, DOMSerializer } from "prosemirror-model"
+import { Schema, Fragment, Slice, DOMSerializer, Mark } from "prosemirror-model"
 import { EditorState, TextSelection, Plugin, PluginKey } from "prosemirror-state"
 import { EditorView, Decoration, DecorationSet } from "prosemirror-view"
 import { MarkdownParser, MarkdownSerializer, defaultMarkdownParser, defaultMarkdownSerializer as baseMarkdownSerializer } from "prosemirror-markdown"
@@ -12,7 +13,7 @@ import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exit
 import { wrapInList, splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list"
 import { keymap } from "prosemirror-keymap"
 import { history, undo, redo, closeHistory } from "prosemirror-history"
-import { inputRules, wrappingInputRule, undoInputRule } from "prosemirror-inputrules"
+import { inputRules, InputRule, wrappingInputRule, undoInputRule } from "prosemirror-inputrules"
 
 const mac = /Mac|iP(hone|ad|od)/.test(navigator.platform)
 const lineNavigation = mac ? { "Ctrl-a": codeLineStart } : {}
@@ -71,8 +72,33 @@ nodes = nodes.addBefore("paragraph", "template_note", {
   attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
   toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Comment" }, 0]
 })
+// A callout is a blockquote whose first line is a GitHub alert marker such as
+// `[!NOTE]`. The marker line is kept verbatim as an attribute, so the body
+// edits as rich text and the marker, including its case and any custom title,
+// serializes back unchanged.
+const calloutMarker = /^\[!(note|tip|important|warning|caution|summary)\]([^\n]*)(?:\n|$)/i
+function calloutLabel(callout, marker) {
+  return marker.slice(marker.indexOf("]") + 1).trim() || callout[0].toUpperCase() + callout.slice(1)
+}
+const blockquoteSpec = nodes.get("blockquote")
+nodes = nodes.update("blockquote", {
+  ...blockquoteSpec,
+  attrs: { ...blockquoteSpec.attrs, callout: { default: null }, marker: { default: null } },
+  parseDOM: [{ tag: "blockquote", getAttrs: dom => {
+    const match = calloutMarker.exec(dom.dataset.calloutMarker || "")
+    return match ? { callout: match[1].toLowerCase(), marker: dom.dataset.calloutMarker } : {}
+  } }],
+  toDOM: node => node.attrs.callout ? ["blockquote", { class: `document-editor__callout document-editor__callout--${node.attrs.callout}`,
+    "data-callout-title": calloutLabel(node.attrs.callout, node.attrs.marker), "data-callout-marker": node.attrs.marker }, 0] : blockquoteSpec.toDOM(node)
+})
+// Math keeps its delimiters in the text: the TeX is raw, editable source and
+// serializes verbatim. It may sit inside emphasis or links, never in code.
 const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks.addToEnd("strikethrough", {
   parseDOM: [{ tag: "s" }, { tag: "del" }], toDOM: () => ["s", 0]
+}).addToEnd("math", {
+  code: true, inclusive: false, excludes: "math code",
+  parseDOM: [{ tag: "span[data-coplan-math]" }],
+  toDOM: () => ["span", { class: "document-editor__math", "data-coplan-math": "", spellcheck: "false" }, 0]
 }) })
 const tokenizer = defaultMarkdownParser.tokenizer
 // The width syntax is an HTML image in otherwise ordinary Markdown. Parse
@@ -115,6 +141,75 @@ tokenizer.inline.ruler.before("link", "coplan_footnote", (state, silent) => {
   state.pos += match[0].length
   return true
 })
+// Mirror comrak's math_dollars/math_code scanning so exactly the spans the
+// server renders as math stay raw. Backslash escapes and code spans run on
+// their own characters first; currency like "$5 and $10" stays text.
+const mathSpace = /[ \t\n\r\v\f]/
+// Returns the end of the math span at `start`, null when this dollar is plain
+// text, or minus the end of an unmatched "$$"/"$$$…" run that is all text.
+function mathEnd(src, start, max) {
+  let pos = start
+  while (pos < max && src[pos] === "$") pos++
+  const dollars = pos - start
+  if (dollars === 1 && src[pos] === "`") {
+    // The first "`$" closes it, even overlapping the opener; empty math is text.
+    const close = src.indexOf("`$", pos)
+    return close > pos + 1 && close + 2 <= max ? close + 2 : null
+  }
+  if (dollars > 2 || (dollars === 1 && mathSpace.test(src[pos] || ""))) return dollars > 1 ? -pos : null
+  for (let at = pos; at < max; at++) {
+    if (src[at] !== "$") continue
+    if (dollars === 1 && mathSpace.test(src[at - 1])) return null
+    if (dollars === 1 && src[at - 1] === "\\") continue
+    let run = 0
+    while (run < dollars && at + run < max && src[at + run] === "$") run++
+    if (dollars === 1 && /[0-9]/.test(src[at + 1] || "")) return null
+    if (run === dollars) return at + run
+    at += run - 1
+  }
+  return dollars > 1 ? -pos : null
+}
+tokenizer.inline.ruler.before("backticks", "coplan_math", (state, silent) => {
+  if (state.src[state.pos] !== "$") return false
+  const end = mathEnd(state.src, state.pos, state.posMax)
+  if (end === null) return false
+  // A run of dollars without a matching close is literal text, all at once.
+  if (end < 0) {
+    if (!silent) state.pending += state.src.slice(state.pos, -end)
+    state.pos = -end
+    return true
+  }
+  if (!silent) state.push("coplan_math", "", 0).content = state.src.slice(state.pos, end)
+  state.pos = end
+  return true
+})
+// Typing the closing dollar of a span the parser would read as math turns the
+// span, delimiters included, into raw math. Only the literal text run the
+// dollar joins counts: same marks, no code or existing math, no inline atoms.
+// Backspace right after (undoInputRule) restores the plain text.
+function typedMath(state, match, start, end) {
+  const $start = state.doc.resolve(start), parent = $start.parent
+  const marks = state.storedMarks || $start.marks()
+  if (marks.some(mark => mark.type.spec.code)) return null
+  let from = $start.parentOffset
+  const before = []
+  parent.forEach((child, offset) => { if (offset < $start.parentOffset) before.push({ child, offset }) })
+  for (const { child, offset } of before.reverse()) {
+    if (!child.isText || !Mark.sameSet(child.marks, marks)) break
+    from = offset
+  }
+  const text = parent.textBetween(from, $start.parentOffset) + "$"
+  for (let at = 0; at < text.length - 1;) {
+    if (text[at] !== "$") { at++; continue }
+    const close = mathEnd(text, at, text.length)
+    if (close === text.length) {
+      return state.tr.insertText("$", start, end).addMark($start.start() + from + at, start + 1, schema.marks.math.create())
+        .removeStoredMark(schema.marks.math)
+    }
+    at = close === null ? at + 1 : Math.abs(close)
+  }
+  return null
+}
 // Keep a table's own node inside its surrounding list or blockquote. The
 // list remains rich text; only the table uses a source-preserving preview.
 tokenizer.enable(["table", "strikethrough"])
@@ -129,6 +224,44 @@ tokenizer.core.ruler.after("block", "coplan_tasks", state => {
     token.meta = { checked: match[1] !== " " }
     inline.content = inline.content.slice(match[0].length)
   })
+})
+tokenizer.core.ruler.after("block", "coplan_callouts", state => {
+  let quoteDepth = 0
+  const lines = state.src.split("\n")
+  for (let index = 0; index < state.tokens.length; index++) {
+    const token = state.tokens[index]
+    if (token.type === "blockquote_close") quoteDepth--
+    if (token.type !== "blockquote_open") continue
+    quoteDepth++
+    const paragraph = state.tokens[index + 1]
+    // Commonmarker only recognizes a marker on the opening quote line.
+    if (!["paragraph_open", "heading_open"].includes(paragraph?.type) || paragraph.map[0] !== token.map[0]) continue
+    const inline = state.tokens[index + 2]
+    const match = inline?.type === "inline" && calloutMarker.exec(inline.content)
+    if (!match) continue
+    // Commonmarker requires exactly one space after the quote marker.
+    const opening = lines[paragraph.map[0]]
+    if (!opening.slice(0, opening.indexOf("[!")).endsWith("> ")) continue
+    // Markdown-it folds the marker into a setext heading, but Commonmarker
+    // parses the alert first. Preserve that source rather than rewrite it.
+    if (paragraph.type === "heading_open") {
+      token.meta = { preserveCallout: true }
+      continue
+    }
+    // An alert marker is not a paragraph for lazy continuation. Markdown-it
+    // folds an unquoted following line into this paragraph; keep that unusual
+    // source in the server-rendered preview instead of changing its meaning.
+    if (inline.content.slice(match[0].length) &&
+        !new RegExp(`^(?:[ \t]*>){${quoteDepth}}`).test(lines[paragraph.map[0] + 1] || "")) {
+      token.meta = { preserveCallout: true }
+      continue
+    }
+    token.meta = { callout: match[1].toLowerCase(), marker: match[0].replace(/\n$/, "") }
+    inline.content = inline.content.slice(match[0].length)
+    // A marker on its own line, before a blank line, list or fence, leaves
+    // an empty paragraph. Drop it so the callout body starts at its content.
+    if (!inline.content && state.tokens[index + 4]?.type !== "blockquote_close") state.tokens.splice(index + 1, 3)
+  }
 })
 tokenizer.core.ruler.after("block", "coplan_tables", state => {
   const lines = state.src.split("\n")
@@ -155,18 +288,68 @@ const richMarkdownParser = new MarkdownParser(schema, tokenizer, {
   ...defaultMarkdownParser.tokens,
   s: { mark: "strikethrough" },
   list_item: { block: "list_item", getAttrs: token => ({ checked: token.meta?.checked ?? null }) },
+  blockquote: { block: "blockquote", getAttrs: token => token.meta?.callout ? token.meta : {} },
   ordered_list: { ...defaultMarkdownParser.tokens.ordered_list, getAttrs: (token, tokens, index) => ({
     ...defaultMarkdownParser.tokens.ordered_list.getAttrs(token, tokens, index), listStyle: token.meta?.listStyle || null
   }) },
   image: { node: "image", getAttrs: token => ({ ...(token.meta?.coplanImage || defaultMarkdownParser.tokens.image.getAttrs(token)), width: imageWidth(token.attrGet("width")) }) },
   footnote_reference: { node: "footnote_reference", getAttrs: token => token.meta },
+  coplan_math: { mark: "math", noCloseToken: true },
   preserved_block: { node: "preserved", getAttrs: token => token.meta }
 })
+// Plain-text dollars serialize as a placeholder, then become a bare "$" unless
+// comrak would read that dollar as a math delimiter: "$5 and $10" stays bare,
+// literal "$x$" becomes "\$x$". Deciding later dollars first escapes the
+// opener, as authors write it; the other order wins only with fewer escapes.
+const literalDollar = "\uFDD0"
+function mathSpans(markdown) {
+  const spans = []
+  const collect = tokens => tokens.forEach(token => {
+    if (token.type === "coplan_math") spans.push(token.content)
+    if (token.children) collect(token.children)
+  })
+  collect(tokenizer.parse(markdown, {}))
+  return spans.join("\0")
+}
+function resolveLiteralDollars(markdown) {
+  if (!markdown.includes(literalDollar)) return markdown
+  const parts = markdown.split(literalDollar)
+  const join = dollars => parts.reduce((output, part, index) => output + dollars[index - 1] + part)
+  const expected = mathSpans(join(Array(parts.length - 1).fill("\\$")))
+  const resolve = order => {
+    const dollars = Array(parts.length - 1).fill("\\$")
+    for (const index of order) {
+      dollars[index] = "$"
+      if (mathSpans(join(dollars)) !== expected) dollars[index] = "\\$"
+    }
+    return dollars
+  }
+  const indexes = [...Array(parts.length - 1).keys()]
+  const bare = parts.join("$")
+  if (mathSpans(bare) === expected) return bare
+  const backward = resolve(indexes.toReversed()), forward = resolve(indexes)
+  const escapes = dollars => dollars.filter(dollar => dollar !== "$").length
+  return join(escapes(forward) < escapes(backward) ? forward : backward)
+}
+function serializeBlock(node) {
+  return resolveLiteralDollars(defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node)))
+}
 const defaultMarkdownSerializer = new MarkdownSerializer({
   ...baseMarkdownSerializer.nodes,
+  text: (state, node) => state.text(state.inAutolink ? node.text : node.text.replaceAll("$", literalDollar), !state.inAutolink),
   list_item: (state, node) => {
     if (node.attrs.checked !== null) state.write(`[${node.attrs.checked ? "x" : " "}] `)
     state.renderContent(node)
+  },
+  blockquote: (state, node) => {
+    if (!node.attrs.marker) return baseMarkdownSerializer.nodes.blockquote(state, node)
+    state.wrapBlock("> ", null, node, () => {
+      state.write(node.attrs.marker)
+      // An empty body keeps the marker alone, as `> [!NOTE]` was written.
+      if (node.childCount === 1 && node.firstChild.type.name === "paragraph" && !node.firstChild.content.size) return
+      state.ensureNewLine()
+      state.renderContent(node)
+    })
   },
   ordered_list: (state, node) => {
     if (!node.attrs.listStyle) return baseMarkdownSerializer.nodes.ordered_list(state, node)
@@ -190,7 +373,8 @@ const defaultMarkdownSerializer = new MarkdownSerializer({
     for (const line of node.attrs.source.trimEnd().split("\n")) { state.write(line); state.ensureNewLine() }
     state.closeBlock(node)
   }
-}, { ...baseMarkdownSerializer.marks, strikethrough: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true } })
+}, { ...baseMarkdownSerializer.marks, strikethrough: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true },
+  math: { open: "", close: "", escape: false } })
 
 const presentationOpen = /^::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme="(coplan|graphite)")?\}$/
 function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false) {
@@ -406,8 +590,11 @@ export function parseDocument(markdown) {
       if (start > consumed) blocks.push(preserved(source.slice(consumed, start)))
       const text = source.slice(start, end)
       try {
+        if (text.includes("[!") && tokenizer.parse(text, {}).some(token => token.meta?.preserveCallout)) throw new Error("preserve")
         const parsed = richMarkdownParser.parse(text)
-        const unsupported = text.replace(imageTag, tag => htmlImage(tag) ? "" : tag)
+        let unsupported = text.replace(imageTag, tag => htmlImage(tag) ? "" : tag)
+        // Raw TeX such as "$a<b$" or "$[0,1] [2]$" is math, not HTML or a link.
+        parsed.descendants(child => { if (child.isText && schema.marks.math.isInSet(child.marks)) unsupported = unsupported.replace(child.text, "") })
         if (parsed.firstChild?.type.name !== "code_block" && /\]\s*\[|<\/?[a-z!]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(unsupported)) throw new Error("preserve")
         if (parsed.childCount !== 1) throw new Error("preserve")
         let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
@@ -425,7 +612,7 @@ export function serializeDocument(doc, recordRange = null) {
   doc.forEach((node, position) => {
     const unchanged = node.type.name === "preserved" ? !node.attrs.inserted : (node.attrs.source !== null && node.attrs.snapshot === signature(node))
     const source = unchanged ? node.attrs.source : node.type.name === "template_note" ?
-      node.attrs.opening + node.textContent + node.attrs.closing : defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node))
+      node.attrs.opening + node.textContent + node.attrs.closing : serializeBlock(node)
     // New/changed blocks need a block separator, including after an original
     // final paragraph with no trailing newline. Untouched boundaries stay exact.
     if (output && source.trim() && (!unchanged || previousChanged) && !output.endsWith("\n\n")) output += output.endsWith("\n") ? "\n" : "\n\n"
@@ -686,7 +873,8 @@ function documentTitlePlugin() {
   })
 }
 
-export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false } = {}) {
+export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false, uploadFiles = null, uploadError = () => {} } = {}) {
+  const uploads = uploadFiles ? richUploads(schema, uploadFiles, uploadError, documentTitle) : null
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
     if (rangeDoc !== view.state.doc) {
@@ -706,7 +894,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   }
   const state = EditorState.create({
     doc: parseDocument(markdown),
-    plugins: [...(documentTitle ? [documentTitlePlugin(), keymap({
+    plugins: [...(uploads ? [uploads.plugin] : []), ...(documentTitle ? [documentTitlePlugin(), keymap({
       Backspace: titleBoundary("Backspace"), Delete: titleBoundary("Delete"),
       Enter: titleEnter, "Shift-Enter": titleEnter
     })] : []), history(), inputRules({ rules: [
@@ -716,7 +904,8 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       wrappingInputRule(/^([A-Za-z])\) $/, schema.nodes.ordered_list,
         match => ({ order: letterOrder(match[1]), listStyle: match[1] === match[1].toUpperCase() ? "upper-alpha" : "lower-alpha" }),
         (match, node) => node.attrs.listStyle === (match[1] === match[1].toUpperCase() ? "upper-alpha" : "lower-alpha") &&
-          node.childCount + node.attrs.order === letterOrder(match[1]))
+          node.childCount + node.attrs.order === letterOrder(match[1])),
+      new InputRule(/\$$/, typedMath)
     ] }),
       codeHighlight(), imageLayout(), commentPlugin(comments), new Plugin({ appendTransaction(transactions, oldState, state) {
       if (transactions.some(tr => tr.docChanged) && needsTrailing(state.doc))
@@ -803,6 +992,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       }
     },
     handlePaste(view, event) {
+      if (event.clipboardData?.files.length) return false
       if (view.state.selection.$from.parent.type.spec.code) return false
       const source = event.clipboardData?.getData("application/x-coplan-markdown") || event.clipboardData?.getData("text/plain")
       if (!source || !/(^|\n)```[^\n]*\n|^\s*\|[^\n]+\|\s*\n\s*\|?\s*:?-{3,}|^ {0,3}<!--[\s\S]*?-->/m.test(source)) return false
@@ -858,6 +1048,8 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   })
   return {
     view,
+    get uploading() { return uploads?.uploading || false },
+    whenUploadsIdle: () => uploads?.whenIdle() || Promise.resolve(),
     content: () => serializeDocument(view.state.doc),
     focusTitle() {
       view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, view.state.doc.firstChild.nodeSize - 1)))
@@ -1565,7 +1757,7 @@ function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
     if (!preview) return
     timer = setTimeout(async () => {
       try {
-        const html = await preview(defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node)))
+        const html = await preview(serializeBlock(node))
         if (sequence === generation) { diagram.innerHTML = html; previewSettled(diagram, view, getPos, sourceRangeAt) }
       } catch { if (sequence === generation) diagram.textContent = "Preview unavailable. Your Mermaid source is retained." }
     }, 250)

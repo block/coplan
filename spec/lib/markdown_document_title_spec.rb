@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::MarkdownDocumentTitle do
+RSpec.describe Coplan::MarkdownDocumentTitle do
   it "uses only an opening top-level heading and preserves formatted Markdown" do
     content = "# A **bold** `title` &amp; more\n\nBody"
     expect(described_class.normalize(content, fallback: "Old")).to eq(content)

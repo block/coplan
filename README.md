@@ -72,7 +72,7 @@ Without a key, dictation uses the browser’s speech service, which may be unava
 in embedded browsers. Check configuration without printing the key:
 
 ```bash
-bin/rails runner 'puts CoPlan::Ai.available?'
+bin/rails runner 'puts Coplan::Ai.available?'
 ```
 
 ## Tests
@@ -80,6 +80,10 @@ bin/rails runner 'puts CoPlan::Ai.available?'
 ```bash
 bundle exec rspec
 ```
+
+Run the full local checks in parallel with `bin/ci`. It uses isolated databases
+and a CPU-based worker count; use `bin/ci --jobs 12 --browser-jobs 6` to choose
+your own limits. See [the CI guide](docs/CI.md) for setup, reports, and options.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for pull request, spec, and visual testing requirements.
 Interactive features are tested with JavaScript-enabled browser specs in `spec/system/`.

@@ -1,6 +1,6 @@
 require "uri"
 
-module CoPlan
+module Coplan
   # A deterministic, idempotent dataset for exercising Coplan's development UI.
   # Existing seed documents keep local content edits; missing records are restored
   # on the next run and seed-owned metadata remains consistent.
@@ -50,6 +50,9 @@ module CoPlan
     AGENT_ORGANIZED_KEYS = %w[agent-pick-metrics agent-pick-postmortem agent-pick-vendors].freeze
 
     DOCUMENTS = [
+      { key: "deleted-comments", author: "hampton", type: "General", title: "Comments: soft deletion and admin retention",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
+        showcase: "A deleted comment stays hidden in the discussion while admins can inspect its retained text and explicitly delete it permanently" },
       { key: "document-title", author: "hampton", type: "General", title: "One document, one title",
         tags: %w[demo editing], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Edit the opening title; autosave keeps its URL stable until Done. Backspace and formatting cannot remove the title block." },
@@ -89,6 +92,9 @@ module CoPlan
       { key: "comment-reactions", author: "hampton", type: "Design Doc", title: "Discussions: react to comments",
         tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
         showcase: "Threads with reactions; yours are pressed in blue, hover a chip to see who reacted, add one with the smiley button" },
+      { key: "collapsed-discussions", author: "hampton", type: "Research Note", title: "Collapsed sections: discussions in the appendix",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
+        showcase: "Collapsed sections count the open discussions they hide, one of them nested; select a count, press j, follow a link, or open a section to reach them" },
       { key: "single-slide", author: "hampton", type: "Presentation", title: "One slide: the workspace launch decision",
         tags: %w[demo slides], visibility: "published", folder: "Demo content/Presentations", group: "Presentations",
         showcase: "One-slide presentation with speaker notes" },
@@ -104,18 +110,36 @@ module CoPlan
       { key: "api-comment-anchors", author: "hampton", type: "Research Note", title: "API comments: Markdown quotes and visible fallbacks",
         tags: %w[demo tables], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "API-style text anchors across inline code and table rows; Comments fallback for hidden source" },
+      { key: "rendered-comment-anchors", author: "hampton", type: "Research Note", title: "Comment anchors: repeated words and hidden notes",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
+        showcase: "Select the in either sentence and comment; hidden speaker notes and link destinations must not shift its pin" },
       { key: "table-gallery", author: "hampton", type: "Research Note", title: "Tables: cells, links, empty values, and wide data",
         tags: %w[demo tables], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Cell discussion, repeated labels, empty cells, links, and a wide expandable table" },
       { key: "formatting-gallery", author: "hampton", type: "General", title: "Rich text: headings, tasks, code, quotes, and footnotes",
         tags: %w[demo markdown], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Markdown formatting, editable template notes hidden while reading, reversible bullet typing, list exit, task toggles, code languages, image, mention, and footnotes" },
+      { key: "comment-links", author: "hampton", type: "General", title: "Comments: link selected text",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "In-app URL field with Cmd/Ctrl+K, URL paste over selected text, cancellation, undo, and escaped link labels" },
       { key: "reading-specimen", author: "hampton", type: "Design Doc", title: "Reading specimen: webhook delivery through a durable outbox",
         tags: %w[demo markdown reading], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "A realistic agent-drafted design doc for judging reading: common Markdown elements, SQL, Ruby, YAML, and diff code, a long scrolling line, two Mermaid diagrams, and open, answered, resolved, diagram, table-cell, and general discussions" },
       { key: "image-resizing", author: "hampton", type: "General", title: "Images: resize and snap to full width",
         tags: %w[demo images editor], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
-        showcase: "Editor corner resizing, text wrapping beside images, Enter to continue below, undo, and snap to natural full width" },
+        showcase: "Drop or paste files to upload and embed; duplicate drops reuse existing files; image resizing, wrapping, undo, and snap to full width" },
+      { key: "file-uploads", author: "hampton", type: "General", title: "Files: upload once, embed anywhere",
+        tags: %w[demo files editor], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "Drop images and files, repeat a drop to reuse storage, keep separate embeds, and undo without deleting attachments" },
+      { key: "nested-outline", author: "hampton", type: "Design Doc", title: "Nested outline: a ten-part service review",
+        tags: %w[demo navigation], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "Ten numbered sections with sub-sections; the outline folds them, unfolds where you read, and totals discussions inside folded sections" },
+      { key: "callout-gallery", author: "hampton", type: "Design Doc", title: "Callouts: notes, tips, and warnings",
+        tags: %w[demo markdown], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "All six callout types including Summary, a custom label, a list and code inside a callout, and plain quotes for comparison; comment on callout text or edit it in Editor" },
+      { key: "math-gallery", author: "hampton", type: "Research Note", title: "Math: estimating a retry budget",
+        tags: %w[demo markdown math], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "LaTeX math typeset with KaTeX: inline, display, a math fence, math in lists and tables, dollar amounts that stay text, and invalid math shown as source" },
       { key: "type-scratchpad", author: "hampton", type: "Scratchpad", title: "Scratchpad: workspace naming ideas",
         tags: %w[demo types], visibility: "published", folder: "Demo content/Plan types", group: "Plan type examples" },
       { key: "type-prd", author: "hampton", type: "PRD", title: "PRD: workspace invitations",
@@ -140,6 +164,11 @@ module CoPlan
         key: "pending-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: awaiting approval",
         tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
         scenario: "Alex and Noura have pending approvals"
+      },
+      {
+        key: "review-reassignment", author: "hampton", type: "Design Doc", title: "Workspace invitations: review history after reassignment",
+        tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios", fixture: "approved-review",
+        scenario: "Alex is Pending after reassignment; his earlier approval and removal remain in activity. Noura stays Approved"
       },
       {
         key: "changed-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: review dismissed after edits",
@@ -297,7 +326,7 @@ module CoPlan
 
       puts "Seeding reusable development data..."
       catalog = ActiveRecord::Base.transaction do
-        CoPlan::Engine.load_seed
+        Coplan::Engine.load_seed
         users = seed_users
         plan_types = seed_plan_types
         # Before the documents: this rename has to land on an empty folder,
@@ -316,12 +345,16 @@ module CoPlan
         seed_moved_writing(users, plans)
         seed_reviews(users, plans)
         seed_review_requests(users, plans)
+        seed_review_reassignment(users, plans)
         seed_agent_access(users)
-        seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
+        seed_agent_connections(users) if Coplan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
         seed_discussion_margins(users, plans)
+        seed_nested_outline(users, plans)
         seed_reading_specimen(users, plans)
+        seed_collapsed_discussions(users, plans)
         seed_comment_reactions(users, plans)
+        seed_deleted_comments(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         catalog = seed_catalog(users, plans, plan_types, base_url: base_url)
         seed_writing_history(users, plans, catalog)
@@ -705,6 +738,18 @@ module CoPlan
         body: "The retention period is now documented.", resolved_by: users.fetch("hampton"))
     end
 
+    # Open discussions inside sub-sections, so a folded parent shows their
+    # total in the outline.
+    def seed_nested_outline(users, plans)
+      plan = plans.fetch("nested-outline")
+      [
+        [ "sam", "idempotency key scoped to the cart", "Is the key generated by the client or the API? A client key survives an app restart mid-checkout." ],
+        [ "aiko", "Keys expire after twenty-four hours", "Which client has the longest retry window today? Worth naming it here." ],
+        [ "mateo", "older than thirty minutes", "Mobile checkout can sit on the payment sheet longer than that. Can we extend while the sheet is open?" ],
+        [ "noura", "a reason for every order change", "Where are these reasons retained, and who can read them?" ]
+      ].each { |user, anchor, body| seed_thread(plan: plan, user: users.fetch(user), anchor: anchor, body: body) }
+    end
+
     def seed_thread(plan:, user:, body:, anchor: nil, source_token: nil, author_type: "human",
       agent_name: nil, api_token: nil, resolved_by: nil)
       return if seeded_thread?(plan, body)
@@ -846,6 +891,20 @@ module CoPlan
 
     # A fresh checkout includes one required and one optional task. Never
     # reset a response somebody recorded while trying the feature.
+    def seed_review_reassignment(users, plans)
+      plan = plans.fetch("review-reassignment")
+      # Any existing assignment means this scenario has been initialized or tried.
+      return if plan.review_requests.exists?
+
+      old = Reviews::Request.call(plan: plan, reviewer: users.fetch("alex"), actor: plan.created_by_user)
+      Reviews::Respond.call(request: old, actor: old.reviewer, revision: plan.current_revision,
+        decision: "approved", note: "The invitation audit trail is clear.")
+      Reviews::Remove.call(plan: plan, request_id: old.id, actor: plan.created_by_user)
+      Reviews::Request.call(plan: plan, reviewer: old.reviewer, actor: plan.created_by_user, create_only: true)
+      other = Reviews::Request.call(plan: plan, reviewer: users.fetch("noura"), actor: plan.created_by_user)
+      Reviews::Respond.call(request: other, actor: other.reviewer, revision: plan.current_revision, decision: "approved")
+    end
+
     def seed_review_requests(users, plans)
       plan = plans.fetch("collab-showcase")
       [ [ "alex", "required" ], [ "sam", "optional" ] ].each do |key, requirement|
@@ -1025,6 +1084,23 @@ module CoPlan
       )
     end
 
+    # Most discussions sit inside closed <details>, one of them nested, so
+    # the summary badges, j/k, and deep links all have to open a section.
+    def seed_collapsed_discussions(users, plans)
+      plan = plans.fetch("collapsed-discussions")
+      [
+        [ "alex", "Caching the rules per cart", "Is the cache shared across checkout workers, or one per process?" ],
+        [ "sam", "one discount rule query", "Can we confirm this with a trace from a 40-item cart?" ],
+        [ "aiko", "filters item categories in memory", "Would an index on merchant and category make the cache unnecessary?" ],
+        [ "noura", "Weekend traffic was excluded", "Were weekday campaign days excluded too?" ],
+        [ "mateo", "Precomputing prices nightly", "Could we precompute only for merchants whose rules rarely change?" ]
+      ].each do |user, anchor, body|
+        seed_thread(plan: plan, user: users.fetch(user), anchor: anchor, body: body)
+      end
+      seed_thread(plan: plan, user: users.fetch("alex"), anchor: "halves the time",
+        body: "What does batching do to the p99?", resolved_by: users.fetch("hampton"))
+    end
+
     # Replies and reactions are added only when a thread is first created,
     # so re-seeding never restores a reaction someone removed.
     REACTION_DISCUSSIONS = [
@@ -1054,6 +1130,16 @@ module CoPlan
       end
     end
 
+    def seed_deleted_comments(users, plans)
+      thread = seed_thread(plan: plans.fetch("deleted-comments"), user: users.fetch("hampton"),
+        body: "Draft note retained for admin review.")
+      return unless thread
+
+      thread.comments.create!(author_type: "human", author_id: users.fetch("alex").id,
+        body_markdown: "This reply keeps the discussion visible after the opening comment is deleted.")
+      Comments::SoftDelete.call(comment: thread.comments.order(:created_at).first, actor: users.fetch("hampton"))
+    end
+
     def add_seed_reactions(comment, users, reactions)
       reactions.each do |kind, keys|
         keys.each { |key| comment.reactions.create!(user: users.fetch(key), kind: kind) }
@@ -1077,7 +1163,7 @@ module CoPlan
     end
 
     def connection_demo_links(base_url)
-      return "" unless CoPlan.configuration.agent_connection_enabled?
+      return "" unless Coplan.configuration.agent_connection_enabled?
       prefix = URI.parse(base_url).path
       <<~MARKDOWN
         The **agent-connection** scenario previews browser approval. These requests

@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::SourceTargets do
+RSpec.describe Coplan::Plans::SourceTargets do
   def mapped(content)
     html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
     described_class.new(content).annotate(Nokogiri::HTML.fragment(html))
@@ -37,9 +37,9 @@ RSpec.describe CoPlan::Plans::SourceTargets do
     expect(empty.map { |t| t["start"] }.uniq.size).to eq(3)
     empty.each do |target|
       expect {
-        CoPlan::Plans::TransformRange.transform([ target["start"], target["end"] ],
+        Coplan::Plans::TransformRange.transform([ target["start"], target["end"] ],
           resolved_range: [ target["start"] + 1, target["start"] + 1 ], delta: 4)
-      }.to raise_error(CoPlan::Plans::TransformRange::Conflict)
+      }.to raise_error(Coplan::Plans::TransformRange::Conflict)
     end
   end
 
@@ -107,7 +107,7 @@ RSpec.describe CoPlan::Plans::SourceTargets do
   end
 end
 
-RSpec.describe CoPlan::Plans::SourceTargets, "untrusted HTML" do
+RSpec.describe Coplan::Plans::SourceTargets, "untrusted HTML" do
   it "never signs author-supplied source positions on raw HTML tables" do
     content = "Secret source\n\n<table><tr><td data-sourcepos=\"1:1-1:6\">Misleading label</td></tr></table>"
     html = Commonmarker.to_html(content, options: { render: { sourcepos: true, unsafe: true } })

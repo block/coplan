@@ -1,5 +1,5 @@
 require "rails_helper"
-require CoPlan::Engine.root.join("db/migrate/20260823000000_backfill_plan_slugs.rb")
+require Coplan::Engine.root.join("db/migrate/20260823000000_backfill_plan_slugs.rb")
 
 # A one-shot that hands real documents their permanent addresses. There is
 # no second run to correct a mistake and no unique index to catch one, so
@@ -25,7 +25,7 @@ RSpec.describe BackfillPlanSlugs do
   end
 
   let!(:author) { create(:coplan_user, username: "hampton") }
-  let!(:plan_type) { CoPlan::PlanType.general }
+  let!(:plan_type) { Coplan::PlanType.general }
 
   def connection
     ActiveRecord::Base.connection
@@ -54,7 +54,7 @@ RSpec.describe BackfillPlanSlugs do
   it "strips what the path already says" do
     folder = create(:folder, name: "LiveOrder", created_by_user: author)
     plan = create(:plan, :published, created_by_user: author, title: "LiveOrder Cart Roadmap")
-    CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: author)
+    Coplan::Plans::Place.call(plan: plan, folder: folder, actor: author)
     unslug(plan)
 
     migration.up
@@ -110,7 +110,7 @@ RSpec.describe BackfillPlanSlugs do
 
     migration.up
 
-    expect { CoPlan::Plan.last.update_columns(slug: nil) }
+    expect { Coplan::Plan.last.update_columns(slug: nil) }
       .to raise_error(ActiveRecord::NotNullViolation)
   end
 end

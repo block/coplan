@@ -169,7 +169,7 @@ RSpec.describe "App themes", type: :system do
     find(".site-nav__appearance-btn").click
     expect(page).to have_css("#appearance-menu .appearance-menu__theme:has(input:checked)", text: "Classic")
     # Each theme says what it looks like, on screen rather than in a tooltip.
-    expect(page).to have_css("#appearance-menu .appearance-menu__theme-description", text: CoPlan::Themes.find("neutral").description)
+    expect(page).to have_css("#appearance-menu .appearance-menu__theme-description", text: Coplan::Themes.find("neutral").description)
     expect(page).to have_css("input[name='appearance_theme'][value='neutral'][aria-describedby='appearance-theme-neutral-description']", visible: :all)
 
     within("#appearance-menu") { find(".appearance-menu__theme", text: "Neutral").click }

@@ -23,8 +23,8 @@ RSpec.describe "Voice commenting", type: :system do
   end
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Launch Plan", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Launch Plan", created_by_user: author)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: plan_content, actor_type: "human", actor_id: author.id
     )
@@ -101,7 +101,7 @@ RSpec.describe "Voice commenting", type: :system do
   # wherever a provider is configured, so the browser's own recognition
   # has to be asked for explicitly. Its own tests are further down.
   before do
-    allow(CoPlan::Ai).to receive(:available?).and_return(false)
+    allow(Coplan::Ai).to receive(:available?).and_return(false)
     sign_in(author)
   end
 
@@ -123,7 +123,7 @@ RSpec.describe "Voice commenting", type: :system do
   end
 
   it "cleans up the remark and pins it to the passage the AI identifies" do
-    allow(CoPlan::Ai).to receive(:call).and_return({
+    allow(Coplan::Ai).to receive(:call).and_return({
       "text" => "This bit is too cautious.",
       "span" => "The higher-fidelity sidecar stays behind a flag until it is proven."
     }.to_json)
@@ -135,7 +135,7 @@ RSpec.describe "Voice commenting", type: :system do
 
     expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
 
-    thread = CoPlan::CommentThread.where(plan_id: plan.id).last
+    thread = Coplan::CommentThread.where(plan_id: plan.id).last
     expect(thread.anchor_text).to eq("The higher-fidelity sidecar stays behind a flag until it is proven.")
     expect(thread.comments.first.body_markdown).to eq("🎙️ This bit is too cautious.")
     # The anchor has to resolve against the document, or there's no pin.
@@ -157,7 +157,7 @@ RSpec.describe "Voice commenting", type: :system do
   # to land somewhere visible rather than becoming an invisible thread,
   # and the client's own tidy-up still takes the worst tics out.
   it "falls back to the heading and a local cleanup when the AI is down" do
-    allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "not configured")
+    allow(Coplan::Ai).to receive(:call).and_raise(Coplan::Ai::Error, "not configured")
 
     stub_speech_recognition("um this section is, you know, like like too vague")
     visit_plan
@@ -166,7 +166,7 @@ RSpec.describe "Voice commenting", type: :system do
 
     expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
 
-    thread = CoPlan::CommentThread.where(plan_id: plan.id).last
+    thread = Coplan::CommentThread.where(plan_id: plan.id).last
     expect(thread.anchor_text).to be_present
     expect(thread).to be_anchored
     expect(thread.anchor_start).to be_present
@@ -180,9 +180,9 @@ RSpec.describe "Voice commenting", type: :system do
 
   it "shows an unanchored voice remark as a document comment and opens it" do
     content = (1..35).map { |number| "Note #{number} without a heading." }.join("\n\n")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
-    allow(CoPlan::Ai).to receive(:call).and_return({ "text" => "The whole document needs another pass.", "span" => nil }.to_json)
+    allow(Coplan::Ai).to receive(:call).and_return({ "text" => "The whole document needs another pass.", "span" => nil }.to_json)
     stub_speech_recognition("the whole document needs another pass")
     visit_plan
     page.execute_script("document.querySelectorAll('#plan-content-body p')[20].scrollIntoView({block: 'center'})")
@@ -191,7 +191,7 @@ RSpec.describe "Voice commenting", type: :system do
     find(".voice-btn").click
 
     expect(page).to have_css(".voice-status", text: /Comment added to document/, wait: 10)
-    thread = CoPlan::CommentThread.where(plan_id: plan.id).last
+    thread = Coplan::CommentThread.where(plan_id: plan.id).last
     expect(thread.anchor_text).to be_nil
     expect(page).to have_css("#plan-general-comments .document-comment", text: "The whole document needs another pass.", visible: :all, wait: 10)
     expect(page).to have_no_css("#plan-general-comments details[open]")
@@ -201,9 +201,9 @@ RSpec.describe "Voice commenting", type: :system do
 
   it "pins an explicit paragraph number during inline editing when interpretation has no span" do
     numbered = "# Notes\n\n" + (1..12).map { |number| "Paragraph #{number}: review this sentence." }.join("\n\n")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: numbered,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: numbered,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
-    allow(CoPlan::Ai).to receive(:call).and_return({ "text" => "Paragraph 10 should be removed.", "span" => nil }.to_json)
+    allow(Coplan::Ai).to receive(:call).and_return({ "text" => "Paragraph 10 should be removed.", "span" => nil }.to_json)
     stub_speech_recognition("Paragraph 10 should be removed")
     visit_plan
     within("#plan-toolbar") { click_link "Edit" }
@@ -212,10 +212,30 @@ RSpec.describe "Voice commenting", type: :system do
     find(".voice-btn").click
 
     expect(page).to have_css(".voice-status", text: /Comment added to “Paragraph 10”/, wait: 10)
-    thread = CoPlan::CommentThread.where(plan_id: plan.id).last
+    thread = Coplan::CommentThread.where(plan_id: plan.id).last
     expect(thread.reload.anchor_text).to eq("Paragraph 10")
     expect(page).to have_css(".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']", text: "Paragraph 10", wait: 10)
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Paragraph 10 should be removed.", wait: 10)
+  end
+
+  it "keeps a dictated Raw-pane quote attached to Markdown source" do
+    source = "# Raw voice\n\nHello **world** today.\n"
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    allow(Coplan::Ai).to receive(:call).and_return({ "text" => "Revise this greeting.", "span" => "Hello **world**" }.to_json)
+    stub_speech_recognition("revise this greeting")
+    visit_plan
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+    click_button "Raw", exact: true
+    expect(page).to have_css(".document-editor__raw .ProseMirror")
+    find(".voice-btn").click
+
+    expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+    thread = plan.comment_threads.reload.sole
+    expect(thread.anchor_text).to eq("Hello **world**")
+    expect(source[thread.anchor_start...thread.anchor_end]).to eq("Hello **world**")
+    expect(thread.comments.sole.body_markdown).to eq("🎙️ Revise this greeting.")
   end
 
   # The default key, and the reason it's the default: a chord is nobody's
@@ -223,7 +243,7 @@ RSpec.describe "Voice commenting", type: :system do
   # does — the press means talk.
   describe "hold Ctrl+Space to talk" do
     before do
-      allow(CoPlan::Ai).to receive(:call)
+      allow(Coplan::Ai).to receive(:call)
         .and_return({ "text" => "Held to talk.", "span" => nil }.to_json)
     end
 
@@ -243,7 +263,7 @@ RSpec.describe "Voice commenting", type: :system do
       hold_ctrl_space { expect(page).to have_css(".voice-btn--listening") }
 
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
-      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      thread = Coplan::CommentThread.where(plan_id: plan.id).sole
       expect(thread.comments.first.body_markdown).to eq("🎙️ Held to talk.")
     end
 
@@ -270,7 +290,7 @@ RSpec.describe "Voice commenting", type: :system do
       page.driver.browser.action.send_keys(:space).perform
 
       expect(page).to have_no_css(".voice-btn--listening", wait: 2)
-      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+      expect(Coplan::CommentThread.where(plan_id: plan.id).count).to eq(0)
     end
   end
 
@@ -308,7 +328,7 @@ RSpec.describe "Voice commenting", type: :system do
       expect(page).to have_no_css(".voice-btn--listening", wait: 2)
       page.driver.browser.action.release_actions
 
-      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+      expect(Coplan::CommentThread.where(plan_id: plan.id).count).to eq(0)
       expect(page).to have_css(".voice-btn")
     end
   end
@@ -320,7 +340,7 @@ RSpec.describe "Voice commenting", type: :system do
 
     before do
       author.update!(voice_hotkey: "shift")
-      allow(CoPlan::Ai).to receive(:call)
+      allow(Coplan::Ai).to receive(:call)
         .and_return({ "text" => "Held to talk.", "span" => nil }.to_json)
     end
 
@@ -350,7 +370,7 @@ RSpec.describe "Voice commenting", type: :system do
       hold_shift
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
 
-      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      thread = Coplan::CommentThread.where(plan_id: plan.id).sole
       expect(thread.comments.first.body_markdown).to eq("🎙️ Held to talk.")
     end
 
@@ -363,7 +383,7 @@ RSpec.describe "Voice commenting", type: :system do
       page.driver.browser.action.key_down(:shift).key_up(:shift).perform
 
       expect(page).to have_no_css(".voice-btn--listening", wait: 2)
-      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+      expect(Coplan::CommentThread.where(plan_id: plan.id).count).to eq(0)
     end
 
     # Shift+key is a shortcut or a capital letter, not speech — and
@@ -378,7 +398,7 @@ RSpec.describe "Voice commenting", type: :system do
       end
 
       expect(page).to have_no_css(".voice-btn--listening", wait: 5)
-      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+      expect(Coplan::CommentThread.where(plan_id: plan.id).count).to eq(0)
     end
   end
 
@@ -386,7 +406,7 @@ RSpec.describe "Voice commenting", type: :system do
   # Chrome too: capture audio, let the server transcribe it. Nothing here
   # touches SpeechRecognition, which those browsers don't usefully have.
   describe "recording for the server to transcribe" do
-    before { allow(CoPlan::Ai).to receive(:available?).and_return(true) }
+    before { allow(Coplan::Ai).to receive(:available?).and_return(true) }
 
     # `peak` is how far the loudest sample sits from silence, on the
     # 0–128 scale the controller meters. 30 is ordinary speech; 0 is a
@@ -436,8 +456,8 @@ RSpec.describe "Voice commenting", type: :system do
     end
 
     it "records two successive remarks without reloading the plan", :voice_environment do
-      allow(CoPlan::Ai).to receive(:transcribe).and_return("Please clarify the launch timing.", "Please clarify the rollout timing.")
-      allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "unavailable")
+      allow(Coplan::Ai).to receive(:transcribe).and_return("Please clarify the launch timing.", "Please clarify the rollout timing.")
+      allow(Coplan::Ai).to receive(:call).and_raise(Coplan::Ai::Error, "unavailable")
       stub_recorder
       visit_plan
 
@@ -446,7 +466,7 @@ RSpec.describe "Voice commenting", type: :system do
         expect(page).to have_css(".voice-btn--listening")
         find(".voice-btn").click
         expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
-        expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(index + 1)
+        expect(Coplan::CommentThread.where(plan_id: plan.id).count).to eq(index + 1)
         if index == 1
           [ "light", "dark" ].each do |theme|
             page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
@@ -458,8 +478,8 @@ RSpec.describe "Voice commenting", type: :system do
     end
 
     it "reports a connection failure and lets the next recording succeed" do
-      allow(CoPlan::Ai).to receive(:transcribe).and_return("Please clarify the rollout timing.")
-      allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "unavailable")
+      allow(Coplan::Ai).to receive(:transcribe).and_return("Please clarify the rollout timing.")
+      allow(Coplan::Ai).to receive(:call).and_raise(Coplan::Ai::Error, "unavailable")
       stub_recorder
       visit_plan
       page.execute_script <<~JS
@@ -478,7 +498,7 @@ RSpec.describe "Voice commenting", type: :system do
       find(".voice-btn").click
       find(".voice-btn").click
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
-      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(1)
+      expect(Coplan::CommentThread.where(plan_id: plan.id).count).to eq(1)
     end
 
     it "does not let a cancelled microphone request replace the next take's input" do
@@ -509,8 +529,8 @@ RSpec.describe "Voice commenting", type: :system do
     end
 
     it "ignores a cancelled recorder's queued stop when another take starts" do
-      allow(CoPlan::Ai).to receive(:transcribe).and_return("Please clarify the rollout timing.")
-      allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "unavailable")
+      allow(Coplan::Ai).to receive(:transcribe).and_return("Please clarify the rollout timing.")
+      allow(Coplan::Ai).to receive(:call).and_raise(Coplan::Ai::Error, "unavailable")
       stub_recorder
       visit_plan
       page.execute_script <<~JS
@@ -531,16 +551,16 @@ RSpec.describe "Voice commenting", type: :system do
       expect(page).to have_css(".voice-btn--listening")
       page.execute_script("window.finishOldRecording()")
       expect(page).to have_css(".voice-btn--listening")
-      expect(CoPlan::CommentThread.where(plan_id: plan.id)).to be_empty
+      expect(Coplan::CommentThread.where(plan_id: plan.id)).to be_empty
       find(".voice-btn").click
       page.execute_script("window.finishOldRecording()")
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
-      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(1)
+      expect(Coplan::CommentThread.where(plan_id: plan.id).count).to eq(1)
     end
 
     it "sends the recording and posts what comes back" do
-      allow(CoPlan::Ai).to receive(:transcribe).and_return("this bit is like way too like cautious")
-      allow(CoPlan::Ai).to receive(:call).and_return({
+      allow(Coplan::Ai).to receive(:transcribe).and_return("this bit is like way too like cautious")
+      allow(Coplan::Ai).to receive(:call).and_return({
         "text" => "This bit is too cautious.",
         "span" => "The higher-fidelity sidecar stays behind a flag until it is proven."
       }.to_json)
@@ -554,7 +574,7 @@ RSpec.describe "Voice commenting", type: :system do
 
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
 
-      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      thread = Coplan::CommentThread.where(plan_id: plan.id).sole
       expect(thread.comments.first.body_markdown).to eq("🎙️ This bit is too cautious.")
       expect(thread).to be_anchored
     end
@@ -565,8 +585,8 @@ RSpec.describe "Voice commenting", type: :system do
     # fresh plan the dictated comment appeared, its popover opened, and
     # e/j/k did nothing at all.
     it "lets the keyboard resolve the first comment without a reload" do
-      allow(CoPlan::Ai).to receive(:transcribe).and_return("too cautious")
-      allow(CoPlan::Ai).to receive(:call).and_return({
+      allow(Coplan::Ai).to receive(:transcribe).and_return("too cautious")
+      allow(Coplan::Ai).to receive(:call).and_return({
         "text" => "Too cautious.",
         "span" => "The higher-fidelity sidecar stays behind a flag until it is proven."
       }.to_json)
@@ -579,7 +599,7 @@ RSpec.describe "Voice commenting", type: :system do
 
       thread = nil
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
-      expect { thread = CoPlan::CommentThread.where(plan_id: plan.id).sole }.not_to raise_error
+      expect { thread = Coplan::CommentThread.where(plan_id: plan.id).sole }.not_to raise_error
       # The auto-opened popover is the resolve target.
       expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true, wait: 10)
 
@@ -592,12 +612,12 @@ RSpec.describe "Voice commenting", type: :system do
     # What was on screen is passed as a transcription hint, which is what
     # makes domain words come back as words rather than phonetic guesses.
     it "gives the transcriber the text that was on screen" do
-      expect(CoPlan::Ai).to receive(:transcribe) do |file:, context:|
+      expect(Coplan::Ai).to receive(:transcribe) do |file:, context:|
         expect(File.read(file.path)).to eq("fake audio")
         expect(context).to include("higher-fidelity sidecar")
         "too cautious"
       end
-      allow(CoPlan::Ai).to receive(:call)
+      allow(Coplan::Ai).to receive(:call)
         .and_return({ "text" => "Too cautious.", "span" => nil }.to_json)
 
       stub_recorder
@@ -613,16 +633,16 @@ RSpec.describe "Voice commenting", type: :system do
     # when the model repeats the same span, each repeat takes the next
     # copy of that text, so the two threads land on different positions.
     it "turns a remark about two places into two pinned comments" do
-      dual_plan = CoPlan::Plan.create!(title: "Naming", created_by_user: author)
-      version = CoPlan::PlanVersion.create!(
+      dual_plan = Coplan::Plan.create!(title: "Naming", created_by_user: author)
+      version = Coplan::PlanVersion.create!(
         plan: dual_plan, revision: 1,
         content_markdown: "# Naming\n\nThe first module is called main.\n\nThe second module is also called main.\n",
         actor_type: "human", actor_id: author.id
       )
       dual_plan.update!(current_plan_version: version, current_revision: 1)
 
-      allow(CoPlan::Ai).to receive(:transcribe).and_return("rename both of them to master")
-      allow(CoPlan::Ai).to receive(:call).and_return({ "comments" => [
+      allow(Coplan::Ai).to receive(:transcribe).and_return("rename both of them to master")
+      allow(Coplan::Ai).to receive(:call).and_return({ "comments" => [
         { "text" => "Rename this to master.", "span" => "called main" },
         { "text" => "Rename this to master.", "span" => "called main" }
       ] }.to_json)
@@ -635,7 +655,7 @@ RSpec.describe "Voice commenting", type: :system do
 
       expect(page).to have_css(".voice-status", text: /2 comments added/, wait: 10)
 
-      threads = CoPlan::CommentThread.where(plan_id: dual_plan.id).order(:created_at).to_a
+      threads = Coplan::CommentThread.where(plan_id: dual_plan.id).order(:created_at).to_a
       expect(threads.length).to eq(2)
       expect(threads.map(&:anchor_text).uniq).to eq([ "called main" ])
       # Different copies of the phrase, not two pins on the same one.
@@ -648,22 +668,22 @@ RSpec.describe "Voice commenting", type: :system do
     # be able to land on either. It is also not the whole document — what
     # was never on screen stays off the wire.
     it "accumulates the excerpt across a mid-recording scroll" do
-      tall_plan = CoPlan::Plan.create!(title: "Tall Plan", created_by_user: author)
+      tall_plan = Coplan::Plan.create!(title: "Tall Plan", created_by_user: author)
       filler = (1..100).map { |i| "Filler paragraph number #{i} to push the ending far below the fold." }.join("\n\n")
-      version = CoPlan::PlanVersion.create!(
+      version = Coplan::PlanVersion.create!(
         plan: tall_plan, revision: 1,
         content_markdown: "# Tall Plan\n\nThe alpha waypoint opens the document.\n\n#{filler}\n\nThe omega waypoint closes the document.\n",
         actor_type: "human", actor_id: author.id
       )
       tall_plan.update!(current_plan_version: version, current_revision: 1)
 
-      expect(CoPlan::Ai).to receive(:transcribe) do |context:, **|
+      expect(Coplan::Ai).to receive(:transcribe) do |context:, **|
         expect(context).to include("alpha waypoint")
         expect(context).to include("omega waypoint")
         expect(context).not_to include("Filler paragraph number 50 ")
         "rename both of these"
       end
-      allow(CoPlan::Ai).to receive(:call)
+      allow(Coplan::Ai).to receive(:call)
         .and_return({ "text" => "Rename both of these.", "span" => nil }.to_json)
 
       stub_recorder
@@ -684,8 +704,8 @@ RSpec.describe "Voice commenting", type: :system do
     # a capture already in progress.
     it "captures from the press when talking with Shift held" do
       author.update!(voice_hotkey: "shift")
-      allow(CoPlan::Ai).to receive(:transcribe).and_return("oh I meant both of them")
-      allow(CoPlan::Ai).to receive(:call)
+      allow(Coplan::Ai).to receive(:transcribe).and_return("oh I meant both of them")
+      allow(Coplan::Ai).to receive(:call)
         .and_return({ "text" => "Oh — I meant both of them.", "span" => nil }.to_json)
 
       stub_recorder
@@ -697,7 +717,7 @@ RSpec.describe "Voice commenting", type: :system do
       page.driver.browser.action.key_up(:shift).perform
 
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
-      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      thread = Coplan::CommentThread.where(plan_id: plan.id).sole
       expect(thread.comments.first.body_markdown).to eq("🎙️ Oh — I meant both of them.")
     ensure
       page.driver.browser.action.release_actions
@@ -708,7 +728,7 @@ RSpec.describe "Voice commenting", type: :system do
         author.update!(voice_hotkey: "shift")
         stub_recorder
         visit_plan
-        expect(CoPlan::Ai).not_to receive(:transcribe)
+        expect(Coplan::Ai).not_to receive(:transcribe)
 
         if already_recording
           page.driver.browser.action.key_down(:shift).perform
@@ -739,7 +759,7 @@ RSpec.describe "Voice commenting", type: :system do
         find("[aria-label='Close keyboard shortcuts']").click
         page.driver.browser.action.key_up(:shift).perform
         expect(page).to have_no_css(".voice-btn--listening")
-        expect(CoPlan::CommentThread.where(plan_id: plan.id)).to be_empty
+        expect(Coplan::CommentThread.where(plan_id: plan.id)).to be_empty
       ensure
         page.driver.browser.action.release_actions
       end
@@ -751,7 +771,7 @@ RSpec.describe "Voice commenting", type: :system do
     # itself, that nobody had said. The microphone knows it heard nothing
     # long before the server can, so it never gets sent.
     it "doesn't send a recording it heard nothing in" do
-      expect(CoPlan::Ai).not_to receive(:transcribe)
+      expect(Coplan::Ai).not_to receive(:transcribe)
 
       stub_recorder(peak: 0)
       visit_plan
@@ -760,7 +780,7 @@ RSpec.describe "Voice commenting", type: :system do
       find(".voice-btn").click
 
       expect(page).to have_css(".voice-status--error", text: /didn't hear anything/i, wait: 5)
-      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+      expect(Coplan::CommentThread.where(plan_id: plan.id).count).to eq(0)
     end
 
     # The first regression this guard caused: a suspended AudioContext
@@ -769,8 +789,8 @@ RSpec.describe "Voice commenting", type: :system do
     # ran gets no vote — the take is sent, and the server's echo check
     # remains the defence against actual silence.
     it "sends the recording when the meter never ran, rather than calling speech silence" do
-      allow(CoPlan::Ai).to receive(:transcribe).and_return("it should be main and master")
-      allow(CoPlan::Ai).to receive(:call)
+      allow(Coplan::Ai).to receive(:transcribe).and_return("it should be main and master")
+      allow(Coplan::Ai).to receive(:call)
         .and_return({ "text" => "It should be main and master.", "span" => nil }.to_json)
 
       stub_recorder(peak: 0, context_state: "suspended")
@@ -780,7 +800,7 @@ RSpec.describe "Voice commenting", type: :system do
       find(".voice-btn").click
 
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
-      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      thread = Coplan::CommentThread.where(plan_id: plan.id).sole
       expect(thread.comments.first.body_markdown).to eq("🎙️ It should be main and master.")
     end
 
@@ -788,7 +808,7 @@ RSpec.describe "Voice commenting", type: :system do
     # words to post if transcription fails, so say so rather than posting
     # an empty comment.
     it "says so when the recording can't be made out" do
-      allow(CoPlan::Ai).to receive(:transcribe).and_raise(CoPlan::Ai::Error, "unavailable")
+      allow(Coplan::Ai).to receive(:transcribe).and_raise(Coplan::Ai::Error, "unavailable")
 
       stub_recorder
       visit_plan
@@ -799,14 +819,14 @@ RSpec.describe "Voice commenting", type: :system do
       # The server's own wording, not a generic one: "couldn't reach the
       # transcriber" and "heard nothing" call for different next moves.
       expect(page).to have_css(".voice-status--error", text: /Couldn't make out the recording/, wait: 10)
-      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+      expect(Coplan::CommentThread.where(plan_id: plan.id).count).to eq(0)
     end
   end
 
   # Nothing in the flow may claim an agent is coming: with none attached,
   # a dictated comment is just a comment.
   it "never promises an agent" do
-    allow(CoPlan::Ai).to receive(:call)
+    allow(Coplan::Ai).to receive(:call)
       .and_return({ "text" => "No agent is attached here.", "span" => nil }.to_json)
 
     stub_speech_recognition("no agent is attached here")

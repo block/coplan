@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class PlanTag < ApplicationRecord
     belongs_to :plan
     belongs_to :tag, counter_cache: :plans_count

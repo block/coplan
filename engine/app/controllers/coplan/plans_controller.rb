@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class PlansController < ApplicationController
     before_action :set_plan, only: [ :show, :content_body, :comments_body, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :update_content, :preview, :editor_lease, :editor_state, :writing_provenance ]
     # /plans/<uuid> is the legacy address; the readable one is canonical.
@@ -92,7 +92,7 @@ module CoPlan
       load_needs_attention
       @plan_types = PlanType.order(:name)
       @creation_plan_types = PlanType.creation_order(@plan_types)
-      @show_onboarding_banner = CoPlan.configuration.onboarding_banner.present? &&
+      @show_onboarding_banner = Coplan.configuration.onboarding_banner.present? &&
         !current_user.created_plans.exists?
     end
 
@@ -163,7 +163,7 @@ module CoPlan
     def content_body
       authorize!(@plan, :show?)
       response.headers["Cache-Control"] = "no-store"
-      response.headers["X-CoPlan-Revision"] = @plan.current_revision.to_s
+      response.headers["X-Coplan-Revision"] = @plan.current_revision.to_s
       render partial: "coplan/plans/content_body", locals: { plan: @plan }, layout: false
     end
 
@@ -240,7 +240,8 @@ module CoPlan
       edit_url = helpers.plan_browse_path(plan, edit: "continue")
       render json: editor_snapshot.merge(edit_url: edit_url, inline_after_create: true, id: plan.id,
         subscription_html: helpers.turbo_stream_from(plan),
-        update_url: update_content_plan_path(plan), state_url: editor_state_plan_path(plan), lease_url: editor_lease_plan_path(plan))
+        update_url: update_content_plan_path(plan), state_url: editor_state_plan_path(plan), lease_url: editor_lease_plan_path(plan),
+        attachments_url: plan_attachments_path(plan))
     rescue Plans::CreateHumanDraft::InvalidKey => error
       render json: { error: error.message }, status: :unprocessable_content
     rescue Plans::CreateHumanDraft::PlacementFailed => error
@@ -352,7 +353,7 @@ module CoPlan
         before: "draft",
         after: "published"
       )
-      CoPlan::Analytics.track(
+      Coplan::Analytics.track(
         "plan_published",
         user: current_user,
         plan_id: @plan.id,
@@ -383,7 +384,7 @@ module CoPlan
         before: "published",
         after: "draft"
       )
-      CoPlan::Analytics.track(
+      Coplan::Analytics.track(
         "plan_hidden",
         user: current_user,
         plan_id: @plan.id,
@@ -604,7 +605,7 @@ module CoPlan
     # The editor also edits title/tags; suggestions for the tag chips —
     # reusing an existing tag beats coining a near-duplicate.
     def load_tag_suggestions
-      @tag_suggestions = CoPlan::Tag.order(:name).limit(200).pluck(:name)
+      @tag_suggestions = Coplan::Tag.order(:name).limit(200).pluck(:name)
     end
 
     # One grouped query per request for per-row unread badges, including

@@ -136,6 +136,9 @@ GEM
       rack-test (>= 0.6.3)
       regexp_parser (>= 1.5, < 3.0)
       xpath (~> 3.2)
+    capybara-lockstep (2.4.0)
+      activesupport (>= 7.0)
+      capybara (>= 3.0)
     commonmarker (2.6.3-aarch64-linux)
     commonmarker (2.6.3-arm-linux)
     commonmarker (2.6.3-arm64-darwin)
@@ -306,6 +309,8 @@ GEM
     openssl (4.0.1)
     ostruct (0.6.3)
     parallel (1.27.0)
+    parallel_tests (5.9.0)
+      parallel
     parser (3.3.10.2)
       ast (~> 2.4.1)
       racc
@@ -538,6 +543,7 @@ DEPENDENCIES
   brakeman
   bundler-audit
   capybara
+  capybara-lockstep
   commonmarker
   coplan-engine!
   coplan-slack!
@@ -549,6 +555,7 @@ DEPENDENCIES
   jbuilder
   kamal
   mysql2 (~> 0.5)
+  parallel_tests (~> 5.9)
   pg (~> 1.5)
   propshaft
   puma (>= 5.0)
@@ -595,6 +602,7 @@ CHECKSUMS
   builder (3.3.0) sha256=497918d2f9dca528fdca4b88d84e4ef4387256d984b8154e9d5d3fe5a9c8835f
   bundler-audit (0.9.3) sha256=81c8766c71e47d0d28a0f98c7eed028539f21a6ea3cd8f685eb6f42333c9b4e9
   capybara (3.40.0) sha256=42dba720578ea1ca65fd7a41d163dd368502c191804558f6e0f71b391054aeef
+  capybara-lockstep (2.4.0) sha256=a95893430c5bb7d7802eff37703425a48820478665e29a62854605990496ac12
   commonmarker (2.6.3-aarch64-linux) sha256=73795e80ab5ef1e4b5b83ada6f082bccb0ed7eae0b910232e13af1b2d71b14d6
   commonmarker (2.6.3-arm-linux) sha256=62b9f32d7d3f85d47988a4a98a2e66e60ca42b894687047db8332f1e80caff7b
   commonmarker (2.6.3-arm64-darwin) sha256=d6c1e4955619da3f68fed22de99dec49a24925611770c039bf870823846c8b21
@@ -686,6 +694,7 @@ CHECKSUMS
   openssl (4.0.1) sha256=e27974136b7b02894a1bce46c5397ee889afafe704a839446b54dc81cb9c5f7d
   ostruct (0.6.3) sha256=95a2ed4a4bd1d190784e666b47b2d3f078e4a9efda2fccf18f84ddc6538ed912
   parallel (1.27.0) sha256=4ac151e1806b755fb4e2dc2332cbf0e54f2e24ba821ff2d3dcf86bf6dc4ae130
+  parallel_tests (5.9.0) sha256=593169873cfeefe54f233103238cb3b078320e6eac0155d0f1107b39233f98f8
   parser (3.3.10.2) sha256=6f60c84aa4bdcedb6d1a2434b738fe8a8136807b6adc8f7f53b97da9bc4e9357
   pg (1.6.3) sha256=1388d0563e13d2758c1089e35e973a3249e955c659592d10e5b77c468f628a99
   pg (1.6.3-aarch64-linux) sha256=0698ad563e02383c27510b76bf7d4cd2de19cd1d16a5013f375dd473e4be72ea

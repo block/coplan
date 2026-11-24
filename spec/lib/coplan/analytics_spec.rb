@@ -1,19 +1,19 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Analytics do
+RSpec.describe Coplan::Analytics do
   let(:received) { [] }
   let(:handler) { ->(event, payload) { received << [ event, payload ] } }
   let(:user) { create(:coplan_user) }
 
   around do |example|
-    previous = CoPlan.configuration.track_event
-    CoPlan.configuration.track_event = handler
+    previous = Coplan.configuration.track_event
+    Coplan.configuration.track_event = handler
     example.run
-    CoPlan.configuration.track_event = previous
+    Coplan.configuration.track_event = previous
   end
 
   it "is a no-op when no handler is configured" do
-    CoPlan.configuration.track_event = nil
+    Coplan.configuration.track_event = nil
     expect { described_class.track("foo") }.not_to raise_error
     expect(received).to be_empty
   end
@@ -47,9 +47,9 @@ RSpec.describe CoPlan::Analytics do
 
   it "swallows handler errors and reports them via error_reporter" do
     reported = []
-    previous_reporter = CoPlan.configuration.error_reporter
-    CoPlan.configuration.error_reporter = ->(exception, context) { reported << [ exception, context ] }
-    CoPlan.configuration.track_event = ->(_event, _payload) { raise "boom" }
+    previous_reporter = Coplan.configuration.error_reporter
+    Coplan.configuration.error_reporter = ->(exception, context) { reported << [ exception, context ] }
+    Coplan.configuration.track_event = ->(_event, _payload) { raise "boom" }
 
     expect { described_class.track("plan_created", user: user) }.not_to raise_error
 
@@ -58,6 +58,6 @@ RSpec.describe CoPlan::Analytics do
     expect(exception.message).to eq("boom")
     expect(context).to eq(coplan_analytics_event: "plan_created")
   ensure
-    CoPlan.configuration.error_reporter = previous_reporter
+    Coplan.configuration.error_reporter = previous_reporter
   end
 end

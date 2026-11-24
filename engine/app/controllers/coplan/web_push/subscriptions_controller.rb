@@ -1,7 +1,14 @@
-module CoPlan
+module Coplan
   module WebPush
     class SubscriptionsController < ApplicationController
       before_action :require_web_push_configured
+
+      # Check server registration without putting the push endpoint in a URL.
+      def show
+        digests = current_user.web_push_subscriptions.for_delivery.pluck(:endpoint_digest)
+        response.headers["Cache-Control"] = "no-store"
+        render json: { subscribed: digests.include?(params[:endpoint_digest]) }
+      end
 
       # POST /web_push/subscription
       # Body: { subscription: { endpoint, keys: { p256dh, auth } } }
@@ -21,7 +28,7 @@ module CoPlan
       # Renders the device list inside its turbo-frame so the Settings page
       # can refresh just that section after enabling/disabling on this browser.
       def devices
-        @web_push_subscriptions = current_user.web_push_subscriptions.order(created_at: :desc)
+        @web_push_subscriptions = current_user.web_push_subscriptions.for_delivery
         render partial: "coplan/settings/settings/devices",
                locals: { web_push_subscriptions: @web_push_subscriptions }
       end
@@ -44,7 +51,7 @@ module CoPlan
       end
 
       def require_web_push_configured
-        head :service_unavailable unless CoPlan.configuration.web_push_configured?
+        head :service_unavailable unless Coplan.configuration.web_push_configured?
       end
     end
   end

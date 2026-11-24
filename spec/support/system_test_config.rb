@@ -15,6 +15,8 @@ RSpec.configure do |config|
     # :selenium_chrome_headless is a Capybara-registered driver that
     # ignores screen_size — the :selenium/using form respects it.
     driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 900 ] do |options|
+      options.unhandled_prompt_behavior = "ignore"
+      options.logging_prefs = { browser: "ALL" }
       # Use Chrome for Testing (provisioned by selenium-manager), NOT the
       # system Chrome. On managed machines the system Chrome is enrolled in
       # Chrome Browser Cloud Management, which force-installs IT extensions

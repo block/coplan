@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="<%= I18n.locale %>" data-app-theme="<%= coplan_app_theme %>" data-app-theme-choice="<%= coplan_app_theme_choice %>"<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %>>
   <head>
+    <%= capybara_lockstep if defined?(Capybara::Lockstep) %>
     <title><%= content_for(:title) || "Coplan" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="<%= signed_in? && current_user.theme_preference != 'system' ? current_user.theme_preference : 'light dark' %>">
@@ -10,8 +11,8 @@
     <% if signed_in? %>
       <meta name="coplan-current-user-id" content="<%= current_user.id %>">
     <% end %>
-    <% if CoPlan.configuration.web_push_configured? %>
-      <meta name="coplan-vapid-public-key" content="<%= CoPlan.configuration.vapid_public_key %>">
+    <% if Coplan.configuration.web_push_configured? %>
+      <meta name="coplan-vapid-public-key" content="<%= Coplan.configuration.vapid_public_key %>">
       <meta name="coplan-service-worker-url" content="<%= coplan.service_worker_path %>">
       <meta name="coplan-web-push-subscription-url" content="<%= coplan.web_push_subscription_path %>">
     <% end %>
@@ -32,9 +33,6 @@
     <script type="application/json" id="coplan-shortcut-catalog"><%= raw json_escape(keyboard_shortcut_catalog.to_json) %></script>
     <nav class="site-nav">
       <div class="site-nav__inner">
-        <%# The logo goes to your library — that's where signed-in work
-            lives, so there's no separate "Workspace" link. Signed-out
-            visitors land on the public root instead. %>
         <%= link_to(signed_in? ? profile_path_for(current_user) : coplan.root_path, class: "site-nav__brand", aria: { label: "Coplan" }, title: coplan_environment_logo_title) do %>
           <%= image_tag coplan_logo_asset, alt: "",
                 class: "site-nav__logo",
@@ -48,11 +46,6 @@
               bar reads the same on every surface. %>
           <%= yield :nav_title %>
           <div class="site-nav__right">
-            <%# Persistent controls: Search (jump to a doc/person), Appearance
-                (mode and theme), the notifications bell, and the menu.
-                Everything else lives in the menu, so the bar stays calm
-                while you read. A plan page also puts its compact viewer
-                stack here, shown with the title. %>
             <%= yield :nav_presence %>
             <button type="button"
                     class="site-nav__search"
@@ -84,8 +77,6 @@
                 <% end %>
               </div>
             </div>
-            <%# One menu for the low-priority surface (Feed) and account.
-                Reuses the app's popover menu (native light-dismiss + Esc). %>
             <span class="site-nav__menu" data-controller="coplan--menu">
               <button type="button" class="site-nav__menu-btn"
                       popovertarget="nav-menu" data-coplan--menu-target="trigger"
@@ -108,7 +99,6 @@
                       live by the dot on the ☰ button instead. %>
                 <% end %>
                 <div class="menu__separator" role="separator"></div>
-                <%# Your page and your library are the same place. %>
                 <%= link_to profile_path_for(current_user), class: "menu__item", role: "menuitem" do %>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   <span>Your library</span>
@@ -141,7 +131,7 @@
       </div>
     </nav>
     <% if @show_onboarding_banner %>
-      <div class="onboarding-banner"><%= CoPlan.configuration.onboarding_banner.html_safe %></div>
+      <div class="onboarding-banner"><%= Coplan.configuration.onboarding_banner.html_safe %></div>
     <% end %>
     <main class="main-content">
       <% if notice.present? %>

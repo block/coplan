@@ -79,7 +79,9 @@
     "local": true,
     "bindings": [
       {"id":"submit","keys":["Enter"],"description":"Submit a comment or reply"},
-      {"id":"newline","keys":["Shift+Enter"],"description":"Add a line to a comment","native":true}
+      {"id":"newline","keys":["Shift+Enter"],"description":"Add a line to a comment","native":true},
+      {"id":"link","keys":["Mod+k"],"description":"Link the selected text, or insert a link"},
+      {"id":"pasteLink","keys":["Mod+v"],"description":"Paste a URL over selected text to link it","native":true}
     ]
   },
   "editor": {

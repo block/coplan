@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A first-class audit entry for a library's organization — plans filed,
   # moved, or removed; folders created, renamed, moved, described, or
   # deleted. The library-side counterpart to PlanEvent: PlanEvent answers
@@ -26,9 +26,9 @@ module CoPlan
       folder_deleted
     ].freeze
 
-    belongs_to :library, class_name: "CoPlan::Library", inverse_of: :library_events
-    belongs_to :actor_user, class_name: "CoPlan::User", foreign_key: "actor_id", optional: true
-    belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
+    belongs_to :library, class_name: "Coplan::Library", inverse_of: :library_events
+    belongs_to :actor_user, class_name: "Coplan::User", foreign_key: "actor_id", optional: true
+    belongs_to :api_token, class_name: "Coplan::ApiToken", optional: true
 
     after_initialize { self.metadata ||= {} }
 

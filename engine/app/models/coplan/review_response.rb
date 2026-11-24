@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # An immutable fact about one version. Later edits and reassignment never
   # rewrite it. A change request points into the ordinary discussion system.
   class ReviewResponse < ApplicationRecord
@@ -7,7 +7,7 @@ module CoPlan
 
     belongs_to :review_request
     belongs_to :plan_version
-    belongs_to :user, class_name: "CoPlan::User"
+    belongs_to :user, class_name: "Coplan::User"
     belongs_to :api_token, optional: true
     belongs_to :comment_thread, optional: true
 

@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Notification, type: :model do
+RSpec.describe Coplan::Notification, type: :model do
   it "is valid with valid attributes" do
     notification = create(:notification)
     expect(notification).to be_valid
@@ -18,11 +18,11 @@ RSpec.describe CoPlan::Notification, type: :model do
 
   it "queues delivery to installed adapters after creation" do
     handler = ->(_notification) { nil }
-    CoPlan.configuration.notification_delivery_handlers << handler
+    Coplan.configuration.notification_delivery_handlers << handler
     expect { create(:notification) }
-      .to have_enqueued_job(CoPlan::DispatchNotificationJob)
+      .to have_enqueued_job(Coplan::DispatchNotificationJob)
   ensure
-    CoPlan.configuration.notification_delivery_handlers.delete(handler)
+    Coplan.configuration.notification_delivery_handlers.delete(handler)
   end
 
   describe "scopes" do
@@ -33,13 +33,13 @@ RSpec.describe CoPlan::Notification, type: :model do
     it "unread returns notifications without read_at" do
       unread = create(:notification, user: user, plan: plan, comment_thread: thread, read_at: nil)
       create(:notification, user: user, plan: plan, comment_thread: thread, read_at: Time.current)
-      expect(CoPlan::Notification.unread).to eq([ unread ])
+      expect(Coplan::Notification.unread).to eq([ unread ])
     end
 
     it "read returns notifications with read_at" do
       create(:notification, user: user, plan: plan, comment_thread: thread, read_at: nil)
       read_notif = create(:notification, user: user, plan: plan, comment_thread: thread, read_at: Time.current)
-      expect(CoPlan::Notification.read).to eq([ read_notif ])
+      expect(Coplan::Notification.read).to eq([ read_notif ])
     end
   end
 

@@ -4,13 +4,19 @@ pin "coplan/deck_ink", to: "coplan/deck_ink.js"
 pin "coplan/shortcuts", to: "coplan/shortcuts.js", preload: true
 pin "coplan/reaction_focus", to: "coplan/reaction_focus.js", preload: true
 pin "coplan/comment_window", to: "coplan/comment_window.js", preload: true
+pin "coplan/collapsed_sections", to: "coplan/collapsed_sections.js", preload: true
 # Statically imported by the mermaid and data-grid controllers, which are
 # themselves preloaded — preload these too or every page pays a round trip
 # to discover them.
 pin "coplan/expander", to: "coplan/expander.js", preload: true
 pin "coplan/pan_zoom", to: "coplan/pan_zoom.js", preload: true
+# Statically imported by the content-nav and reference-preview controllers.
+pin "coplan/math_text", to: "coplan/math_text.js", preload: true
 pin "mermaid", to: "https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs", preload: false
-pin_all_from CoPlan::Engine.root.join("app/javascript/controllers/coplan"), under: "controllers/coplan", preload: true
+# Loaded by the math controller only when a page contains math. Keep the
+# version in step with KATEX_STYLESHEET in controllers/coplan/math_controller.js.
+pin "katex", to: "https://cdn.jsdelivr.net/npm/katex@0.19.1/+esm", preload: false
+pin_all_from Coplan::Engine.root.join("app/javascript/controllers/coplan"), under: "controllers/coplan", preload: true
 pin "prosemirror-model", to: "https://esm.sh/prosemirror-model@1.25.4?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "prosemirror-state", to: "https://esm.sh/prosemirror-state@1.4.3?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "prosemirror-view", to: "https://esm.sh/prosemirror-view@1.41.3?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
@@ -22,6 +28,7 @@ pin "prosemirror-inputrules", to: "https://esm.sh/prosemirror-inputrules@1.5.1?b
 pin "prosemirror-schema-list", to: "https://esm.sh/prosemirror-schema-list@1.5.1?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "prosemirror-markdown", to: "https://esm.sh/prosemirror-markdown@1.13.2?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "coplan/rich_document", to: "coplan/rich_document.js", preload: false
+pin "coplan/rich_uploads", to: "coplan/rich_uploads.js", preload: false
 pin "coplan/lettered_lists", to: "coplan/lettered_lists.js", preload: false
 pin "coplan/citation_labels", to: "coplan/citation_labels.js", preload: false
 pin "coplan/viewport_anchor", to: "coplan/viewport_anchor.js", preload: false

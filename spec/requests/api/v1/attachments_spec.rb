@@ -19,6 +19,19 @@ RSpec.describe "Api::V1::Attachments", type: :request do
   end
 
   describe "POST /api/v1/plans/:plan_id/attachments" do
+    it "returns the existing attachment and URLs on an identical retry" do
+      upload_file
+      original = response.parsed_body
+      expect(original["reused"]).to be(false)
+      upload_file
+
+      expect(response).to have_http_status(:created)
+      expect(response.parsed_body).to include("reused" => true, "id" => original["id"], "url" => original["url"], "markdown" => original["markdown"])
+      expect(plan.attachments.count).to eq(1)
+      expect(ActiveStorage::Blob.count).to eq(1)
+      expect(plan.plan_events.where(event_type: "attachment_added").count).to eq(1)
+    end
+
     it "uploads a file and returns attachment JSON with URLs and markdown snippet" do
       expect { upload_file }.to change { plan.attachments_attachments.count }.by(1)
 
@@ -63,7 +76,7 @@ RSpec.describe "Api::V1::Attachments", type: :request do
     end
 
     it "rejects files over the size limit without creating a blob" do
-      stub_const("CoPlan::Plan::ATTACHMENT_MAX_BYTES", 4)
+      stub_const("Coplan::Plan::ATTACHMENT_MAX_BYTES", 4)
 
       expect { upload_file }.not_to change(ActiveStorage::Blob, :count)
       expect(response).to have_http_status(:unprocessable_content)

@@ -58,7 +58,7 @@ class CreateLibrariesAndPlacements < ActiveRecord::Migration[8.1]
     MigrationFolder.where(created_by_user_id: nil).delete_all
     MigrationFolder.find_each do |folder|
       library = MigrationLibrary.find_or_create_by!(
-        owner_type: "CoPlan::User",
+        owner_type: "Coplan::User",
         owner_id: folder.created_by_user_id
       )
       folder.update_columns(library_id: library.id)

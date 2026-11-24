@@ -95,7 +95,7 @@ To change one passage without sending the full document, send operations:
   "<%= @base %>/api/v1/plans/$PLAN_ID/operations" | jq .
 ```
 
-Coplan applies all operations in one request as one version. If another agent wrote after your `base_revision`, Coplan moves your operations onto the current content. This works for up to 20 revisions. If the target text changed, Coplan returns `409`. Read the plan again and retry.
+Coplan applies all operations in one request as one version. If another agent wrote after your `base_revision`, Coplan moves your operations onto the current content. This works for up to 20 revisions. If the target span no longer contains exactly the original text, or its heading changed, Coplan returns `409`. The whole request is refused; no partial version is saved. Read the plan again and retry.
 
 | `op` | Fields | Effect |
 |---|---|---|
@@ -104,9 +104,13 @@ Coplan applies all operations in one request as one version. If another agent wr
 | `delete_paragraph_containing` | `needle` | Deletes the one paragraph that contains the text. |
 | `replace_section` | `heading`, `new_content`, optional `include_heading: false` | Replaces the heading and everything under it, up to the next heading of the same or a higher level. With `include_heading: false`, Coplan keeps the heading line and replaces only the body. |
 
+`replace_section` requires a string `new_content`; other JSON types return `422`.
+
+For an empty section body, `replace_section` adds newline separators as needed. Later operations in the same request or edit session still target the draft produced by your earlier operations, even if rebasing needs different separators.
+
 An operation that cannot apply returns `422` with the reason, and Coplan saves nothing.
 
-To collect operations from several requests into one version, open an edit session: `POST <%= @base %>/api/v1/plans/$PLAN_ID/sessions`. The response has `id` and `base_revision`. Send both, as `session_id` and `base_revision`, on each operation request; Coplan holds the operations without saving them. Then `POST <%= @base %>/api/v1/plans/$PLAN_ID/sessions/$SESSION_ID/commit` with a `change_summary` saves them as one version. A session expires after 10 minutes. Most edits do not need one: a single operations request already saves as one version.
+To collect operations from several requests into one version, open an edit session: `POST <%= @base %>/api/v1/plans/$PLAN_ID/sessions`. The response has `id` and `base_revision`. Send both, as `session_id` and `base_revision`, on each operation request; Coplan holds the operations without saving them. Then `POST <%= @base %>/api/v1/plans/$PLAN_ID/sessions/$SESSION_ID/commit` with a `change_summary` saves them as one version. A session expires after 10 minutes. Coplan then tries to save its operations; if that fails, your token gets a `session.commit_failed` event (see <<%= @base %>/agent-instructions/live>). Most edits do not need one: a single operations request already saves as one version.
 
 ## Edit locks
 
@@ -149,6 +153,6 @@ See <<%= @base %>/agent-instructions/creating> for the rules on types, folders, 
 
 The opening top-level H1 is the document title. Rename it through the normal content operations or whole-content replacement. Fetch responses include the heading in `current_content` and its plain text in `title`.
 
-If an update omits the opening H1 or leaves it empty, CoPlan restores it from the current metadata title. This normalization is stored in the new version, its hash, and its operation history. Re-read after writing when you need the exact normalized source. Headings inside code, quotes, and presentations do not count as document titles.
+If an update omits the opening H1 or leaves it empty, Coplan restores it from the current metadata title. This normalization is stored in the new version, its hash, and its operation history. Re-read after writing when you need the exact normalized source. Headings inside code, quotes, and presentations do not count as document titles.
 
 A committed agent content edit finalizes the document URL. Human editor autosaves retain the existing URL until Done. Old URLs redirect to the new address; archived plans do not create new redirects.

@@ -4,7 +4,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
   let(:author) { create(:coplan_user, email: "template-notes@example.com") }
   let(:source) { "# Decision\n\n<!-- Explain the decision here. -->\n\nVisible prose.\n\n<!--\nFirst hint.\n\nSecond hint with **literal Markdown**.\n-->\n" }
   let(:plan) do
-    CoPlan::Plans::Create.call(title: "Template notes", content: source, user: author,
+    Coplan::Plans::Create.call(title: "Template notes", content: source, user: author,
       visibility: "draft", actor_type: "human")
   end
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
@@ -52,9 +52,9 @@ RSpec.describe "Template notes in the document editor", type: :system do
     JS
     expect(result).to all(include("exact" => true))
     expect(result.map { |entry| entry.fetch("notes") }).to eq([ 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0 ])
-    templates = Dir[CoPlan::Engine.root.join("db/default_plan_types/*.md")].map do |path|
+    templates = Dir[Coplan::Engine.root.join("db/default_plan_types/*.md")].map do |path|
       content = File.read(path)
-      notes = CoPlan::ContentRegions::Split.call(content).regions
+      notes = Coplan::ContentRegions::Split.call(content).regions
         .select { |region| region.kind == :document }.sum { |region| region.source.scan(/<!--/).length }
       { source: content, notes: notes }
     end
@@ -522,7 +522,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
       (1..20).map { |index| "Intro paragraph #{index}.\n\n" }.join +
       "Shared phrase.\n\nShared phrase.\n\n" +
       (1..20).map { |index| "Later paragraph #{index}.\n\n" }.join + "<!-- Another hint. -->\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     thread = create(:comment_thread, plan: plan, created_by_user: author,
       anchor_text: "Shared phrase.", anchor_occurrence: 2)
@@ -567,7 +567,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
 
   it "keeps authored HTML commentable when it shares the note CSS class" do
     content = "# Visible HTML\n\n<div class=\"document-editor__template-note\" data-coplan-template-note>Visible HTML guidance.</div>\n\nVisible prose.\n"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Visible HTML guidance.")
     create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Review the visible HTML")

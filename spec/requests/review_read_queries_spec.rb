@@ -6,12 +6,12 @@ RSpec.describe "Review reader queries", type: :request do
 
   def add_approval
     reviewer = create(:coplan_user)
-    request = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
-    CoPlan::Reviews::Respond.call(request: request, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    request = Coplan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    Coplan::Reviews::Respond.call(request: request, actor: reviewer, revision: plan.current_revision, decision: "approved")
   end
 
   def advance_version
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "#{plan.current_content}\nMore detail.\n",
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: "#{plan.current_content}\nMore detail.\n",
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
   end
 

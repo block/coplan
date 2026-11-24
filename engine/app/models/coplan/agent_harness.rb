@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class AgentHarness < ApplicationRecord
     STRING_LIMIT = 255
     BUILT_INS = {

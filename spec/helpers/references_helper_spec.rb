@@ -1,11 +1,15 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::ReferencesHelper, type: :helper do
+RSpec.describe Coplan::ReferencesHelper, type: :helper do
+  include ActiveSupport::Testing::TimeHelpers
+
+  after { travel_back }
+
   describe "#plan_citation_back_matter" do
     let(:user) { create(:coplan_user) }
     let(:plan) do
-      plan = CoPlan::Plan.create!(title: "Sourced plan", created_by_user: user)
-      version = CoPlan::PlanVersion.create!(
+      plan = Coplan::Plan.create!(title: "Sourced plan", created_by_user: user)
+      version = Coplan::PlanVersion.create!(
         plan: plan,
         revision: 1,
         content_markdown: <<~MARKDOWN,
@@ -18,6 +22,18 @@ RSpec.describe CoPlan::ReferencesHelper, type: :helper do
       )
       plan.update!(current_plan_version: version, current_revision: 1)
       plan
+    end
+
+    it "reuses citations for 15 minutes" do
+      allow(Rails).to receive(:cache).and_return(ActiveSupport::Cache::MemoryStore.new)
+      allow(helper).to receive(:render_markdown).and_call_original
+
+      original = helper.plan_citation_back_matter(plan, plan.references)
+      expect(helper.plan_citation_back_matter(plan, plan.references)).to eq(original)
+      expect(helper).to have_received(:render_markdown).once
+      travel 15.minutes + 1.second
+      expect(helper.plan_citation_back_matter(plan, plan.references)).to eq(original)
+      expect(helper).to have_received(:render_markdown).twice
     end
 
     it "joins Markdown citation context to structured source identity" do
@@ -41,7 +57,7 @@ RSpec.describe CoPlan::ReferencesHelper, type: :helper do
     end
 
     it "keeps a source link inline when prose follows it" do
-      version = CoPlan::PlanVersion.create!(
+      version = Coplan::PlanVersion.create!(
         plan: plan,
         revision: 2,
         content_markdown: "Claim.[^inline]\n\n[^inline]: The [study](https://example.com/study) informed this decision.",

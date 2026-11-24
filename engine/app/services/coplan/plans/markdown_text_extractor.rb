@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # Extracts plain text from markdown using the Commonmarker AST, returning
     # [stripped_string, position_map] where position_map[i] is the character
@@ -12,13 +12,14 @@ module CoPlan
     #   # stripped  => "Hello world"
     #   # pos_map   => [0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12]
     class MarkdownTextExtractor
-      def self.call(content, exclude_nonprose: false, source_spans: false)
-        new(content, exclude_nonprose:, source_spans:).call
+      def self.call(content, exclude_nonprose: false, source_spans: false, exclude_images: false)
+        new(content, exclude_nonprose:, source_spans:, exclude_images:).call
       end
 
-      def initialize(content, exclude_nonprose: false, source_spans: false)
+      def initialize(content, exclude_nonprose: false, source_spans: false, exclude_images: false)
         @content = content.to_s.include?("::: {.presentation") ? ContentRegions::Split.call(content).canonical_source : content
         @exclude_nonprose = exclude_nonprose
+        @exclude_images = exclude_images
         @source_lines = @content.lines if exclude_nonprose || source_spans
         @source_spans = [] if source_spans
         if source_spans
@@ -32,7 +33,7 @@ module CoPlan
         # different grammar than we wrote it with is how `[^note]` ended up
         # here verbatim while the reader saw a superscript number — and a
         # comment selected across that citation could never be placed.
-        doc = CoPlan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
+        doc = Coplan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
         byte_to_char = build_byte_to_char_map
         line_byte_offsets = build_line_byte_offsets
         stripped = +""
@@ -72,8 +73,11 @@ module CoPlan
         offsets
       end
 
-      # Block-level node types that should be separated by newlines.
-      BLOCK_TYPES = %i[paragraph heading table table_row item block_quote list code_block].to_set.freeze
+      # Block-level node types that should be separated by newlines. An
+      # alert's `[!NOTE]` marker and title are not child nodes, so neither
+      # reaches the stripped text; the rendered callout shows its label
+      # through CSS for the same reason.
+      BLOCK_TYPES = %i[paragraph heading table table_row item block_quote alert list code_block].to_set.freeze
 
       # Recursively walks the AST, appending text content to `stripped` and
       # character-index mappings to `pos_map`. Inserts whitespace between
@@ -83,13 +87,20 @@ module CoPlan
 
         node.each do |child|
           next if @exclude_nonprose && nonprose?(child)
+          next if @exclude_images && child.type == :image
+          # Math is an atomic region. The reader sees KaTeX's typeset glyphs,
+          # which spell nothing in the source, so neither side of comment
+          # anchoring counts it (text_selection_controller skips the same
+          # [data-math-style] elements). A selection may span math; its range
+          # then runs from the text before to the text after.
+          next if math?(child)
 
           # Insert a space between adjacent table cells, and a newline
           # between block-level siblings (paragraphs, rows, items, etc.).
           if child.type == :table_cell
             append_separator(stripped, pos_map, " ") if prev_was_block
             prev_was_block = true
-          elsif BLOCK_TYPES.include?(child.type)
+          elsif BLOCK_TYPES.include?(child.type) || (@source_spans && child.type == :html_block)
             append_separator(stripped, pos_map, "\n") if prev_was_block
             prev_was_block = true
           end
@@ -292,6 +303,12 @@ module CoPlan
             append_source_span(char, position)
           end
         end
+      end
+
+      # comrak typesets a fence only when its info string is exactly "math";
+      # "```math notes" stays an ordinary code block on the page.
+      def math?(node)
+        node.type == :math || (node.type == :code_block && node.fence_info == "math")
       end
 
       # Match the writing inspector's DOM exclusions. Keeping diagram source,

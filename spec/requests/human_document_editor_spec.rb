@@ -19,7 +19,7 @@ RSpec.describe "Human document editor", type: :request do
     expect(response.body).to include('aria-label="Text formatting"', 'data-command="bold"')
     post plans_path, params: { plan: { title: "Human document" }, content: "My **draft**" }, as: :json
     expect(response).to have_http_status(:ok)
-    created = CoPlan::Plan.find(response.parsed_body["id"])
+    created = Coplan::Plan.find(response.parsed_body["id"])
     expect(created).to be_published
     expect(created.current_plan_version.actor_type).to eq("human")
     expect(response.parsed_body["edit_url"]).to end_with("?edit=continue")
@@ -30,8 +30,8 @@ RSpec.describe "Human document editor", type: :request do
   end
 
   it "renders the host language suggestions while accepting arbitrary fence info" do
-    expect(CoPlan::Configuration.new.editor_code_languages).to include("javascript", "ruby", "mermaid")
-    allow(CoPlan.configuration).to receive(:editor_code_languages).and_return([ "elixir", "custom-build" ])
+    expect(Coplan::Configuration.new.editor_code_languages).to include("javascript", "ruby", "mermaid")
+    allow(Coplan.configuration).to receive(:editor_code_languages).and_return([ "elixir", "custom-build" ])
     get new_plan_path
     options = Nokogiri::HTML(response.body).css("#coplan-code-languages option").map { |option| option["value"] }
     expect(options).to eq([ "elixir", "custom-build" ])
@@ -48,13 +48,13 @@ RSpec.describe "Human document editor", type: :request do
     id = response.parsed_body["id"]
     expect {
       post plans_path, params: { creation_key: key, plan: { title: "Retry document" }, content: "Changed retry" }, as: :json
-    }.not_to change(CoPlan::Plan, :count)
+    }.not_to change(Coplan::Plan, :count)
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body).to include("id" => id, "content" => "# Retry document\n\nFirst draft")
   end
 
   it "renders an HTML lease conflict with the submitted draft intact" do
-    CoPlan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: author.id, lease_token: "agent-token")
+    Coplan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: author.id, lease_token: "agent-token")
     patch plan_path(plan), params: { plan: { title: "Uncommitted title" } }
     expect(response).to have_http_status(:conflict)
     expect(response.media_type).to eq("text/html")
@@ -67,7 +67,7 @@ RSpec.describe "Human document editor", type: :request do
   end
 
   it "keeps in-page lease conflicts in place with a toast" do
-    CoPlan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: author.id, lease_token: "agent-token")
+    Coplan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: author.id, lease_token: "agent-token")
     patch plan_path(plan), params: { plan: { title: "Uncommitted title" } }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
     expect(response).to have_http_status(:conflict)
     expect(response.media_type).to eq("text/vnd.turbo-stream.html")
@@ -76,7 +76,7 @@ RSpec.describe "Human document editor", type: :request do
   end
 
   it "normalizes blank creation into an untitled document" do
-    expect { post plans_path, params: { plan: { title: "" }, content: "" }, as: :json }.to change(CoPlan::Plan, :count).by(1)
+    expect { post plans_path, params: { plan: { title: "" }, content: "" }, as: :json }.to change(Coplan::Plan, :count).by(1)
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body["content"]).to start_with("# Untitled")
   end
@@ -119,8 +119,31 @@ RSpec.describe "Human document editor", type: :request do
     expect(response.parsed_body["revision"]).to eq(1)
   end
 
+  it "saves stale distant edits without moving a repeated quote or the other writer's edit" do
+    prefix = "# #{plan.title}\n\n"
+    middle = (1..100).map { |i| "Unchanged line #{i}.\n" }.join
+    base = prefix + "repeat\nrepeat\nrepeat\n" + middle + "c\nb\n"
+    set_version_fixture(plan.current_plan_version, content_markdown: base)
+    thread = create(:comment_thread, plan: plan, anchor_text: "repeat", anchor_revision: 1,
+      anchor_start: prefix.length, anchor_end: prefix.length + 6)
+    remote = prefix + "repeat?\nrepeat\nrepeat\n" + middle + "c\nb\n"
+    local = prefix + "Xrepeat\nrepeat\nrepeat\n" + middle + "ac\nb\n"
+
+    patch update_content_plan_path(plan), params: { content: remote, base_revision: 1 }, as: :json
+    expect(response).to have_http_status(:ok)
+    remote_version = plan.reload.current_plan_version
+
+    patch update_content_plan_path(plan), params: { content: local, base_revision: 1 }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(plan.reload.current_content).to eq(prefix + "Xrepeat?\nrepeat\nrepeat\n" + middle + "ac\nb\n")
+    expect(plan.current_plan_version.actor_type).to eq("human")
+    expect(remote_version.reload.content_markdown).to eq(remote)
+    expect(thread.reload).not_to be_out_of_date
+    expect([ thread.anchor_start, thread.anchor_end ]).to eq([ prefix.length + 1, prefix.length + 7 ])
+  end
+
   it "retires a legacy human lease without acquiring a replacement" do
-    CoPlan::EditLease.acquire!(plan: plan, holder_type: "human", holder_id: author.id, lease_token: token)
+    Coplan::EditLease.acquire!(plan: plan, holder_type: "human", holder_id: author.id, lease_token: token)
     delete editor_lease_plan_path(plan), as: :json
     expect(response).to have_http_status(:ok)
     expect(plan.reload.edit_lease).to be_nil
@@ -130,7 +153,7 @@ RSpec.describe "Human document editor", type: :request do
     original_title = plan.title
     expect {
       patch update_content_plan_path(plan), params: { content: "New text", base_revision: 1, plan: { title: "" } }, as: :json
-    }.to change(CoPlan::PlanVersion, :count).by(1)
+    }.to change(Coplan::PlanVersion, :count).by(1)
     expect(response).to have_http_status(:ok)
     expect(plan.reload.current_content).to eq("# #{original_title}\n\nNew text")
   end
@@ -145,7 +168,7 @@ RSpec.describe "Human document editor", type: :request do
   end
 
   it "respects a live agent lease and saves after its release" do
-    lease = CoPlan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: author.id, lease_token: token)
+    lease = Coplan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: author.id, lease_token: token)
     patch update_content_plan_path(plan), params: { content: "New text", base_revision: 1 }, as: :json
     expect(response).to have_http_status(:conflict)
     expect(response.parsed_body["code"]).to eq("edit_locked")
@@ -172,7 +195,7 @@ RSpec.describe "Human document editor", type: :request do
   it "previews presentations using the slideshow renderer without saving" do
     expect {
       post preview_draft_plans_path, params: { content: "::: {.presentation}\n\n# Opening\n\n---\n\n# Decision\n\n:::\n" }
-    }.not_to change(CoPlan::PlanVersion, :count)
+    }.not_to change(Coplan::PlanVersion, :count)
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('deck-region', 'coplan--deck-reader', 'Opening', 'Decision')
     expect(Nokogiri::HTML.fragment(response.body).css('.deck-slide').size).to eq(2)
@@ -181,7 +204,7 @@ RSpec.describe "Human document editor", type: :request do
   it "previews tables and Mermaid without saving or executing raw HTML" do
     expect {
       post preview_draft_plans_path, params: { content: "| A | B |\n|---|---|\n| 1 | 2 |\n\n```mermaid\ngraph TD; A-->B\n```\n<script>alert(1)</script>" }
-    }.not_to change(CoPlan::PlanVersion, :count)
+    }.not_to change(Coplan::PlanVersion, :count)
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("<table>", 'lang="mermaid"', 'coplan--mermaid')
     expect(response.body).not_to include("<script>")

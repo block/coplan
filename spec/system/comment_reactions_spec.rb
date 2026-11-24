@@ -15,7 +15,7 @@ RSpec.describe "Comment reactions", type: :system do
     MARKDOWN
   end
   let(:plan) do
-    CoPlan::Plan.create!(title: "Reaction plan", created_by_user: viewer).tap do |p|
+    Coplan::Plan.create!(title: "Reaction plan", created_by_user: viewer).tap do |p|
       version = create(:plan_version, plan: p, revision: 1, content_markdown: content)
       p.update!(current_plan_version: version, current_revision: 1)
     end
@@ -60,8 +60,8 @@ RSpec.describe "Comment reactions", type: :system do
   end
 
   def create_table_thread
-    _, start, finish = CoPlan::Plans::SourceTargets.new(plan.current_content).ranges.find { |kind, *| kind == "table_cell" }
-    token = CoPlan::Plans::SourceTargets.verifier.generate(
+    _, start, finish = Coplan::Plans::SourceTargets.new(plan.current_content).ranges.find { |kind, *| kind == "table_cell" }
+    token = Coplan::Plans::SourceTargets.verifier.generate(
       { "digest" => Digest::SHA256.hexdigest(plan.current_content), "kind" => "table_cell",
         "start" => start, "end" => finish, "label" => "Status" }, purpose: "comment")
     plan.comment_threads.create!(plan_version: plan.current_plan_version, source_token: token,
@@ -130,7 +130,7 @@ RSpec.describe "Comment reactions", type: :system do
 
     reaction = create(:comment_reaction, comment: comment, user: sam, kind: "eyes")
     comment.bump_reactions_version!
-    CoPlan::Broadcaster.replace_to(plan, target: ActionView::RecordIdentifier.dom_id(comment, :reactions),
+    Coplan::Broadcaster.replace_to(plan, target: ActionView::RecordIdentifier.dom_id(comment, :reactions),
       partial: "coplan/comments/reactions", locals: { comment: reaction.comment.reload })
 
     expect(popover).to have_reaction("eyes", count: 1, pressed: false)
@@ -150,10 +150,10 @@ RSpec.describe "Comment reactions", type: :system do
   it "ignores a replacement older than the chips on screen" do
     popover = open_thread
     target = ActionView::RecordIdentifier.dom_id(comment, :reactions)
-    stale = CoPlan::ApplicationController.render(partial: "coplan/comments/reactions", locals: { comment: comment })
+    stale = Coplan::ApplicationController.render(partial: "coplan/comments/reactions", locals: { comment: comment })
     create(:comment_reaction, comment: comment, user: sam, kind: "eyes")
     comment.bump_reactions_version!
-    CoPlan::Broadcaster.replace_to(plan, target: target, partial: "coplan/comments/reactions", locals: { comment: comment.reload })
+    Coplan::Broadcaster.replace_to(plan, target: target, partial: "coplan/comments/reactions", locals: { comment: comment.reload })
     expect(popover).to have_reaction("eyes", count: 1, pressed: false)
 
     page.execute_script(<<~JS, target, stale)
@@ -170,7 +170,7 @@ RSpec.describe "Comment reactions", type: :system do
       stale = page.evaluate_script("document.getElementById(arguments[0]).outerHTML", target)
       create(:comment_reaction, comment: comment, user: sam, kind: "eyes")
       comment.bump_reactions_version!
-      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{comment.id}",
+      Coplan::Broadcaster.replace_to(plan, target: "reactions_comment_#{comment.id}",
         partial: "coplan/comments/reactions", locals: { comment: comment.reload })
       expect(popover).to have_reaction("eyes", count: 1, pressed: false)
 
@@ -237,7 +237,7 @@ RSpec.describe "Comment reactions", type: :system do
       popover = open_thread
       target = "comment_#{comment.id}"
       stale = page.evaluate_script("document.getElementById(arguments[0]).outerHTML", target)
-      allow(CoPlan::Broadcaster).to receive(:replace_to) unless broadcasts
+      allow(Coplan::Broadcaster).to receive(:replace_to) unless broadcasts
       page.execute_script(<<~JS)
         const originalFetch = window.fetch
         let requests = 0
@@ -314,7 +314,7 @@ RSpec.describe "Comment reactions", type: :system do
         comment.reactions.where(user: viewer).delete_all
       end
       comment.bump_reactions_version!
-      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{comment.id}",
+      Coplan::Broadcaster.replace_to(plan, target: "reactions_comment_#{comment.id}",
         partial: "coplan/comments/reactions", locals: { comment: comment.reload })
       expect(popover).to have_saved_reactions
       page.execute_script("window.rejectReaction(new Error('offline'))")
@@ -325,7 +325,7 @@ RSpec.describe "Comment reactions", type: :system do
 
   %w[inline table].each do |surface|
     %w[chip add].each do |control|
-      it "keeps a held Space on the #{surface} #{control} through a broadcast" do
+      it "keeps a held Space on the #{surface} #{control} through a broadcast", browser_sync: :manual do
         target_comment = surface == "table" ? create_table_thread.comments.first : comment
         create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
         scope = surface == "table" ? open_table_discussion : open_thread
@@ -335,7 +335,7 @@ RSpec.describe "Comment reactions", type: :system do
         page.execute_script("document.addEventListener('turbo:before-stream-render', () => window.reactionStreamReceived = true, { once: true })")
         create(:comment_reaction, comment: target_comment, user: sam, kind: "eyes")
         target_comment.bump_reactions_version!
-        CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
+        Coplan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
           partial: "coplan/comments/reactions", locals: { comment: target_comment.reload })
         wait_for { page.evaluate_script("window.reactionStreamReceived === true") }
         sleep 0.2 # Keep Space down while the stream attempts to render.
@@ -370,14 +370,14 @@ RSpec.describe "Comment reactions", type: :system do
       expect(scope).to have_css(".comment-reactions__add:focus")
     end
 
-    it "keeps the #{surface} picker usable while a reaction snapshot arrives" do
+    it "keeps the #{surface} picker usable while a reaction snapshot arrives", browser_sync: :manual do
       target_comment = surface == "table" ? create_table_thread.comments.first : comment
       scope = surface == "table" ? open_table_discussion : open_thread
       scope.find(".comment-reactions__add").click
       page.execute_script("document.addEventListener('turbo:before-stream-render', () => window.reactionStreamReceived = true, { once: true })")
       create(:comment_reaction, comment: target_comment, user: sam, kind: "eyes")
       target_comment.bump_reactions_version!
-      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
+      Coplan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
         partial: "coplan/comments/reactions", locals: { comment: target_comment.reload })
       wait_for { page.evaluate_script("window.reactionStreamReceived === true") }
       sleep 0.2 # Let the stream try to render while the picker is still open.
@@ -388,7 +388,7 @@ RSpec.describe "Comment reactions", type: :system do
       wait_for { target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
     end
 
-    it "keeps a #{surface} pointer gesture intact while a reaction snapshot arrives" do
+    it "keeps a #{surface} pointer gesture intact while a reaction snapshot arrives", browser_sync: :manual do
       target_comment = surface == "table" ? create_table_thread.comments.first : comment
       create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
       scope = surface == "table" ? open_table_discussion : open_thread
@@ -397,7 +397,7 @@ RSpec.describe "Comment reactions", type: :system do
       page.execute_script("document.addEventListener('turbo:before-stream-render', () => window.reactionStreamReceived = true, { once: true })")
       create(:comment_reaction, comment: target_comment, user: sam, kind: "eyes")
       target_comment.bump_reactions_version!
-      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
+      Coplan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
         partial: "coplan/comments/reactions", locals: { comment: target_comment.reload })
       wait_for { page.evaluate_script("window.reactionStreamReceived === true") }
       sleep 0.2 # The pointer stays down through the arriving stream.
@@ -409,7 +409,7 @@ RSpec.describe "Comment reactions", type: :system do
   end
 
   %w[picker pointer keyboard].each do |gesture|
-    it "preserves a table #{gesture} while unrelated replies rebuild the panel" do
+    it "preserves a table #{gesture} while unrelated replies rebuild the panel", browser_sync: :manual do
       table_thread = create_table_thread
       target_comment = table_thread.comments.first
       create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
@@ -424,7 +424,7 @@ RSpec.describe "Comment reactions", type: :system do
       end
       2.times do |index|
         reply = table_thread.comments.create!(author_type: "human", author_id: sam.id, body_markdown: "Arriving reply #{index}")
-        CoPlan::Broadcaster.append_to(plan, target: "comments_comment_thread_#{table_thread.id}",
+        Coplan::Broadcaster.append_to(plan, target: "comments_comment_thread_#{table_thread.id}",
           partial: "coplan/comments/comment", locals: { comment: reply })
         expect(page).to have_css("#plan-threads #comment_#{reply.id}", visible: :all)
       end
@@ -452,7 +452,7 @@ RSpec.describe "Comment reactions", type: :system do
     click_button "Sign In"
     expect(page).to have_button("Menu")
     visit "#{mounted_url}#{plan_page_path(plan)}"
-    html = CoPlan::ApplicationController.render(partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread_record })
+    html = Coplan::ApplicationController.render(partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread_record })
     page.execute_script(<<~JS, "comment_thread_#{thread_record.id}", html)
       window.Turbo.renderStreamMessage(`<turbo-stream action="replace" target="${arguments[0]}"><template>${arguments[1]}</template></turbo-stream>`)
     JS

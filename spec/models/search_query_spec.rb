@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::SearchQuery, type: :model do
+RSpec.describe Coplan::SearchQuery, type: :model do
   let(:user) { create(:coplan_user) }
 
   describe ".log!" do

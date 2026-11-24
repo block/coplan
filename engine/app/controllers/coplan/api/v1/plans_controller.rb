@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       class PlansController < BaseController
@@ -207,7 +207,7 @@ module CoPlan
               before: "draft", after: "published",
               actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
             )
-            CoPlan::Analytics.track(
+            Coplan::Analytics.track(
               "plan_published",
               user: current_user,
               plan_id: @plan.id,
@@ -518,7 +518,7 @@ module CoPlan
         def snapshot_threads_json(threads)
           content = @plan.current_content
           stripped_data = if content.present?
-            stripped, pos_map = CoPlan::CommentThread.strip_markdown(content)
+            stripped, pos_map = Coplan::CommentThread.strip_markdown(content)
             { stripped: stripped, pos_map: pos_map }
           end
 
@@ -571,7 +571,8 @@ module CoPlan
                 author_type: c.author_type,
                 author_id: c.author_id,
                 agent_name: c.agent_name,
-                body_markdown: c.body_markdown,
+                body_markdown: c.public_body_markdown,
+                deleted: c.deleted?,
                 created_at: c.created_at,
                 reactions: CommentReaction.as_api_json(c)
               }

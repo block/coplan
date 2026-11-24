@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Api
     module V1
       # Lets each agent run hold its own short-lived identity instead of

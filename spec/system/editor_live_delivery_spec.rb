@@ -29,7 +29,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
   include_context "editor snapshot observation"
   let(:author) { create(:coplan_user, email: "editor-live@example.com") }
   let(:source) { "# Live\n\nAgent section.\n\nHuman section.\n" }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Live delivery", content: source, user: author, visibility: "draft", actor_type: "human") }
+  let(:plan) { Coplan::Plans::Create.call(title: "Live delivery", content: source, user: author, visibility: "draft", actor_type: "human") }
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
   before do
@@ -47,7 +47,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
   end
 
   def agent_write(content)
-    CoPlan::Plans::ReplaceContent.call(plan: plan.reload, new_content: content, base_revision: plan.current_revision,
+    Coplan::Plans::ReplaceContent.call(plan: plan.reload, new_content: content, base_revision: plan.current_revision,
       actor_type: "local_agent", actor_id: author.id)
   end
 
@@ -87,7 +87,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
     expect(plan.reload.current_content).to include("Conflicting remote edit.")
   end
 
-  it "queues a real broadcast while a save response is in flight" do
+  it "queues a real broadcast while a save response is in flight", browser_sync: :manual do
     click_button "Dual", exact: true
     page.execute_script(<<~'JS')
       const original = window.fetch;
@@ -103,7 +103,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
     expect(plan.reload.current_content).to include("Agent during save.", "Human saved edit.")
   end
 
-  it "drains a second committed broadcast received during an older snapshot request" do
+  it "drains a second committed broadcast received during an older snapshot request", browser_sync: :manual do
     page.execute_script(<<~'JS')
       const original = window.fetch;
       window.fetch=async (url,options)=>{
@@ -141,7 +141,7 @@ RSpec.describe "New document live delivery", type: :system do
     raw = find('[aria-label="Markdown source"]')
     raw.send_keys(source)
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", wait: 10, visible: :all)
-    created = CoPlan::Plan.find_by!(title: "Created live")
+    created = Coplan::Plan.find_by!(title: "Created live")
     expect(page).to have_current_path(plan_page_path(created, edit: "continue"))
     page.execute_script(<<~'JS')
       window.originalFetch = window.fetch;
@@ -157,7 +157,7 @@ RSpec.describe "New document live delivery", type: :system do
       window.createdConsumer = window.createdSubscription.consumer;
     JS
     raw.send_keys([ mod, "a" ], source.sub("Human section.", "Human unsaved draft."))
-    CoPlan::Plans::ReplaceContent.call(plan: created.reload, new_content: source.sub("Agent section.", "Agent broadcast after creation."),
+    Coplan::Plans::ReplaceContent.call(plan: created.reload, new_content: source.sub("Agent section.", "Agent broadcast after creation."),
       base_revision: created.current_revision, actor_type: "local_agent", actor_id: author.id)
     expect(raw).to have_text("Agent broadcast after creation.", wait: 5)
     expect(raw).to have_text("Human unsaved draft.")
@@ -169,7 +169,7 @@ RSpec.describe "New document live delivery", type: :system do
 
     page.execute_script('window.createdConsumer.disconnect()')
     expect(page).not_to have_css('form.document-editor turbo-cable-stream-source[connected]', visible: :all)
-    CoPlan::Plans::ReplaceContent.call(plan: created.reload, new_content: created.current_content.sub("Agent broadcast after creation.", "Agent edit while disconnected."),
+    Coplan::Plans::ReplaceContent.call(plan: created.reload, new_content: created.current_content.sub("Agent broadcast after creation.", "Agent edit while disconnected."),
       base_revision: created.current_revision, actor_type: "local_agent", actor_id: author.id)
     page.execute_script('window.createdConsumer.connect()')
     expect(page).to have_css('form.document-editor turbo-cable-stream-source[connected]', visible: :all, count: 1, wait: 10)

@@ -2,7 +2,7 @@ require_relative "lib/coplan/slack/version"
 
 Gem::Specification.new do |spec|
   spec.name = "coplan-slack"
-  spec.version = CoPlan::Slack::VERSION
+  spec.version = Coplan::Slack::VERSION
   spec.authors = [ "Block" ]
   spec.summary = "Optional Slack integration for Coplan"
   spec.description = "A Rails engine that adds Slack link previews and notification DMs to a Coplan deployment."

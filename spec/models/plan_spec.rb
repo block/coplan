@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plan, type: :model do
+RSpec.describe Coplan::Plan, type: :model do
   it "is valid with valid attributes" do
     plan = create(:plan)
     expect(plan).to be_valid
@@ -19,7 +19,7 @@ RSpec.describe CoPlan::Plan, type: :model do
   end
 
   it "is born published" do
-    plan = CoPlan::Plan.new
+    plan = Coplan::Plan.new
     expect(plan.visibility).to eq("published")
   end
 
@@ -99,7 +99,7 @@ RSpec.describe CoPlan::Plan, type: :model do
       own_draft = create(:plan, :draft, created_by_user: viewer)
       others_draft = create(:plan, :draft, created_by_user: author)
 
-      visible = CoPlan::Plan.visible_to(viewer)
+      visible = Coplan::Plan.visible_to(viewer)
       expect(visible).to include(published, own_draft)
       expect(visible).not_to include(others_draft)
     end
@@ -113,7 +113,7 @@ RSpec.describe CoPlan::Plan, type: :model do
       draft = create(:plan, :draft, created_by_user: author)
       archived = create(:plan, :archived, created_by_user: author)
 
-      listed = CoPlan::Plan.publicly_listed
+      listed = Coplan::Plan.publicly_listed
       expect(listed).to include(published)
       expect(listed).not_to include(draft)
       expect(listed).not_to include(archived)
@@ -127,7 +127,7 @@ RSpec.describe CoPlan::Plan, type: :model do
         :considering,
         created_by_user: author,
         title: "Quarterly Strategy Document")
-      plan.tags = [ CoPlan::Tag.find_or_create_by!(name: "strategy") ]
+      plan.tags = [ Coplan::Tag.find_or_create_by!(name: "strategy") ]
       plan.reload
 
       expect(plan.search_text).to include("Quarterly Strategy Document")
@@ -146,12 +146,12 @@ RSpec.describe CoPlan::Plan, type: :model do
     it "refreshes when a tag is added" do
       plan = create(:plan, :considering)
       expect(plan.search_text).not_to include("infrastructure")
-      plan.tags = [ CoPlan::Tag.find_or_create_by!(name: "infrastructure") ]
+      plan.tags = [ Coplan::Tag.find_or_create_by!(name: "infrastructure") ]
       expect(plan.reload.search_text).to include("infrastructure")
     end
 
     it "refreshes every associated plan when a tag is renamed" do
-      tag = CoPlan::Tag.find_or_create_by!(name: "old-name")
+      tag = Coplan::Tag.find_or_create_by!(name: "old-name")
       plan = create(:plan, :considering)
       plan.tags = [ tag ]
       expect(plan.reload.search_text).to include("old-name")
@@ -166,7 +166,7 @@ RSpec.describe CoPlan::Plan, type: :model do
       # Simulates the after_commit on PlanTag running when its parent Plan
       # row is already gone — this happens during dependent: :destroy cascade.
       plan = create(:plan, :considering)
-      plan.tags = [ CoPlan::Tag.find_or_create_by!(name: "platform") ]
+      plan.tags = [ Coplan::Tag.find_or_create_by!(name: "platform") ]
       plan_tag = plan.plan_tags.first
       allow(plan_tag).to receive(:plan).and_return(plan)
       allow(plan).to receive(:destroyed?).and_return(true)
@@ -212,34 +212,34 @@ RSpec.describe CoPlan::Plan, type: :model do
     end
 
     it "matches whole words in the title" do
-      results = CoPlan::Plan.search("modal", user: author).to_a
+      results = Coplan::Plan.search("modal", user: author).to_a
       expect(results).to include(published)
       expect(results).not_to include(other_published)
     end
 
     it "supports prefix matching for search-as-you-type" do
-      results = CoPlan::Plan.search("repor", user: author).to_a
+      results = Coplan::Plan.search("repor", user: author).to_a
       expect(results).to include(other_published)
     end
 
     it "hides brainstorm plans from other users" do
-      results = CoPlan::Plan.search("sitewide", user: other_author).to_a
+      results = Coplan::Plan.search("sitewide", user: other_author).to_a
       expect(results).to include(published, other_published)
       expect(results).not_to include(brainstorm)
     end
 
     it "includes the author's own brainstorm plans" do
-      results = CoPlan::Plan.search("sitewide", user: author).to_a
+      results = Coplan::Plan.search("sitewide", user: author).to_a
       expect(results).to include(brainstorm)
     end
 
     it "returns no results for a blank query" do
-      expect(CoPlan::Plan.search("", user: author).to_a).to eq([])
+      expect(Coplan::Plan.search("", user: author).to_a).to eq([])
     end
 
     it "ignores FULLTEXT boolean operators in user input" do
       expect {
-        CoPlan::Plan.search("+modal -reporting", user: author).to_a
+        Coplan::Plan.search("+modal -reporting", user: author).to_a
       }.not_to raise_error
     end
   end

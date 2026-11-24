@@ -29,8 +29,8 @@
   <% elsif !signed_in? %>
     <h2>Sign in to approve this connection</h2>
     <p>Sign in in a new tab, then return here and continue. Opening this page does not grant access.</p>
-    <% if CoPlan.configuration.sign_in_path.present? %>
-      <%= link_to "Sign in", CoPlan.configuration.sign_in_path, target: "_blank", rel: "noopener noreferrer", class: "btn btn--primary" %>
+    <% if Coplan.configuration.sign_in_path.present? %>
+      <%= link_to "Sign in", Coplan.configuration.sign_in_path, target: "_blank", rel: "noopener noreferrer", class: "btn btn--primary" %>
     <% end %>
     <%= link_to "Continue after signing in", agent_connect_path(user_code: @user_code), class: "btn btn--secondary" %>
   <% else %>

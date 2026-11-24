@@ -20,7 +20,6 @@ export default class extends Controller {
     if (isOpen) {
       this._setOpen(false)
     } else {
-      // Reload the Turbo Frame for fresh content
       const frame = panel.querySelector("turbo-frame")
       if (frame) frame.reload()
       this._setOpen(true)

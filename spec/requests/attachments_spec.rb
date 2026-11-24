@@ -6,6 +6,61 @@ RSpec.describe "Attachments (web)", type: :request do
   let(:plan) { create(:plan, :considering, created_by_user: author) }
 
   describe "POST /plans/:plan_id/attachments" do
+    it "returns one attachment for repeated files in the same editor upload" do
+      sign_in_as(author)
+      post plan_attachments_path(plan), params: {
+        files: [ fixture_file_upload("sample.png", "image/png"), fixture_file_upload("sample.png", "image/png") ]
+      }, headers: { "Accept" => "application/json" }
+
+      expect(response).to have_http_status(:created)
+      files = response.parsed_body["attachments"]
+      expect(files.map { |file| file["id"] }.uniq.size).to eq(1)
+      expect(files.map { |file| file["reused"] }).to eq([ false, true ])
+      expect(plan.attachments.count).to eq(1)
+      expect(ActiveStorage::Blob.count).to eq(1)
+    end
+
+    it "returns stable image and download URLs for editor uploads and refreshes attachment counts" do
+      sign_in_as(author)
+      post plan_attachments_path(plan), params: {
+        files: [ fixture_file_upload("sample.png", "image/png"), fixture_file_upload("sample.txt", "text/plain") ]
+      }, headers: { "Accept" => "application/json" }
+
+      expect(response).to have_http_status(:created)
+      data = response.parsed_body
+      expect(data["errors"]).to eq([])
+      expect(data["attachments"].map { |file| file["filename"] }).to eq(%w[sample.png sample.txt])
+      expect(data["attachments"].first).to include("content_type" => "image/png", "url" => a_string_starting_with("/rails/active_storage/"))
+      expect(data["attachments"].last["download_url"]).to include("disposition=attachment")
+      expect(data["streams"]).to include('target="plan-attachments"', 'target="attachments-count"', 'target="nav-attachments-count"')
+      expect(plan.current_revision).to eq(1) # Embedding is a separate, ordinary editor save.
+    end
+
+    it "returns successful files alongside per-file errors in a mixed editor upload" do
+      sign_in_as(author)
+      post plan_attachments_path(plan), params: {
+        files: [ fixture_file_upload("sample.html", "text/html"), fixture_file_upload("sample.png", "image/png") ]
+      }, headers: { "Accept" => "application/json" }
+
+      expect(response).to have_http_status(:created)
+      expect(response.parsed_body["attachments"].map { |file| file["filename"] }).to eq([ "sample.png" ])
+      expect(response.parsed_body["errors"]).to contain_exactly(a_string_including("sample.html", "not allowed"))
+      expect(plan.attachments.count).to eq(1)
+    end
+
+    it "returns JSON validation errors when no files can be uploaded" do
+      sign_in_as(author)
+      post plan_attachments_path(plan), params: { files: [ fixture_file_upload("sample.html", "text/html") ] },
+        headers: { "Accept" => "application/json" }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["attachments"]).to eq([])
+      expect(response.parsed_body["errors"]).to contain_exactly(a_string_including("not allowed"))
+
+      post plan_attachments_path(plan), headers: { "Accept" => "application/json" }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["errors"]).to eq([ "Choose at least one file to upload." ])
+    end
+
     it "uploads files for the plan author and logs events" do
       sign_in_as(author)
 

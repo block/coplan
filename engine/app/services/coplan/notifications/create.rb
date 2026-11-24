@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Notifications
     class Create
       # Reasons that stay silent once a thread is closed. An agent working
@@ -57,11 +57,19 @@ module CoPlan
             plan_id: @comment_thread.plan_id,
             comment_thread_id: @comment_thread.id,
             comment_id: @comment&.id,
-            reason: @reason
+            reason: @reason,
+            fanout_actor_id: fanout_actor_id
           )
         end
 
         subscriber_ids
+      end
+
+      # The person to charge for these deliveries. An agent's comment carries
+      # its human in author_id; @actor_id is a token id for API writes, and
+      # charging a token would let fresh session tokens reset the budget.
+      def fanout_actor_id
+        @comment&.author_id.presence || @actor_id
       end
 
       # with_lock has reloaded the thread, so this reads committed state

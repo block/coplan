@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module FoldersHelper
     # [[path, id, depth], ...] for every folder in the viewer's library,
     # sorted by path — used by the "New folder" parent select and each
@@ -21,7 +21,7 @@ module CoPlan
     end
 
     def folder_paths_by_id
-      @_folder_paths_by_id ||= CoPlan::Folder.paths_by_id(@folders || current_user.library.folders.order(:name).to_a)
+      @_folder_paths_by_id ||= Coplan::Folder.paths_by_id(@folders || current_user.library.folders.order(:name).to_a)
     end
   end
 end

@@ -15,8 +15,8 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Checklist Plan", created_by_user: author)
-    version = CoPlan::PlanVersion.create!(
+    p = Coplan::Plan.create!(title: "Checklist Plan", created_by_user: author)
+    version = Coplan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: plan_content, actor_type: "human", actor_id: author.id
     )
@@ -72,21 +72,20 @@ RSpec.describe "Interactive checkboxes", type: :system do
   it "checks an unchecked checkbox and creates a new version" do
     visit plan_page_path(plan)
 
-    initial_version_count = CoPlan::PlanVersion.count
+    initial_version_count = Coplan::PlanVersion.count
 
-    # Find the first unchecked checkbox ("Write documentation")
-    checkbox = all('input[type="checkbox"]').first
+    checkbox = find_field("Task: Write documentation", type: "checkbox", enable_aria_label: true)
     expect(checkbox).not_to be_checked
 
     checkbox.click
-    expect(checkbox).to be_checked
+    # The saved version can replace the body; assert against the current field.
+    expect(page).to have_checked_field("Task: Write documentation", type: "checkbox", enable_aria_label: true)
 
-    # Wait for the server response by checking the version was created
     wait_for_version(plan, 2)
 
     plan.reload
     expect(plan.current_content).to include("- [x] Write documentation")
-    expect(CoPlan::PlanVersion.count).to eq(initial_version_count + 1)
+    expect(Coplan::PlanVersion.count).to eq(initial_version_count + 1)
 
     version = plan.current_plan_version
     expect(version.actor_id).to eq(author.id)
@@ -99,11 +98,11 @@ RSpec.describe "Interactive checkboxes", type: :system do
   it "unchecks a checked checkbox" do
     visit plan_page_path(plan)
 
-    checkbox = find('input[type="checkbox"][checked]')
+    checkbox = find_field("Task: Set up monitoring", type: "checkbox", enable_aria_label: true)
     expect(checkbox).to be_checked
 
     checkbox.click
-    expect(checkbox).not_to be_checked
+    expect(page).to have_unchecked_field("Task: Set up monitoring", type: "checkbox", enable_aria_label: true)
 
     wait_for_version(plan, 2)
 

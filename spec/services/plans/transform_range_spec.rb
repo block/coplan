@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Plans::TransformRange do
+RSpec.describe Coplan::Plans::TransformRange do
   describe ".transform" do
     describe "basic transform" do
       it "shifts range when edit is entirely before" do
@@ -269,6 +269,45 @@ RSpec.describe CoPlan::Plans::TransformRange do
         { operations_json: [ { "resolved_range" => [ 15, 25 ], "delta" => 3 } ] }
       ]
       expect { described_class.transform_through_versions([ 10, 20 ], versions) }.to raise_error(described_class::Conflict)
+    end
+  end
+
+  describe ".exchange" do
+    it "shifts the later edit by the earlier one's delta" do
+      edit, range_edit = described_class.exchange({ "resolved_range" => [ 20, 22 ], "delta" => 3 }, { "resolved_range" => [ 0, 4 ], "delta" => 36 })
+      expect(edit).to eq("resolved_range" => [ 56, 58 ], "delta" => 3)
+      expect(range_edit).to eq("resolved_range" => [ 0, 4 ], "delta" => 36)
+    end
+
+    it "orders an insert at the same point first, as transform does for the range" do
+      insert = { "resolved_range" => [ 10, 10 ], "new_range" => [ 10, 12 ] }
+      op_insert = { "resolved_range" => [ 10, 10 ], "delta" => 5 }
+      expect(described_class.transform([ 10, 10 ], insert)).to eq([ 12, 12 ])
+
+      edit, range_edit = described_class.exchange(insert, op_insert)
+      expect(edit).to eq("resolved_range" => [ 10, 10 ], "delta" => 2)
+      expect(range_edit).to eq("resolved_range" => [ 12, 12 ], "delta" => 5)
+    end
+
+    it "raises Conflict when the edits overlap" do
+      expect {
+        described_class.exchange({ "resolved_range" => [ 5, 15 ], "delta" => 0 }, { "resolved_range" => [ 10, 20 ], "delta" => 1 })
+      }.to raise_error(described_class::Conflict)
+    end
+  end
+
+  describe "transient padding edits" do
+    it "allows a boundary insertion only for generated padding adjustments" do
+      padding = described_class::PaddingEdit["resolved_range" => [ 4, 5 ], "delta" => -1]
+      expect(described_class.transform([ 4, 4 ], padding)).to eq([ 4, 4 ])
+      expect { described_class.transform([ 4, 4 ], padding.to_h) }.to raise_error(described_class::Conflict)
+      expect { described_class.transform([ 4, 5 ], padding) }.to raise_error(described_class::Conflict)
+
+      moved, inserted = described_class.exchange(padding, { "resolved_range" => [ 4, 4 ], "delta" => 3 })
+      expect(moved).to be_a(described_class::PaddingEdit)
+      expect(moved["resolved_range"]).to eq([ 7, 8 ])
+      expect(inserted["resolved_range"]).to eq([ 4, 4 ])
+      expect(described_class.transform([ 7, 7 ], moved)).to eq([ 7, 7 ])
     end
   end
 

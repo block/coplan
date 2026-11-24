@@ -1,20 +1,20 @@
-module CoPlan
+module Coplan
   module ApplicationHelper
-    include CoPlan::KeyboardShortcutsHelper
+    include Coplan::KeyboardShortcutsHelper
     include MarkdownHelper
 
     # The app theme for this page, as <html data-app-theme> (docs/THEMES.md):
     # the viewer's pick from Settings, else the host's default.
     def coplan_app_theme
       choice = current_user.app_theme if signed_in?
-      CoPlan::Themes.resolve(choice).key
+      Coplan::Themes.resolve(choice).key
     end
 
     # The viewer's pick as Settings shows it, as <html data-app-theme-choice>:
     # a theme key, or "default". A stored theme that Coplan no longer ships
     # counts as "default".
     def coplan_app_theme_choice
-      (CoPlan::Themes.find(current_user.app_theme)&.key if signed_in?) || CoPlan::User::DEFAULT_APP_THEME
+      (Coplan::Themes.find(current_user.app_theme)&.key if signed_in?) || Coplan::User::DEFAULT_APP_THEME
     end
 
     def coplan_favicon_tag

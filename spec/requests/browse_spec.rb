@@ -5,12 +5,12 @@ RSpec.describe "Browsable library URLs", type: :request do
   let(:viewer) { create(:coplan_user, username: "viewer") }
 
   def place(plan, folder, actor: author)
-    CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: actor)
+    Coplan::Plans::Place.call(plan: plan, folder: folder, actor: actor)
     plan.reload
   end
 
   def revise(plan, content, actor: author)
-    CoPlan::Plans::ReplaceContent.call(
+    Coplan::Plans::ReplaceContent.call(
       plan: plan.reload, new_content: content,
       base_revision: plan.current_revision,
       actor_type: "human", actor_id: actor.id
@@ -33,8 +33,8 @@ RSpec.describe "Browsable library URLs", type: :request do
 
   it "opens a plan for a viewer whose host username is binary-tagged and library is missing" do
     plan = create(:plan, :published, created_by_user: author, title: "Shared roadmap")
-    CoPlan::Library.where(owner: viewer).delete_all
-    allow(CoPlan.configuration).to receive(:authenticate).and_return(->(_request) {
+    Coplan::Library.where(owner: viewer).delete_all
+    allow(Coplan.configuration).to receive(:authenticate).and_return(->(_request) {
       { external_id: viewer.external_id, name: viewer.name, username: "viewer".b }
     })
 
@@ -42,19 +42,19 @@ RSpec.describe "Browsable library URLs", type: :request do
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Shared roadmap")
-    expect(CoPlan::Library.find_by!(owner: viewer).handle).to eq("viewer")
+    expect(Coplan::Library.find_by!(owner: viewer).handle).to eq("viewer")
   end
 
   it "creates a person's library on their first Coplan request" do
     newcomer = create(:coplan_user, username: "newcomer")
-    expect(CoPlan::Library.where(owner: newcomer)).not_to exist
+    expect(Coplan::Library.where(owner: newcomer)).not_to exist
     sign_in_as(newcomer)
-    expect(CoPlan::Library.where(owner: newcomer)).not_to exist
+    expect(Coplan::Library.where(owner: newcomer)).not_to exist
 
     get root_path
 
     expect(response).to have_http_status(:ok)
-    expect(CoPlan::Library.where(owner: newcomer).count).to eq(1)
+    expect(Coplan::Library.where(owner: newcomer).count).to eq(1)
   end
 
   describe "every prefix is a real page" do
@@ -290,7 +290,7 @@ RSpec.describe "Browsable library URLs", type: :request do
       place(plan, nested)
 
       expect { folder.update!(name: "Orders") }
-        .to change(CoPlan::UrlAlias, :count).by(1)
+        .to change(Coplan::UrlAlias, :count).by(1)
 
       get "/hampton/liveorder/q3/cart-roadmap"
 

@@ -1,12 +1,13 @@
-module CoPlan
+module Coplan
   module Comments
     # Soft-deletes a comment and records the event in the plan history feed
     # in a single transaction. Idempotent — calling on an already-deleted
     # comment is a no-op so retries or double-clicks don't write duplicate
     # history entries.
+    #
+    # The database retains the body. Public readers redact deleted comments,
+    # including copies in the durable agent inbox.
     class SoftDelete
-      BODY_PREVIEW_LENGTH = 120
-
       def self.call(**kwargs)
         new(**kwargs).call
       end
@@ -35,8 +36,7 @@ module CoPlan
             event_type: "comment_deleted",
             metadata: {
               comment_id: @comment.id,
-              thread_id: @comment.comment_thread_id,
-              body_preview: @comment.body_markdown.to_s.truncate(BODY_PREVIEW_LENGTH)
+              thread_id: @comment.comment_thread_id
             }
           )
         end

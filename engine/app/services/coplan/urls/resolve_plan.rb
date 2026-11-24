@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Urls
     # Resolve a document address, not an arbitrary link containing a plan id.
     # The domain is optional and does not affect lookup. Bases supply the

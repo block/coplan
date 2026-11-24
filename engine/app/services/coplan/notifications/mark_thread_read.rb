@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Notifications
     # Marks every unread inbox row for one thread read and refreshes the
     # badge for whoever was carrying them.

@@ -1,4 +1,8 @@
-ActiveAdmin.register CoPlan::CommentThread, as: "CommentThread" do
+ActiveAdmin.register Coplan::CommentThread, as: "CommentThread" do
+  # No destroy and no batch delete: destroying a thread deletes its comments,
+  # and nothing in Coplan can restore them. Resolve it instead.
+  actions :all, except: [ :destroy ]
+  config.batch_actions = false
   permit_params :status, :out_of_date
 
   filter :plan_id
@@ -6,7 +10,6 @@ ActiveAdmin.register CoPlan::CommentThread, as: "CommentThread" do
   filter :created_at
 
   index do
-    selectable_column
     id_column
     column :plan
     column :status

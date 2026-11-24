@@ -1,16 +1,16 @@
-module CoPlan
+module Coplan
   module Settings
     class SettingsController < ApplicationController
       def index
         @agent_session_count = current_user.api_tokens.sessions.usable.count
         @personal_token_count = current_user.api_tokens.personal.active.count
-        @web_push_subscriptions = current_user.web_push_subscriptions.order(created_at: :desc)
+        @web_push_subscriptions = current_user.web_push_subscriptions.for_delivery
       end
 
       # Saves the light/dark mode (docs/THEMES.md).
       def update_theme
         theme = params[:theme]
-        if CoPlan::User::THEME_PREFERENCES.include?(theme)
+        if Coplan::User::THEME_PREFERENCES.include?(theme)
           current_user.theme_preference = theme
           current_user.save!
         end
@@ -20,7 +20,7 @@ module CoPlan
       # Saves the app theme (docs/THEMES.md).
       def update_app_theme
         app_theme = params[:app_theme]
-        if CoPlan::User::APP_THEMES.include?(app_theme)
+        if Coplan::User::APP_THEMES.include?(app_theme)
           current_user.app_theme = app_theme
           current_user.save!
           head :ok
@@ -31,7 +31,7 @@ module CoPlan
 
       def update_voice_hotkey
         hotkey = params[:voice_hotkey]
-        if CoPlan::User::VOICE_HOTKEYS.include?(hotkey)
+        if Coplan::User::VOICE_HOTKEYS.include?(hotkey)
           current_user.voice_hotkey = hotkey
           current_user.save!
         end

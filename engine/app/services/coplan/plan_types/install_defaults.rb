@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module PlanTypes
     # Installs the plan types shipped with the engine
     # (engine/db/default_plan_types/*.md — YAML front matter for the
@@ -13,7 +13,7 @@ module CoPlan
     # custom template on a type that ships without one (Scratchpad, General)
     # is cleared. Types unknown to the defaults are never touched either way.
     class InstallDefaults
-      DEFAULTS_DIR = CoPlan::Engine.root.join("db", "default_plan_types")
+      DEFAULTS_DIR = Coplan::Engine.root.join("db", "default_plan_types")
       FRONT_MATTER = /\A---\n(?<yaml>.*?)\n---\n?(?<body>.*)\z/m
 
       Result = Struct.new(:created, :updated, :skipped, keyword_init: true)

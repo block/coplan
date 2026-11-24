@@ -35,7 +35,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
       root = create(:folder, name: "Team EBT", description: "EBT rollout work", created_by_user: alice)
       sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
       plan = create(:plan, :published, created_by_user: alice, tags: [ create(:tag, name: "pricing") ])
-      CoPlan::Plans::Place.call(plan: plan, folder: sub, actor: alice)
+      Coplan::Plans::Place.call(plan: plan, folder: sub, actor: alice)
 
       get "/api/v1/library", headers: headers
       expect(response).to have_http_status(:success)
@@ -86,7 +86,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
       plan.update_columns(summary: "A plan about failover.")
       plan.tag_names = [ "infra" ]
       plan.save!
-      CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
 
       get "/api/v1/library/contents", headers: headers
       expect(response).to have_http_status(:success)
@@ -106,8 +106,8 @@ RSpec.describe "Api::V1::Libraries", type: :request do
       other = create(:folder, name: "C", created_by_user: alice)
       in_sub = create(:plan, :published, created_by_user: alice)
       in_other = create(:plan, :published, created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: in_sub, folder: sub, actor: alice)
-      CoPlan::Plans::Place.call(plan: in_other, folder: other, actor: alice)
+      Coplan::Plans::Place.call(plan: in_sub, folder: sub, actor: alice)
+      Coplan::Plans::Place.call(plan: in_other, folder: other, actor: alice)
 
       get "/api/v1/library/contents", params: { folder_path: "A", recursive: "true" }, headers: headers
       ids = JSON.parse(response.body)["items"].map { |i| i["plan_id"] }
@@ -120,8 +120,8 @@ RSpec.describe "Api::V1::Libraries", type: :request do
       tagged.tag_names = [ "pricing" ]
       tagged.save!
       untagged = create(:plan, :published, created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: tagged, folder: folder, actor: alice)
-      CoPlan::Plans::Place.call(plan: untagged, folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: tagged, folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: untagged, folder: folder, actor: alice)
 
       get "/api/v1/library/contents", params: { tag: "pricing" }, headers: headers
       ids = JSON.parse(response.body)["items"].map { |i| i["plan_id"] }
@@ -143,7 +143,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
     it "hides other users' drafts" do
       folder = create(:folder, created_by_user: alice)
       draft = create(:plan, :draft, created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: draft, folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: draft, folder: folder, actor: alice)
 
       get contents_api_v1_library_path(alice.library), headers: bob_headers
       expect(JSON.parse(response.body)["count"]).to eq(0)
@@ -172,7 +172,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
       placement = alice.library.placements.find_by(plan_id: plan.id)
       expect(placement.folder.path).to eq("Archive/2025")
       expect(placement.folder.parent.name).to eq("Archive")
-      expect(CoPlan::Folder.find_by(name: "2025").description).to eq("Old work")
+      expect(Coplan::Folder.find_by(name: "2025").description).to eq("Old work")
 
       events = alice.library.library_events.order(:created_at)
       expect(events.map(&:event_type)).to include("folder_created", "folder_described", "plan_filed")
@@ -232,7 +232,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
         plan.save!
       end
       [ tagged1, tagged2, untagged ].each do |plan|
-        CoPlan::Plans::Place.call(plan: plan, folder: inbox, actor: alice)
+        Coplan::Plans::Place.call(plan: plan, folder: inbox, actor: alice)
       end
 
       post "/api/v1/library/organize",
@@ -241,7 +241,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
 
       json = JSON.parse(response.body)
       expect(json["results"][0]["moved_count"]).to eq(2)
-      pricing = CoPlan::Folder.find_by(name: "Pricing", library: alice.library)
+      pricing = Coplan::Folder.find_by(name: "Pricing", library: alice.library)
       expect(pricing.placements.map(&:plan_id)).to match_array([ tagged1.id, tagged2.id ])
       expect(inbox.placements.map(&:plan_id)).to eq([ untagged.id ])
     end
@@ -263,12 +263,12 @@ RSpec.describe "Api::V1::Libraries", type: :request do
       expect(result["moved_count"]).to eq(3)
       expect(result["moved"].map { |m| m["plan_id"] }).to match_array(plans.map(&:id))
       expect(result["failed"]).to eq([ { "plan_id" => "missing-id", "error" => "Plan not found" } ])
-      sorted = CoPlan::Folder.find_by(name: "Sorted", library: alice.library)
+      sorted = Coplan::Folder.find_by(name: "Sorted", library: alice.library)
       expect(sorted.placements.count).to eq(3)
     end
 
     it "rejects a move_many exceeding the per-op plan cap" do
-      too_many = (CoPlan::Libraries::Organize::MAX_PLANS_PER_MOVE + 1).times.map { |i| "id-#{i}" }
+      too_many = (Coplan::Libraries::Organize::MAX_PLANS_PER_MOVE + 1).times.map { |i| "id-#{i}" }
 
       post "/api/v1/library/organize",
         params: { operations: [ { op: "move_many", plan_ids: too_many, folder_path: "X" } ] }.to_json,
@@ -276,7 +276,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
 
       json = JSON.parse(response.body)
       expect(json["results"][0]["status"]).to eq("error")
-      expect(json["results"][0]["error"]).to match(/max #{CoPlan::Libraries::Organize::MAX_PLANS_PER_MOVE}/)
+      expect(json["results"][0]["error"]).to match(/max #{Coplan::Libraries::Organize::MAX_PLANS_PER_MOVE}/)
       expect(alice.library.folders.find_by(name: "X")).to be_nil
     end
 
@@ -312,10 +312,10 @@ RSpec.describe "Api::V1::Libraries", type: :request do
     it "moves a plan between libraries, emptying the one it came from" do
       # Simulate a future team library by making bob's library writable to
       # alice — writable_by? is the only gate Organize consults.
-      allow_any_instance_of(CoPlan::Library).to receive(:writable_by?).and_return(true)
+      allow_any_instance_of(Coplan::Library).to receive(:writable_by?).and_return(true)
       plan = create(:plan, :published, created_by_user: alice)
       source_folder = create(:folder, name: "Mine", created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: plan, folder: source_folder, actor: alice)
+      Coplan::Plans::Place.call(plan: plan, folder: source_folder, actor: alice)
 
       post organize_api_v1_library_path(bob.library),
         params: {
@@ -343,8 +343,8 @@ RSpec.describe "Api::V1::Libraries", type: :request do
     it "returns the audit log, newest first, flagging agent actors" do
       folder = create(:folder, name: "Infra", created_by_user: alice)
       plan = create(:plan, :published, created_by_user: alice, title: "Audited plan")
-      CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice, actor_type: "local_agent")
-      CoPlan::Plans::Place.call(plan: plan, folder: nil, actor: alice)
+      Coplan::Plans::Place.call(plan: plan, folder: folder, actor: alice, actor_type: "local_agent")
+      Coplan::Plans::Place.call(plan: plan, folder: nil, actor: alice)
 
       get "/api/v1/library/events", headers: headers
       expect(response).to have_http_status(:success)
@@ -367,7 +367,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
     it "filters by event_type and is owner-only" do
       folder = create(:folder, created_by_user: alice)
       plan = create(:plan, :published, created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
+      Coplan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
 
       get "/api/v1/library/events", params: { event_type: "plan_filed" }, headers: headers
       expect(JSON.parse(response.body).map { |e| e["event_type"] }.uniq).to eq([ "plan_filed" ])

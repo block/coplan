@@ -1,7 +1,6 @@
 # Coplan — Agent Guidelines
 
-Use **Coplan** in product copy and documentation. Keep the existing `CoPlan::`
-Ruby namespace and compatibility-sensitive identifiers unchanged.
+Use **Coplan** in product copy and documentation and `Coplan::` as the Ruby namespace.
 
 ## What This Is
 
@@ -18,14 +17,14 @@ Most of the application logic lives in the **Coplan Rails engine** (`engine/`), 
 - **Policies** — authorization policies in `engine/app/policies/coplan/`
 - **Jobs** — background jobs in `engine/app/jobs/coplan/`
 - **Views, helpers, assets, JS** — all Hotwire views and Stimulus controllers
-- **Migrations** — engine-owned tables go in `engine/db/migrate/`. Data/backfill migrations supporting engine behavior also belong here (the gem only packages `engine/`, so host-only migrations don't reach gem consumers); copy them into the host with `bin/rails co_plan:install:migrations`.
+- **Migrations** — engine-owned tables go in `engine/db/migrate/`. Data/backfill migrations supporting engine behavior also belong here (the gem only packages `engine/`, so host-only migrations don't reach gem consumers); copy them into the host with `bin/rails coplan:install:migrations`.
 - **Routes** — engine routes in `engine/config/routes.rb`, mounted by the host
 
 ### Host app (top-level) — thin deployment shell
-- **ActiveAdmin** — optional host setup calls `CoPlan::Admin.install!`; Coplan model registrations live in `engine/app/admin/`, while host-specific pages can live in the host's `app/admin/`
-- **Auth** — `SessionsController`, `User` model (legacy, being migrated to `CoPlan::User`)
+- **ActiveAdmin** — optional host setup calls `Coplan::Admin.install!`; Coplan model registrations live in `engine/app/admin/`, while host-specific pages can live in the host's `app/admin/`
+- **Auth** — `SessionsController`, `User` model (legacy, being migrated to `Coplan::User`)
 - **App-specific integrations** — `SlackClient`, `SlackNotificationJob`
-- **Migrations** — this app is just the example/demo host, so `db/migrate/` mostly holds the `*.co_plan.rb` copies of engine migrations (the engine owns schema for `coplan_*` tables)
+- **Migrations** — this app is just the example/demo host, so `db/migrate/` mostly holds the `*.coplan.rb` copies of engine migrations (the engine owns schema for `coplan_*` tables)
 - **Config** — database, deployment, environment, seeds
 
 **When adding new features, put them in the engine** unless they are deployment- or host-specific (host admin extensions, external integrations, auth).
@@ -231,6 +230,7 @@ reader to an apparently empty page.
 ### Inline review UI
 - **Highlights**: anchored text is wrapped in `<mark>` elements — subtle blue for `open`, unstyled for `resolved`; orange is reserved for viewer-specific attention, never thread status
 - **Margin dots**: colored indicators in the left margin aligned to each highlight's vertical position
+- **Collapsed sections**: a closed `<details>` hides its highlights, so it shows a compact blue count badge on its summary instead of margin dots (open threads only, unless resolved threads are shown). Every jump to a thread — `?thread=`, j/k, a badge — opens the enclosing sections first (`coplan/collapsed_sections.js`)
 - **Thread popovers**: native HTML Popover API (`popover="auto"`) showing the comment thread, reply form, and action buttons; positioned relative to the anchor and tracked on scroll
 - **Comment toolbar**: fixed bottom bar showing open thread count, j/k navigation, and a "Show resolved" toggle
 
@@ -239,7 +239,7 @@ reader to an apparently empty page.
 - `r` — focus the reply textarea in the current popover
 - `e` — resolve the current open thread
 - `Enter` — submit reply; `Shift+Enter` — newline
-- Push-to-talk (hold to dictate a comment) is a per-user setting — `Ctrl+Space` by default, or Shift / Option / off (`CoPlan::User::VOICE_HOTKEYS`, `voice_controller.js`). A bare modifier has to be held past a delay to tell talking from typing; a chord records from the press.
+- Push-to-talk (hold to dictate a comment) is a per-user setting — `Ctrl+Space` by default, or Shift / Option / off (`Coplan::User::VOICE_HOTKEYS`, `voice_controller.js`). A bare modifier has to be held past a delay to tell talking from typing; a chord records from the press.
 
 ### How thread data flows
 - Thread data is **server-rendered** as hidden `[data-anchor-text]` elements in `#plan-threads` (via `_thread_popover.html.erb`)

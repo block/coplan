@@ -51,7 +51,7 @@ export function codeHighlight() {
           doc.descendants((node, position) => {
             if (node.type.name !== "code_block") return
             const language = (node.attrs.params || "").trim().split(/\s+/)[0].toLowerCase()
-            if (!language || ["mermaid", "text", "txt", "plain", "plaintext"].includes(language) || node.content.size > MAX_BLOCK) return false
+            if (!language || ["mermaid", "math", "text", "txt", "plain", "plaintext"].includes(language) || node.content.size > MAX_BLOCK) return false
             total += node.content.size
             if (total <= MAX_TOTAL) blocks.push({ node, position, language })
             return false

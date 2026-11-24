@@ -46,7 +46,7 @@ No plan types are currently configured.
 
 ## Folders
 
-Each person has a library: a tree of folders, up to <%= CoPlan::Folder::MAX_DEPTH %> levels deep. A plan is filed in one folder in one library. Filing it in a different folder moves it. Use folders for where a plan lives, and use tags for what a plan is about.
+Each person has a library: a tree of folders, up to <%= Coplan::Folder::MAX_DEPTH %> levels deep. A plan is filed in one folder in one library. Filing it in a different folder moves it. Use folders for where a plan lives, and use tags for what a plan is about.
 
 - `GET <%= @base %>/api/v1/library` returns your principal's folder tree. Each folder has a `description` of what belongs in it. Read the descriptions before you file a plan. Use the existing folders before you make new ones.
 - To file or move a plan that your principal wrote, send `PATCH <%= @base %>/api/v1/plans/$PLAN_ID` with `{"folder_path": "Team EBT/Q3"}`. To remove it from its folder, send `{"folder_id": ""}`.
@@ -65,6 +65,9 @@ To reorganize a library, or to move many plans, fetch <<%= @base %>/agent-instru
 ## References
 
 References are the list of resources connected to a plan: repositories, pull requests, documents, and other plans. Readers see them in the plan's References section. Coplan adds content links to this list. Iframe src URLs describe embedded content and do not become references. Add a reference through the API only for a resource that the content does not link.
+
+Extracted reference titles longer than 255 characters are shortened with an ellipsis. The original Markdown link text stays unchanged.
+Extracted keys are omitted when a label cannot form a valid key or another URL already uses that key. The reference URL is still saved.
 
 ```bash
 <%= @curl %> -X POST \

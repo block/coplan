@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module AiProviders
     class OpenAi
       # Used when the host configures neither, so a host that sets only an
@@ -15,6 +15,9 @@ module CoPlan
       # jargon, product names, figures from a table. Short on purpose:
       # models cap how much of this they will read.
       MAX_PROMPT_LENGTH = 600
+
+      # Bound the complete appended diagnostic, including type and code.
+      MAX_ERROR_DETAIL = 300
 
       def self.call(system_prompt:, user_content:, model: nil)
         new(system_prompt:, user_content:, model:).call
@@ -36,7 +39,7 @@ module CoPlan
 
         text.strip
       rescue Faraday::Error => e
-        raise Error, "Transcription failed: #{e.message}"
+        raise Error, "Transcription failed: #{e.message}#{failure_detail(e)}"
       end
 
       # Whether server-side calls are possible at all. The voice control
@@ -56,11 +59,11 @@ module CoPlan
       # vLLM, Ollama, an internal gateway. The gem appends its own "/v1"
       # only when the base URL doesn't already carry one.
       def self.base_url
-        CoPlan.configuration.ai_base_url.presence || DEFAULT_BASE_URL
+        Coplan.configuration.ai_base_url.presence || DEFAULT_BASE_URL
       end
 
       def self.api_key
-        key = CoPlan.configuration.ai_api_key ||
+        key = Coplan.configuration.ai_api_key ||
           Rails.application.credentials.dig(:openai, :api_key) ||
           ENV["OPENAI_API_KEY"]
         raise Error, "OpenAI API key not configured" if key.blank?
@@ -73,7 +76,7 @@ module CoPlan
         @user_content = user_content
         # An explicit argument wins, then the host's configuration. Callers
         # pass a model only when the prompt needs a particular one.
-        @model = model.presence || CoPlan.configuration.ai_model.presence || DEFAULT_MODEL
+        @model = model.presence || Coplan.configuration.ai_model.presence || DEFAULT_MODEL
       end
 
       def call
@@ -92,7 +95,31 @@ module CoPlan
 
         content
       rescue Faraday::Error => e
-        raise Error, "Chat request failed: #{e.message}"
+        raise Error, "Chat request failed: #{e.message}#{self.class.failure_detail(e)}"
+      end
+
+      # Keep the provider's explanation, including gateway-specific reasons.
+      # Only the error's diagnostic fields are appended, never request data.
+      def self.failure_detail(error)
+        response = error.response
+        body = response[:body] if response.is_a?(Hash)
+        body = JSON.parse(body) if body.is_a?(String)
+        detail = body.is_a?(Hash) ? body["error"] : nil
+        detail = { "message" => detail } if detail.is_a?(String)
+        return "" unless detail.is_a?(Hash)
+
+        type, code, message = %w[type code message].map do |key|
+          value = detail[key]
+          next unless value.is_a?(String)
+
+          value.encode("UTF-8", invalid: :replace, undef: :replace)
+            .gsub(/[[:cntrl:]]/, " ").squish.truncate(MAX_ERROR_DETAIL).presence
+        end
+        label = [ type, code ].compact.join("/")
+        text = [ label.presence, message ].compact.join(": ").truncate(MAX_ERROR_DETAIL)
+        text.empty? ? "" : " (#{text})"
+      rescue JSON::ParserError
+        ""
       end
 
       class Error < StandardError; end

@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :api_token, class: "CoPlan::ApiToken" do
+  factory :api_token, class: "Coplan::ApiToken" do
     user { association(:coplan_user) }
     sequence(:name) { |n| "Token #{n}" }
     token_digest { Digest::SHA256.hexdigest(SecureRandom.hex(32)) }

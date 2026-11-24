@@ -1,19 +1,19 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::WakeWebhookJob, type: :job do
+RSpec.describe Coplan::WakeWebhookJob, type: :job do
   include ActiveJob::TestHelper
 
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
   let(:token) { create(:api_token, user: user, raw_token: "wake-test-token", agent_name: "Orb") }
   let(:session) do
-    CoPlan::AgentSession.create!(
+    Coplan::AgentSession.create!(
       plan_id: plan.id, api_token_id: token.id, agent_name: "Orb", state: "complete",
       wake_url: "https://agents.example.com/hooks/wake", wake_secret: "s3cret"
     )
   end
   let(:event) do
-    CoPlan::AgentEvent.create!(
+    Coplan::AgentEvent.create!(
       api_token_id: token.id, plan_id: plan.id, event_type: "comment.created", payload: {}
     )
   end
@@ -32,8 +32,8 @@ RSpec.describe CoPlan::WakeWebhookJob, type: :job do
   it "pins the connection to the address the policy vetted" do
     # The test env's permissive custom policy vets URIs, not addresses, so
     # exercise the engine default: resolve once, connect to that answer.
-    original = CoPlan.configuration.wake_url_policy
-    CoPlan.configuration.wake_url_policy = nil
+    original = Coplan.configuration.wake_url_policy
+    Coplan.configuration.wake_url_policy = nil
     allow(Resolv).to receive(:getaddresses).with("agents.example.com").and_return([ "93.184.216.34" ])
 
     http = instance_double(Net::HTTP)
@@ -48,7 +48,7 @@ RSpec.describe CoPlan::WakeWebhookJob, type: :job do
     # connection privately; pinning closes that window.
     expect(captured_options[:ipaddr]).to eq("93.184.216.34")
   ensure
-    CoPlan.configuration.wake_url_policy = original
+    Coplan.configuration.wake_url_policy = original
   end
 
   it "posts a signed ping, not the event payload" do
@@ -62,8 +62,8 @@ RSpec.describe CoPlan::WakeWebhookJob, type: :job do
     expect(body["event_id"]).to eq(event.id)
 
     expected = "sha256=#{OpenSSL::HMAC.hexdigest("SHA256", "s3cret", request.body)}"
-    expect(request["X-CoPlan-Signature"]).to eq(expected)
-    expect(request["X-CoPlan-Event-Id"]).to eq(event.id)
+    expect(request["X-Coplan-Signature"]).to eq(expected)
+    expect(request["X-Coplan-Event-Id"]).to eq(event.id)
   end
 
   it "raises a retryable error when the receiver is unhappy" do
@@ -91,7 +91,7 @@ RSpec.describe CoPlan::WakeWebhookJob, type: :job do
 
   it "skips (without retrying) a URL the egress policy refuses" do
     session; event # materialize before the stub — registration passed, policy tightened since
-    allow(CoPlan::WakeUrlPolicy).to receive(:vetted_addresses).and_return(nil)
+    allow(Coplan::WakeUrlPolicy).to receive(:vetted_addresses).and_return(nil)
 
     expect(Net::HTTP).not_to receive(:start)
     expect {

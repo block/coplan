@@ -1,6 +1,6 @@
 <% requests = plan.review_requests.includes(:reviewer, :requested_by_user, :requested_plan_version, current_response: :plan_version, review_responses: [ :plan_version, :user ]).order(:requested_at).to_a %>
-<% request_events = plan.plan_events.where(event_type: %w[review_requested review_withdrawn]).includes(:actor_user).to_a %>
-<% active_requests = requests.reject { |request| request.review_status == "withdrawn" } %>
+<% request_events = plan.plan_events.where(event_type: %w[review_requested review_withdrawn review_removed]).includes(:actor_user).to_a %>
+<% active_requests = requests.reject { |request| %w[withdrawn removed].include?(request.status) } %>
 <% own_request = active_requests.find { |request| request.reviewer_id == current_user.id } %>
 <% response_thread_ids = requests.flat_map { |request| request.review_responses.map(&:comment_thread_id) }.compact %>
 <% feedback_thread_ids = plan.comment_threads.with_kept_comments.where(id: response_thread_ids).pluck(:id) %>
@@ -8,7 +8,7 @@
      data-coplan--review-tray-url-value="<%= plan_review_requests_path(plan) %>"
      data-coplan--review-tray-settings-url-value="<%= settings_plan_review_requests_path(plan) %>"
      data-coplan--review-tray-search-url-value="<%= search_users_path %>"
-     <% if CoPlan.configuration.suggest_reviewers %>data-coplan--review-tray-suggestions-url-value="<%= suggestions_plan_review_requests_path(plan) %>"<% end %>
+     <% if Coplan.configuration.suggest_reviewers %>data-coplan--review-tray-suggestions-url-value="<%= suggestions_plan_review_requests_path(plan) %>"<% end %>
      data-action="coplan:anchors-updated@document->coplan--review-tray#syncFeedbackLinks coplan:reviews-changed->coplan--review-tray#refresh coplan:manage-reviews@document->coplan--review-tray#openReviews coplan:content-updated@document->coplan--review-tray#refresh coplan:editor-saved@document->coplan--review-tray#refresh resize@window->coplan--review-tray#positionAssignment keydown.esc@document->coplan--review-tray#escape">
   <%= render "coplan/reviews/log", plan: plan, requests: requests, active_requests: active_requests %>
   <dialog class="review-dialog review-activity-dialog" data-coplan--review-tray-target="activity" aria-labelledby="review-activity-title">

@@ -1,4 +1,4 @@
-ActiveAdmin.register CoPlan::AgentHarness, as: "AgentHarness" do
+ActiveAdmin.register Coplan::AgentHarness, as: "AgentHarness" do
   actions :index, :show, :edit, :update
   permit_params :display_name, :icon_url
 

@@ -34,7 +34,7 @@ RSpec.describe "Sessions", type: :request do
   it "sign in creates new user if not exists" do
     expect {
       post sign_in_path, params: { email: "newuser@acme.com" }
-    }.to change(CoPlan::User, :count).by(1)
+    }.to change(Coplan::User, :count).by(1)
     expect(response).to redirect_to(root_path)
   end
 

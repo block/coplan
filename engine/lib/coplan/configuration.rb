@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   class Configuration
     attr_accessor :authenticate, :api_authenticate, :sign_in_path
     # AI provider, used for plan summaries and dictated comments. Any endpoint
@@ -8,12 +8,18 @@ module CoPlan
     # ai_model is the fallback for every intensity; hosts can override
     # individual levels in ai_models without changing other AI calls.
     attr_accessor :ai_base_url, :ai_api_key, :ai_model, :ai_models
+    # Quiet period after the latest saved edit before generating a summary.
+    # Hosts can supply a duration or a number of seconds; zero disables the wait.
+    attr_accessor :summary_debounce_delay
     attr_accessor :error_reporter
     attr_accessor :notification_handler
     attr_reader :notification_delivery_handlers
+    # Initial external delivery jobs per person in a fixed time window.
+    # nil disables the budget. Overflow remains in the inbox only.
+    attr_reader :notification_fanout_limit, :notification_fanout_window
 
     # Lambda invoked for every analytics event tracked via
-    # `CoPlan::Analytics.track`. Receives (event_name, payload_hash).
+    # `Coplan::Analytics.track`. Receives (event_name, payload_hash).
     # No-op by default; hosts wire this to write to a destination
     # (MySQL events table, Snowflake, Datadog, etc.).
     #
@@ -85,7 +91,7 @@ module CoPlan
     attr_accessor :user_search
 
     # Lambda for enriching profile pages from the host's people directory
-    # (LDAP, a People API, ...). Receives a CoPlan::User, returns a hash
+    # (LDAP, a People API, ...). Receives a Coplan::User, returns a hash
     # with any of :name, :avatar_url, :title, :team, :profile_url —
     # values present override the local coplan_users columns, and
     # :profile_url adds a "view in directory" link out to the canonical
@@ -108,9 +114,9 @@ module CoPlan
     #   }
     attr_accessor :directory_profile
 
-    # Lambda suggesting who should review a plan. Receives a CoPlan::Plan
-    # and returns an array of CoPlan::User records, or hashes with:
-    #   :user        — a CoPlan::User (required)
+    # Lambda suggesting who should review a plan. Receives a Coplan::Plan
+    # and returns an array of Coplan::User records, or hashes with:
+    #   :user        — a Coplan::User (required)
     #   :reason      — short text shown beside the suggestion
     #   :requirement — "required" (default) or "optional"
     # The plan's references (plan.references) list every file, repository,
@@ -133,7 +139,7 @@ module CoPlan
 
     # Lambda deciding whether the server may POST wake pings to a given
     # URL. Receives a URI, returns truthy to allow. When nil (default),
-    # CoPlan::WakeUrlPolicy applies: the host must resolve entirely to
+    # Coplan::WakeUrlPolicy applies: the host must resolve entirely to
     # public address space — loopback, RFC1918, link-local (cloud
     # metadata), and friends are refused. Deployments that wake agents on
     # an internal network (or dev, waking localhost) override this:
@@ -145,7 +151,7 @@ module CoPlan
     attr_accessor :wake_url_policy
 
     # Library handles a host wants to keep out of user hands, on top of
-    # CoPlan::Library::RESERVED_HANDLES. Handles live under /<handle>,
+    # Coplan::Library::RESERVED_HANDLES. Handles live under /<handle>,
     # so they can't collide with the host's own routes — this is for
     # names the host wants to claim for itself later, or keep off a
     # public namespace.
@@ -155,7 +161,7 @@ module CoPlan
     attr_accessor :reserved_handles
 
     # The app theme everyone sees unless they pick another in Settings. One
-    # of CoPlan::Themes.keys. An unknown name stops boot in development and
+    # of Coplan::Themes.keys. An unknown name stops boot in development and
     # test; in other environments it logs a warning and falls back to
     # "classic".
     #
@@ -171,10 +177,13 @@ module CoPlan
       @ai_base_url = "https://api.openai.com/v1"
       @ai_api_key = nil
       @ai_model = "gpt-4o"
-      @ai_models = {}
+      @ai_models = { low: "gpt-6-luna" }
+      @summary_debounce_delay = 1.minute
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
       @notification_delivery_handlers = []
+      @notification_fanout_limit = 300
+      @notification_fanout_window = 10.minutes.to_i
       @track_event = nil
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
@@ -200,6 +209,21 @@ module CoPlan
         - If minting returns `401`, reconnect using the helper with `--replace`. Your principal must approve again.
         - Keep the token only in the credentials file. Do not put it in commands, other files, or comments. Use the variable.
       MARKDOWN
+    end
+
+    def notification_fanout_limit=(value)
+      unless value.nil? || (value.is_a?(Integer) && value.positive?)
+        raise ArgumentError, "notification_fanout_limit must be a positive integer or nil"
+      end
+      @notification_fanout_limit = value
+    end
+
+    def notification_fanout_window=(value)
+      unless ((value.is_a?(Numeric) && value.real?) || value.is_a?(ActiveSupport::Duration)) &&
+          value.to_f.finite? && value.to_f >= 1 && value.to_f == value.to_i
+        raise ArgumentError, "notification_fanout_window must be a positive whole number of seconds"
+      end
+      @notification_fanout_window = value.to_i
     end
 
     def show_api_tokens?

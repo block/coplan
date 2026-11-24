@@ -4,8 +4,8 @@ RSpec.describe "Web push settings", type: :system do
   let(:user) { create(:coplan_user, email: "push-settings@example.com") }
 
   before do
-    allow(CoPlan.configuration).to receive(:web_push_configured?).and_return(true)
-    allow(CoPlan.configuration).to receive(:vapid_public_key).and_return("dGVzdC1rZXk")
+    allow(Coplan.configuration).to receive(:web_push_configured?).and_return(true)
+    allow(Coplan.configuration).to receive(:vapid_public_key).and_return("dGVzdC1rZXk")
   end
 
   %w[light dark].each do |theme|
@@ -52,7 +52,7 @@ RSpec.describe "Web push settings", type: :system do
       page.current_window.resize_to(1400, 900)
     end
 
-    it "enables and disables notifications through the mounted route in #{theme} mode" do
+    it "enables, recovers after eviction, and disables notifications in #{theme} mode" do
       user.update!(theme_preference: theme)
       visit sign_in_path
       fill_in "Email address", with: user.email
@@ -99,9 +99,28 @@ RSpec.describe "Web push settings", type: :system do
       expect(page).to have_content("Notifications enabled on this device.")
       expect(user.web_push_subscriptions.count).to eq(1)
 
+      # Another ten devices evict this browser's server registration while
+      # its local PushSubscription remains. Recovery must be available.
+      Coplan::WebPushSubscription::MAX_PER_USER.times do |index|
+        Coplan::WebPushSubscription.upsert_for(user: user,
+          endpoint: "https://push.example.test/subscriptions/other-#{index}",
+          p256dh_key: "key", auth_key: "auth")
+      end
+      page.execute_script("Turbo.visit(arguments[0])", settings_root_path)
+      expect(page).to have_content("Not enabled on this device.")
+      expect(page).to have_button("Enable on this device")
+      expect(page).not_to have_button("Disable on this device")
+      page.save_screenshot(Rails.root.join("tmp/settings-evidence/notification-evicted-#{theme}.png"))
+
+      click_button "Enable on this device"
+      expect(page).to have_content("Notifications enabled on this device.")
+      expect(user.web_push_subscriptions.count).to eq(Coplan::WebPushSubscription::MAX_PER_USER)
+      expect(user.web_push_subscriptions.where(endpoint: "https://push.example.test/subscriptions/browser-1")).to exist
+      page.save_screenshot(Rails.root.join("tmp/settings-evidence/notification-restored-#{theme}.png"))
+
       click_button "Disable on this device"
       expect(page).to have_content("Notifications disabled on this device.")
-      expect(user.web_push_subscriptions.count).to eq(0)
+      expect(user.web_push_subscriptions.count).to eq(Coplan::WebPushSubscription::MAX_PER_USER - 1)
     end
   end
 end

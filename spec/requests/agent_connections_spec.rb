@@ -18,7 +18,7 @@ RSpec.describe "Connecting a local computer", type: :request do
     expect(result["verification_uri_complete"]).to include("user_code=#{result['user_code']}")
     expect(result["verification_uri_complete"]).not_to include(result["device_code"])
     expect(response.headers["Cache-Control"]).to eq("no-store")
-    expect(CoPlan::ApiToken.count).to eq(0)
+    expect(Coplan::ApiToken.count).to eq(0)
   end
 
   it "requires browser login, matching-code confirmation, and a separate private redemption secret" do
@@ -34,19 +34,19 @@ RSpec.describe "Connecting a local computer", type: :request do
     expect(response.body).to include("Work laptop", user.name, "Connect this computer")
     expect(response.headers["Cache-Control"]).to eq("no-store")
     expect(response.headers["Referrer-Policy"]).to eq("no-referrer")
-    expect(CoPlan::ApiToken.count).to eq(0)
+    expect(Coplan::ApiToken.count).to eq(0)
     post agent_connect_path, params: { user_code: result["user_code"], decision: "approve" }, as: :turbo_stream
     expect(response).to have_http_status(:unprocessable_content)
-    expect(CoPlan::AgentConnectionRequest.last.status).to eq("pending")
+    expect(Coplan::AgentConnectionRequest.last.status).to eq("pending")
     post agent_connect_path, params: { user_code: result["user_code"], decision: "approve", confirm_code: "1" }, as: :turbo_stream
     expect(response.body).to include('target="connection-approval"', "Connection approved")
-    expect(CoPlan::ApiToken.count).to eq(0)
+    expect(Coplan::ApiToken.count).to eq(0)
 
     post poll_path, params: { device_code: result["user_code"] }, as: :json
     expect(JSON.parse(response.body)).to eq("error" => "invalid_grant")
     post poll_path, params: { device_code: result["device_code"] }, as: :json
     credential = JSON.parse(response.body).fetch("token")
-    expect(CoPlan::ApiToken.authenticate(credential).user).to eq(user)
+    expect(Coplan::ApiToken.authenticate(credential).user).to eq(user)
     expect(response.headers["Cache-Control"]).to eq("no-store")
     post poll_path, params: { device_code: result["device_code"] }, as: :json
     expect(JSON.parse(response.body)).to eq("error" => "invalid_grant")
@@ -73,7 +73,7 @@ RSpec.describe "Connecting a local computer", type: :request do
 
   it "does not expose an approved account to another signed-in person" do
     result = start_connection
-    record = CoPlan::AgentConnectionRequest.last
+    record = Coplan::AgentConnectionRequest.last
     record.decide!(user: user, approve: true)
     sign_in_as(create(:coplan_user))
     get agent_connect_path(user_code: result["user_code"]), headers: { "Accept" => "text/html" }
@@ -82,7 +82,7 @@ RSpec.describe "Connecting a local computer", type: :request do
   end
 
   it "disables bootstrap endpoints and onboarding for hosts with implicit API auth" do
-    allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+    allow(Coplan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
     post start_path, params: { name: "Laptop" }, as: :json
     expect(response).to have_http_status(:not_found)
     post poll_path, params: { device_code: "a" * 64 }, as: :json
@@ -109,19 +109,19 @@ RSpec.describe "Connecting a local computer", type: :request do
     ActionController::Base.allow_forgery_protection = true
     post agent_connect_path, params: { user_code: result["user_code"], decision: "approve", confirm_code: "1" }
     expect(response).to have_http_status(:unprocessable_content)
-    expect(CoPlan::AgentConnectionRequest.last.status).to eq("pending")
+    expect(Coplan::AgentConnectionRequest.last.status).to eq("pending")
   ensure
     ActionController::Base.allow_forgery_protection = previous
   end
   it "rate limits public connection starts by IP" do
     memory = ActiveSupport::Cache::MemoryStore.new
-    store = CoPlan::Api::V1::AgentConnectionsController.cache_store
+    store = Coplan::Api::V1::AgentConnectionsController.cache_store
     allow(store).to receive(:increment) { |key, amount, **options| memory.increment(key, amount, **options) }
     10.times { start_connection }
     expect(response).to have_http_status(:created)
     start_connection
     expect(response).to have_http_status(:too_many_requests)
     expect(JSON.parse(response.body)).to eq("error" => "rate_limited")
-    expect(CoPlan::AgentConnectionRequest.count).to eq(10)
+    expect(Coplan::AgentConnectionRequest.count).to eq(10)
   end
 end

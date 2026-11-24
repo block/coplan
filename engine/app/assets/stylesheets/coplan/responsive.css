@@ -174,7 +174,6 @@
     font-size: var(--plan-title-size-narrow, var(--text-xl));
   }
 
-  /* At phone widths the byline can wrap under itself freely. */
   .page-header__byline {
     flex-wrap: wrap;
   }
@@ -207,7 +206,6 @@
     flex-wrap: wrap;
   }
 
-  /* Comment surfaces clamp to the viewport instead of overflowing it. */
   .comment-form {
     width: min(360px, calc(100vw - 2 * var(--space-md)));
   }
@@ -216,7 +214,6 @@
     width: min(380px, calc(100vw - 2 * var(--space-md)));
   }
 
-  /* Strip rows stack their meta under the title instead of squeezing it. */
   .recent-updates__item,
   .attention__item {
     flex-wrap: wrap;

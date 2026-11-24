@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module MarkdownHelper
     include EmbedsHelper
     ALLOWED_TAGS = %w[
@@ -17,12 +17,23 @@ module CoPlan
       section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type start checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type start checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx data-math-style].freeze
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
-    # `[^1]: definition` block anywhere in the document.
-    EXTENSION_OPTIONS = { footnotes: true }.freeze
+    # `[^1]: definition` block anywhere in the document. Alerts use a first
+    # quote line such as `[!NOTE]` (see render_callouts; `[!SUMMARY]` is
+    # Coplan's own, see Coplan::Markdown). Math uses `$inline$`,
+    # `$$display$$`, `` $`inline`$ `` and math fences, typeset by KaTeX.
+    # comrak's dollar rules keep currency ("$5 and $10") as text.
+    EXTENSION_OPTIONS = { footnotes: true, alerts: true, math_dollars: true, math_code: true }.freeze
+
+    CALLOUT_TYPES = %w[note tip important warning caution summary].freeze
+
+    # The only elements and values comrak emits for math. Anything else
+    # carrying the attribute (authored HTML) loses it during rendering.
+    MATH_ELEMENTS = %w[span code pre].freeze
+    MATH_STYLES = %w[inline display].freeze
 
     # A source line the toggle endpoint will accept as a task item. Shared
     # between the renderer and PlansController#toggle_checkbox so a checkbox
@@ -30,12 +41,6 @@ module CoPlan
     # constructs Commonmarker renders as checkboxes but the endpoint rejects
     # (ordered-list or blockquoted tasks) stay disabled.
     TASK_LINE_PATTERN = /\A\s*[*+-]\s+\[[ xX]\]\s/
-
-    # Fragment caches of rendered markdown are keyed on content SHA plus this
-    # version. Bump it whenever the rendering pipeline changes output for the
-    # same input (new tags, attribute changes, checkbox wiring, etc.), or
-    # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 24
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -63,14 +68,21 @@ module CoPlan
     # out of both together.
     def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false)
       render_options = { unsafe: true }
-      # Sourcepos wires checkboxes and structural comment targets to source;
+      # Sourcepos wires checkboxes and structural comment targets to source,
+      # and tells parser-generated math from authored HTML that imitates it;
       # it is stripped after generating trusted interaction metadata.
-      render_options[:sourcepos] = true if interactive || content.to_s.include?(ContentRegions::Iframe::PREFIX)
-      html = CoPlan::Markdown.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
+      source = content.to_s.encode("UTF-8")
+      render_options[:sourcepos] = true if interactive || source.include?(ContentRegions::Iframe::PREFIX) || source.include?("$") || source.include?("math")
+      html = Coplan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
-      sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
+      scrubber = LinkScrubber.new
+      scrubber.tags = ALLOWED_TAGS
+      scrubber.attributes = ALLOWED_ATTRIBUTES
+      sanitized = sanitize(with_references, scrubber: scrubber)
+      sanitized = prepare_math(sanitized, source)
       sanitized = render_iframe_blocks(sanitized, content.to_s)
+      sanitized = render_callouts(sanitized)
       result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
       unless interactive
         fragment = Nokogiri::HTML::DocumentFragment.parse(result)
@@ -168,8 +180,10 @@ module CoPlan
     def markdown_to_plain_text(content)
       source = content.to_s.encode("UTF-8")
       source = ContentRegions::Split.call(source).canonical_source if source.include?("::: {.presentation")
-      html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
-      Nokogiri::HTML::DocumentFragment.parse(html).text.squish
+      html = Coplan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
+      fragment = Nokogiri::HTML::DocumentFragment.parse(html)
+      fragment.css("p.markdown-alert-title").remove
+      fragment.text.squish
     end
 
     private
@@ -211,6 +225,54 @@ module CoPlan
       else
         raise ArgumentError, "unknown footnote mode: #{mode.inspect}"
       end
+    end
+
+    # Math elements become self-rendering: each one connects the KaTeX
+    # controller, so every surface that renders Markdown (documents,
+    # comments, previews, decks, footnote sections) typesets math, and a
+    # page without math never loads KaTeX. Runs after sanitization because
+    # it writes data-controller, which authored markup may not set.
+    #
+    # Only math the parser produced keeps data-math-style. Authored HTML can
+    # write the same attribute (and even a data-sourcepos), so an element
+    # must sit at the unique source position of a math node in the AST —
+    # the same rule SourceTargets applies to diagram targets. Anything else
+    # loses the attribute and stays ordinary, anchorable text, matching
+    # MarkdownTextExtractor, which counts authored HTML text as prose.
+    def prepare_math(html, source)
+      return html unless html.include?("data-math-style")
+
+      positions = math_positions(source)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      nodes = doc.css("[data-math-style]")
+      counts = nodes.map { |node| node["data-sourcepos"] }.tally
+      nodes.each do |node|
+        position = node["data-sourcepos"]
+        kind = node.name == "pre" ? :fence : :inline
+        if MATH_ELEMENTS.include?(node.name) && MATH_STYLES.include?(node["data-math-style"]) &&
+            positions[kind].include?(position) && counts[position] == 1
+          node["data-controller"] = "coplan--math"
+        else
+          node.remove_attribute("data-math-style")
+        end
+      end
+      doc.to_html
+    end
+
+    # Source positions ("line:col-line:col", as comrak writes data-sourcepos)
+    # of the math nodes and math fences the parser found.
+    def math_positions(source)
+      positions = { inline: Set.new, fence: Set.new }
+      Coplan::Markdown.parse(source, options: { extension: EXTENSION_OPTIONS }).walk do |node|
+        kind = if node.type == :math then :inline
+        elsif node.type == :code_block && node.fence_info == "math" then :fence
+        end
+        next unless kind
+
+        p = node.source_position
+        positions[kind] << "#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"
+      end
+      positions
     end
 
     # Wires rendered task checkboxes to their source lines via Commonmarker's
@@ -303,6 +365,42 @@ module CoPlan
       return node["alt"].to_s if node.name == "img"
 
       node.children.map { |child| task_name_text(child) }.join
+    end
+
+    # Commonmarker renders an alert as a div with a title paragraph. The
+    # title moves into data-callout-title, which the stylesheet shows beside
+    # the type's icon, so the label adds no text to the document. Comment
+    # anchors and occurrence counts then match the source text, where the
+    # `[!NOTE]` marker is not prose either.
+    #
+    # This runs after sanitization because data-callout-title is not an
+    # attribute authors may write. Raw HTML can copy Commonmarker's alert
+    # markup, which gives the same callout the marker gives, but it cannot
+    # set the callout classes directly: those are removed first.
+    def render_callouts(html)
+      return html unless html.include?("callout") || html.include?("markdown-alert")
+
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      doc.css("[class*='callout']").each do |node|
+        classes = node.classes.reject { |name| name.match?(/\Acallout(?:--|\z)/) }
+        if classes.empty?
+          node.remove_attribute("class")
+        else
+          node["class"] = classes.join(" ")
+        end
+      end
+
+      doc.css("div.markdown-alert").each do |alert|
+        type = CALLOUT_TYPES.find { |name| alert.classes.include?("markdown-alert-#{name}") }
+        title = alert.element_children.first
+        next unless type && title&.name == "p" && title.classes == [ "markdown-alert-title" ]
+
+        title.remove
+        alert["class"] = "callout callout--#{type}"
+        alert["data-callout-title"] = title.text.squish
+      end
+
+      doc.to_html
     end
 
     # A table is a block of data, not a paragraph. Each one gets a scroll

@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module WritingProvenanceHelper
     def writing_provenance_summary(plan)
       summary = plan.writing_provenance_summary
@@ -40,7 +40,7 @@ module CoPlan
     def writing_provenance_rows(summary)
       contributors = summary.fetch("contributors")
       missing_names = contributors.select { |source| source["kind"] == "human" && source["user_name"].blank? }.filter_map { |source| source["user_id"] }
-      names = missing_names.empty? ? {} : CoPlan::User.where(id: missing_names).pluck(:id, :name).to_h
+      names = missing_names.empty? ? {} : Coplan::User.where(id: missing_names).pluck(:id, :name).to_h
       rows, accounted = {}, Hash.new(0)
       contributors.each do |source|
         kind, count = source.values_at("kind", "characters")

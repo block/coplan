@@ -1,12 +1,12 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::ApplicationHelper, type: :helper do
+RSpec.describe Coplan::ApplicationHelper, type: :helper do
   describe "#coplan_app_theme" do
     around do |example|
-      original = CoPlan.configuration.default_theme
+      original = Coplan.configuration.default_theme
       example.run
     ensure
-      CoPlan.configuration.default_theme = original
+      Coplan.configuration.default_theme = original
     end
 
     def viewing_as(user)
@@ -15,7 +15,7 @@ RSpec.describe CoPlan::ApplicationHelper, type: :helper do
     end
 
     it "uses the host's default for signed-out viewers and viewers on Default" do
-      CoPlan.configuration.default_theme = "neutral"
+      Coplan.configuration.default_theme = "neutral"
       viewing_as(nil)
       expect(helper.coplan_app_theme).to eq("neutral")
       viewing_as(build(:coplan_user, app_theme: "default"))

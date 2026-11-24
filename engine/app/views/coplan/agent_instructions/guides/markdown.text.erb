@@ -89,9 +89,34 @@ flowchart LR
 
 Use a diagram for architecture, data flow, sequences, or state. Do not use a diagram when a short list says the same thing. Readers can comment on a node or an edge of a diagram, and on a cell of a table.
 
+## Math
+
+Write LaTeX math between dollar signs. Coplan typesets it with KaTeX:
+
+- Inline: `$E = mc^2$`, or `` $`E = mc^2`$ `` when the TeX contains backticks or dollar signs.
+- Display, on its own centered line: `$$\int_0^1 x^2\,dx = \tfrac{1}{3}$$`. A `$$` block can span several lines.
+- A `math` fence is also display math:
+
+````markdown
+```math
+\sum_{k=1}^{n} k = \frac{n(n+1)}{2}
+```
+````
+
+Write the TeX as it is. Markdown does not apply inside math, so `_`, `*`, and `\` need no escaping.
+A dollar sign followed by a space, or a closing dollar sign followed by a digit, is not math. So "costs $5 and $10" stays text. Write `\$` for a literal dollar sign next to other text.
+Dollar signs in code spans and code fences stay literal.
+If KaTeX cannot parse an expression, readers see its TeX source in red. KaTeX supports most LaTeX math commands, but not packages or custom environments.
+
+Readers cannot select text inside a formula to comment on it. A comment selected across a formula covers the formula's source. To comment on one formula, anchor the text around it.
+In the rich editor, math stays inline TeX source that people can edit directly. Typing the closing dollar sign marks a span as math, and the editor saves the TeX unchanged.
+On slides, inline TeX source length and display-math rows count toward layout size. Split long derivations across slides. Authored HTML cannot opt into math rendering with `data-math-style`; use the Markdown forms above.
+
 ## Code blocks
 
 Always put a language tag on a code fence. Coplan highlights the syntax with highlight.js and accepts any language name that highlight.js supports. Use the canonical names: `ruby`, `python`, `javascript`, `typescript`, `go`, `java`, `kotlin`, `swift`, `rust`, `c`, `cpp`, `csharp`, `sql`, `json`, `yaml`, `xml` (also for HTML), `css`, `graphql`, `protobuf`, `bash` (scripts), `shell` (terminal sessions with `$` prompts), `diff`, `http`. Use `plaintext` for logs. Do not invent tags: Coplan shows an unknown tag as plain text.
+
+To show a rendered Markdown preview, use a blockquote (prefix each line with `>`); a `markdown` code block shows literal source, not a rendered preview.
 
 ## Task lists
 
@@ -99,6 +124,38 @@ Always put a language tag on a code fence. Coplan highlights the syntax with hig
 In the rich editor, task text stays directly editable. Checkboxes toggle in place,
 and Enter continues with an unchecked task. Strikethrough and mentions also stay
 inline in editable prose and lists.
+
+## Callouts
+
+Use a callout for a note or warning that must stand out from the body text. Start a blockquote with one of these markers on its own first line:
+
+```markdown
+> [!NOTE]
+> Background a reader should know before they go on.
+
+> [!TIP]
+> An easier or faster way to do something.
+
+> [!IMPORTANT]
+> Information the reader needs to succeed.
+
+> [!WARNING]
+> A risk the reader should act on now.
+
+> [!CAUTION]
+> An action with a bad or irreversible result.
+
+> [!SUMMARY]
+> - The two or three takeaways a reader needs if they read nothing else.
+```
+
+Each type has an icon and label. Notes and warnings use neutral accents; blue and orange remain reserved for interaction and viewer-specific attention. Slides use their deck palette. The marker is not case sensitive. To change the label, put text after the marker: `> [!WARNING] Before you migrate`. Lists, code blocks and tables work inside a callout when every line starts with `>`. Any other marker, such as `> [!FOO]`, renders as a plain blockquote.
+
+Use `[!SUMMARY]` for a TL;DR at the top of a long plan, such as an analysis or incident review. It is a Coplan extension; other Markdown viewers show it as an ordinary blockquote with a literal `[!SUMMARY]` marker. It is only formatting. It does not change the plan summary shown in search, link previews or Slack unfurls.
+
+Keep the marker on the opening quote line, with exactly one space after `>`; `>[!NOTE]` is a plain quote. Escape it as `> \[!NOTE]` to show it literally. In the rich editor, a callout whose opening paragraph includes a setext underline (`---` or `===`), or an empty callout immediately followed by unquoted text, uses the source-preview block; edit that block’s source or use Raw.
+
+Use callouts sparingly: one or two in a section. If everything stands out, nothing does. Do not use a callout for a quote; use a plain `>` blockquote.
 
 ## Collapsible sections
 
@@ -113,6 +170,8 @@ Markdown here still renders. Keep the blank line after the summary.
 ```
 
 Add `open` to the `<details>` tag to show the section expanded by default.
+Comments inside a collapsed section stay reachable: its summary shows how many open discussions it hides.
+Following a discussion link opens its enclosing sections, including for table and diagram comments.
 
 ## Hover definitions
 
@@ -139,9 +198,17 @@ The web editor writes this form when a person resizes an image. Snapping back to
 
 Images pasted from other apps default to natural size within the document width, ignoring copied display widths. Copying images within Coplan's rich editor preserves their saved widths. Existing Markdown widths remain unchanged.
 
+People can drop image or file uploads into the rich editor, or paste image files. Images become Markdown images; other files become download links. Uploads stay in Attachments after Undo removes their embedded content. New documents are created before their first upload. Embedding uses the normal human save and versioning rules.
+
+Failed or rejected editor uploads keep an error notice until the person dismisses it. Done and navigation keep the editor open until then. Accepted files and writing still save normally.
+
+Uploading identical contents to the same plan returns its existing attachment, even with a different filename. The original filename, uploader, and URLs stay unchanged. The upload response includes `reused: true`; a new file returns `reused: false`. Both return 201. Reuse creates no new attachment-added event. Different contents stay separate, and files are never reused across plans. Each editor drop still inserts an embed. Existing duplicates are not removed.
+
 When a paragraph starts with an image, text in that paragraph wraps beside it from the top if there is room. Put a blank line before the next paragraph to start below the image. A hard line break stays beside the image. In the web editor, Enter starts below; Shift+Enter adds a line beside it.
 
 - The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. Coplan returns `422` for other files.
 - Only the plan author can upload or delete attachments. Any reader can list and download them.
 - List the attachments: `GET <%= @base %>/api/v1/plans/$PLAN_ID/attachments`. Delete one: `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID`.
 - If a Mermaid diagram can show the content, use Mermaid instead of an image. A person can edit Mermaid; nobody can edit an image of a diagram.
+
+Document outline: section headings H1 through H6 appear in the outline. The leading document title is omitted because it is already in the top bar. Long outlines fold by heading hierarchy. Clicking a heading toggles its branch and navigates to it. Clicked branches stay as the reader set them when navigating elsewhere. Automatically opened branches close when the reader leaves; manually opened branches stay open.

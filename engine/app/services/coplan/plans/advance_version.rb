@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Plans
     # All current-version writers call this inside their plan-row transaction.
     # CommitSession still locks its session before the plan.

@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::Notification do
+RSpec.describe Coplan::Notification do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
   let(:thread) do
@@ -16,15 +16,15 @@ RSpec.describe CoPlan::Notification do
   describe "after_create web push fan-out" do
     context "when web push is configured" do
       before do
-        CoPlan.configuration.vapid_public_key  = "pub"
-        CoPlan.configuration.vapid_private_key = "priv"
-        CoPlan.configuration.vapid_subject     = "mailto:test@example.com"
+        Coplan.configuration.vapid_public_key  = "pub"
+        Coplan.configuration.vapid_private_key = "priv"
+        Coplan.configuration.vapid_subject     = "mailto:test@example.com"
       end
 
       after do
-        CoPlan.configuration.vapid_public_key  = nil
-        CoPlan.configuration.vapid_private_key = nil
-        CoPlan.configuration.vapid_subject     = nil
+        Coplan.configuration.vapid_public_key  = nil
+        Coplan.configuration.vapid_private_key = nil
+        Coplan.configuration.vapid_subject     = nil
       end
 
       it "enqueues one delivery job per subscription on create" do
@@ -33,11 +33,11 @@ RSpec.describe CoPlan::Notification do
 
         expect {
           described_class.create!(attrs)
-        }.to have_enqueued_job(CoPlan::WebPushDeliveryJob).twice
+        }.to have_enqueued_job(Coplan::WebPushDeliveryJob).twice
 
         notification = described_class.last
         [ sub_a, sub_b ].each do |sub|
-          expect(CoPlan::WebPushDeliveryJob).to have_been_enqueued.with(
+          expect(Coplan::WebPushDeliveryJob).to have_been_enqueued.with(
             notification_id: notification.id,
             subscription_id: sub.id
           )
@@ -47,7 +47,15 @@ RSpec.describe CoPlan::Notification do
       it "enqueues nothing when the recipient has no subscriptions" do
         expect {
           described_class.create!(attrs)
-        }.not_to have_enqueued_job(CoPlan::WebPushDeliveryJob)
+        }.not_to have_enqueued_job(Coplan::WebPushDeliveryJob)
+      end
+
+      it "bounds fan-out for subscriptions registered before the cap existed" do
+        create_list(:coplan_web_push_subscription, Coplan::WebPushSubscription::MAX_PER_USER + 3, user: user)
+
+        expect {
+          described_class.create!(attrs)
+        }.to have_enqueued_job(Coplan::WebPushDeliveryJob).exactly(Coplan::WebPushSubscription::MAX_PER_USER).times
       end
 
       it "does not enqueue on update" do
@@ -56,7 +64,7 @@ RSpec.describe CoPlan::Notification do
 
         expect {
           notification.mark_read!
-        }.not_to have_enqueued_job(CoPlan::WebPushDeliveryJob)
+        }.not_to have_enqueued_job(Coplan::WebPushDeliveryJob)
       end
     end
 
@@ -67,7 +75,7 @@ RSpec.describe CoPlan::Notification do
 
         expect {
           described_class.create!(attrs)
-        }.not_to have_enqueued_job(CoPlan::WebPushDeliveryJob)
+        }.not_to have_enqueued_job(Coplan::WebPushDeliveryJob)
       end
     end
   end

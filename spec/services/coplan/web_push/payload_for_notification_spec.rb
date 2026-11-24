@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::WebPush::PayloadForNotification do
+RSpec.describe Coplan::WebPush::PayloadForNotification do
   let(:author)    { create(:coplan_user, name: "Alice") }
   let(:recipient) { create(:coplan_user, name: "Bob") }
   let(:plan)      { create(:plan, title: "My Plan", created_by_user: recipient) }
@@ -30,9 +30,9 @@ RSpec.describe CoPlan::WebPush::PayloadForNotification do
   describe ".call" do
     it "links review tasks without requiring a comment thread" do
       task = create(:review_request, plan: plan, reviewer: recipient)
-      notification = CoPlan::Notification.create!(plan: plan, user: recipient, review_request: task, reason: "review_requested")
+      notification = Coplan::Notification.create!(plan: plan, user: recipient, review_request: task, reason: "review_requested")
       payload = described_class.call(notification)
-      expect(payload).to include(title: "Your review was requested on My Plan", tag: "review-request-#{task.id}", url: CoPlan::Urls::Canonical.plan_path(plan))
+      expect(payload).to include(title: "Your review was requested on My Plan", tag: "review-request-#{task.id}", url: Coplan::Urls::Canonical.plan_path(plan))
       expect(payload[:body]).to include("Discussion is welcome")
     end
 
@@ -47,7 +47,7 @@ RSpec.describe CoPlan::WebPush::PayloadForNotification do
       # a push notification is a link somebody keeps, so it gets the real
       # URL rather than the legacy id form.
       expect(payload[:url]).to eq(
-        CoPlan::Urls::Canonical.plan_path(plan, thread: thread.id)
+        Coplan::Urls::Canonical.plan_path(plan, thread: thread.id)
       )
       expect(payload[:url]).to start_with("/#{plan.library.handle}/").and include("thread=#{thread.id}")
     end
@@ -96,6 +96,15 @@ RSpec.describe CoPlan::WebPush::PayloadForNotification do
 
       expect(payload[:body].length).to eq(described_class::BODY_TRUNCATE)
       expect(payload[:body]).to end_with("…")
+    end
+
+    it "sends no comment text once the comment is deleted" do
+      notification = notification_for("reply")
+      comment.soft_delete!
+
+      payload = described_class.call(notification.reload)
+
+      expect(payload[:body]).to eq("")
     end
 
     it "falls back to 'Someone' when the comment author has no name" do

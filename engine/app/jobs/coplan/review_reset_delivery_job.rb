@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # A failed reset delivery is an invalidation and may be delivered again.
   # Skip it when the request has since been removed, decided or reopened.
   class ReviewResetDeliveryJob < ApplicationJob

@@ -1,11 +1,11 @@
 require "rails_helper"
 
-RSpec.describe CoPlan::CommentThread, "anchor tracking" do
+RSpec.describe Coplan::CommentThread, "anchor tracking" do
   let(:user) { create(:coplan_user) }
   let(:content) { "# My Plan\n\nFirst section.\n\n## Goals\n\nWe should use unit tests.\n\n## Timeline\n\nQ1 2026." }
   let(:plan) do
-    plan = CoPlan::Plan.create!(title: "Test", created_by_user: user)
-    version = CoPlan::PlanVersion.create!(
+    plan = Coplan::Plan.create!(title: "Test", created_by_user: user)
+    version = Coplan::PlanVersion.create!(
       plan: plan, revision: 1,
       content_markdown: content, actor_type: "human", actor_id: user.id
     )
@@ -106,8 +106,8 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
     # anchored to `dom_text` (what the browser selection returns). Asserts
     # that the resolved raw range matches `expected_raw`.
     def assert_anchor_resolves(markdown, dom_text, expected_raw, occurrence: nil)
-      p = CoPlan::Plan.create!(title: "Test", created_by_user: user)
-      v = CoPlan::PlanVersion.create!(
+      p = Coplan::Plan.create!(title: "Test", created_by_user: user)
+      v = Coplan::PlanVersion.create!(
         plan: p, revision: 1,
         content_markdown: markdown, actor_type: "human", actor_id: user.id
       )
@@ -127,6 +127,40 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       expect(matched).to eq(expected_raw),
         "Expected raw range to be #{expected_raw.inspect}, got #{matched.inspect}"
       thread
+    end
+
+    context "when anchor text sits next to math" do
+      let(:math_markdown) { "The relation $E = mc^2$ links mass and energy.\n\n```math\nx^2\n```\n\nCosts $5 and $10 stay text.\n" }
+
+      it "treats math as atomic, so a selection across it spans the formula's source" do
+        assert_anchor_resolves(math_markdown, "relation links", "relation $E = mc^2$ links")
+      end
+
+      it "anchors on the text beside math" do
+        assert_anchor_resolves(math_markdown, "links mass", "links mass")
+        assert_anchor_resolves("Before $$\na^2\n$$ after words.", "after words", "after words")
+      end
+
+      it "keeps currency dollars anchorable as text" do
+        assert_anchor_resolves(math_markdown, "Costs $5 and $10", "Costs $5 and $10")
+      end
+
+      it "leaves math out of the extracted text, matching the browser's anchor text model" do
+        stripped, pos_map = Coplan::CommentThread.strip_markdown(math_markdown)
+
+        expect(stripped).to eq("The relation  links mass and energy.\nCosts $5 and $10 stay text.")
+        expect(stripped).not_to include("mc^2")
+        stripped.each_char.with_index do |char, i|
+          expect(math_markdown[pos_map[i]]).to eq(char) unless pos_map[i] == -1
+        end
+      end
+
+      it "keeps a fence that only starts with math as ordinary code text" do
+        stripped, _ = Coplan::CommentThread.strip_markdown("```math notes\nkept\n```\n\n```math\ndropped\n```\n")
+
+        expect(stripped).to include("kept")
+        expect(stripped).not_to include("dropped")
+      end
     end
 
     context "when anchor text spans markdown formatting" do
@@ -378,13 +412,13 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
         created_by_user: user, anchor_text: "unit tests")
       position = content.index("unit tests") + 6
       new_content = content.sub("unit tests", "unit tasts")
-      version = CoPlan::PlanVersion.create!(plan: plan, revision: 2,
+      version = Coplan::PlanVersion.create!(plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
         operations_json: [ { "op" => "replace_exact", "old_text" => "e", "new_text" => "a",
           "resolved_range" => [ position, position + 1 ], "new_range" => [ position, position + 1 ] } ])
       plan.update!(current_plan_version: version, current_revision: 2)
 
-      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version)
+      Coplan::CommentThread.mark_out_of_date_for_new_version!(version)
       expect(thread.reload).not_to be_out_of_date
       expect(thread.anchor_text).to eq("unit tasts")
       expect(thread.anchor_revision).to eq(2)
@@ -396,24 +430,24 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       position = content.index("unit tests") + "unit ".length
       inserted = "asdfdsaasdf"
       expanded = content.dup.insert(position, inserted)
-      version2 = CoPlan::PlanVersion.create!(plan: plan, revision: 2,
+      version2 = Coplan::PlanVersion.create!(plan: plan, revision: 2,
         content_markdown: expanded, actor_type: "human", actor_id: user.id,
         operations_json: [ { "op" => "replace_exact", "old_text" => "", "new_text" => inserted,
           "resolved_range" => [ position, position ], "new_range" => [ position, position + inserted.length ] } ])
       plan.update!(current_plan_version: version2, current_revision: 2)
 
-      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version2)
+      Coplan::CommentThread.mark_out_of_date_for_new_version!(version2)
       expect(thread.reload).not_to be_out_of_date
       expect(thread.anchor_text).to eq("unit #{inserted}tests")
       expect(thread.anchor_end).to eq(position + inserted.length + "tests".length)
 
-      version3 = CoPlan::PlanVersion.create!(plan: plan, revision: 3,
+      version3 = Coplan::PlanVersion.create!(plan: plan, revision: 3,
         content_markdown: content, actor_type: "human", actor_id: user.id,
         operations_json: [ { "op" => "replace_exact", "old_text" => inserted, "new_text" => "",
           "resolved_range" => [ position, position + inserted.length ], "new_range" => [ position, position ] } ])
       plan.update!(current_plan_version: version3, current_revision: 3)
 
-      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version3)
+      Coplan::CommentThread.mark_out_of_date_for_new_version!(version3)
       expect(thread.reload).not_to be_out_of_date
       expect(thread.anchor_text).to eq("unit tests")
       expect(thread.anchor_revision).to eq(3)
@@ -428,14 +462,14 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       # Edit the timeline section (after the anchor)
       new_content = content.sub("Q1 2026", "Q2 2026")
       anchor_pos = content.index("Q1 2026")
-      version2 = CoPlan::PlanVersion.create!(
+      version2 = Coplan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
         operations_json: [ { "op" => "replace_exact", "resolved_range" => [ anchor_pos, anchor_pos + 7 ], "new_range" => [ anchor_pos, anchor_pos + 7 ], "delta" => 0 } ]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 
-      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version2)
+      Coplan::CommentThread.mark_out_of_date_for_new_version!(version2)
       thread.reload
       expect(thread.out_of_date).to be false
     end
@@ -449,14 +483,14 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       # Edit that directly modifies the anchored text
       unit_test_pos = content.index("unit tests")
       new_content = content.sub("unit tests", "integration tests")
-      version2 = CoPlan::PlanVersion.create!(
+      version2 = Coplan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
         operations_json: [ { "op" => "replace_exact", "resolved_range" => [ unit_test_pos, unit_test_pos + 10 ], "new_range" => [ unit_test_pos, unit_test_pos + 17 ], "delta" => 7 } ]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 
-      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version2)
+      Coplan::CommentThread.mark_out_of_date_for_new_version!(version2)
       thread.reload
       expect(thread.out_of_date).to be true
     end
@@ -467,20 +501,20 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       position = content.index("unit tests")
       replacement = "integration tests"
       changed = content.sub("unit tests", replacement)
-      version2 = CoPlan::PlanVersion.create!(plan: plan, revision: 2,
+      version2 = Coplan::PlanVersion.create!(plan: plan, revision: 2,
         content_markdown: changed, actor_type: "human", actor_id: user.id,
         operations_json: [ { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => replacement,
           "resolved_range" => [ position, position + 10 ], "new_range" => [ position, position + replacement.length ] } ])
       plan.update!(current_plan_version: version2, current_revision: 2)
-      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version2)
+      Coplan::CommentThread.mark_out_of_date_for_new_version!(version2)
       expect(thread.reload).to be_out_of_date
 
-      version3 = CoPlan::PlanVersion.create!(plan: plan, revision: 3,
+      version3 = Coplan::PlanVersion.create!(plan: plan, revision: 3,
         content_markdown: content, actor_type: "human", actor_id: user.id,
         operations_json: [ { "op" => "replace_exact", "old_text" => replacement, "new_text" => "unit tests",
           "resolved_range" => [ position, position + replacement.length ], "new_range" => [ position, position + 10 ] } ])
       plan.update!(current_plan_version: version3, current_revision: 3)
-      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version3)
+      Coplan::CommentThread.mark_out_of_date_for_new_version!(version3)
 
       expect(thread.reload).not_to be_out_of_date
       expect(thread.anchor_revision).to eq(3)
@@ -499,14 +533,14 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       first_pos = content.index("First section.")
       first_len = "First section.".length
       new_len = "First longer section with more detail.".length
-      version2 = CoPlan::PlanVersion.create!(
+      version2 = Coplan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
         operations_json: [ { "op" => "replace_exact", "resolved_range" => [ first_pos, first_pos + first_len ], "new_range" => [ first_pos, first_pos + new_len ], "delta" => new_len - first_len } ]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 
-      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version2)
+      Coplan::CommentThread.mark_out_of_date_for_new_version!(version2)
       thread.reload
       expect(thread.out_of_date).to be false
       expect(thread.anchor_start).to eq(original_start + (new_len - first_len))
@@ -521,14 +555,14 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
 
       new_content = content.sub("Q1 2026", "Q2 2026")
       anchor_pos = content.index("Q1 2026")
-      version2 = CoPlan::PlanVersion.create!(
+      version2 = Coplan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
         operations_json: [ { "op" => "replace_exact", "resolved_range" => [ anchor_pos, anchor_pos + 7 ], "new_range" => [ anchor_pos, anchor_pos + 7 ], "delta" => 0 } ]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 
-      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version2)
+      Coplan::CommentThread.mark_out_of_date_for_new_version!(version2)
       thread.reload
       expect(thread.out_of_date).to be true
     end
@@ -554,8 +588,8 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
   describe "#anchor_occurrence_index with inline formatting" do
     it "returns the correct 0-based index for text spanning inline code" do
       md = "# Plan\n\nSay `hello` to the world. Then say `hello` again."
-      p = CoPlan::Plan.create!(title: "Occ Plan", created_by_user: user)
-      v = CoPlan::PlanVersion.create!(
+      p = Coplan::Plan.create!(title: "Occ Plan", created_by_user: user)
+      v = Coplan::PlanVersion.create!(
         plan: p, revision: 1,
         content_markdown: md, actor_type: "human", actor_id: user.id
       )
@@ -576,8 +610,8 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
 
     it "returns 0 for the first occurrence" do
       md = "# Plan\n\nHello **world** today."
-      p = CoPlan::Plan.create!(title: "First Occ", created_by_user: user)
-      v = CoPlan::PlanVersion.create!(
+      p = Coplan::Plan.create!(title: "First Occ", created_by_user: user)
+      v = Coplan::PlanVersion.create!(
         plan: p, revision: 1,
         content_markdown: md, actor_type: "human", actor_id: user.id
       )
@@ -599,8 +633,8 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
     # answers "the first one".
     it "counts a repeated phrase that spans a line break" do
       md = "Alpha the rate is fine\nhere. Beta.\n\nGamma the rate is fine\nhere. Delta."
-      p = CoPlan::Plan.create!(title: "Wrapped Occ", created_by_user: user)
-      v = CoPlan::PlanVersion.create!(
+      p = Coplan::Plan.create!(title: "Wrapped Occ", created_by_user: user)
+      v = Coplan::PlanVersion.create!(
         plan: p, revision: 1,
         content_markdown: md, actor_type: "human", actor_id: user.id
       )
@@ -619,7 +653,7 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
 
   describe ".strip_markdown (delegates to Plans::MarkdownTextExtractor)" do
     it "strips inline code backticks but keeps content" do
-      stripped, pos_map = CoPlan::CommentThread.strip_markdown("Hello `code` end")
+      stripped, pos_map = Coplan::CommentThread.strip_markdown("Hello `code` end")
       expect(stripped).to include("Hello code end")
       # Verify position map points to the actual content chars, not backticks
       code_idx = stripped.index("code")
@@ -627,29 +661,29 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
     end
 
     it "strips bold markers" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("Hello **bold** end")
+      stripped, _ = Coplan::CommentThread.strip_markdown("Hello **bold** end")
       expect(stripped).to include("Hello bold end")
     end
 
     it "strips italic markers" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("Hello *italic* end")
+      stripped, _ = Coplan::CommentThread.strip_markdown("Hello *italic* end")
       expect(stripped).to include("Hello italic end")
     end
 
     it "strips strikethrough markers" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("Hello ~~old~~ end")
+      stripped, _ = Coplan::CommentThread.strip_markdown("Hello ~~old~~ end")
       expect(stripped).to include("Hello old end")
     end
 
     it "strips link syntax, keeping link text" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("See [docs](http://example.com) here")
+      stripped, _ = Coplan::CommentThread.strip_markdown("See [docs](http://example.com) here")
       expect(stripped).to include("See docs here")
       expect(stripped).not_to include("http://")
     end
 
     it "extracts table cell text without pipes or separators" do
       md = "| A | B |\n|---|---|\n| 1 | 2 |"
-      stripped, _ = CoPlan::CommentThread.strip_markdown(md)
+      stripped, _ = Coplan::CommentThread.strip_markdown(md)
       expect(stripped).to include("A")
       expect(stripped).to include("B")
       expect(stripped).to include("1")
@@ -659,32 +693,32 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
     end
 
     it "extracts heading text without # markers" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("## My Heading")
+      stripped, _ = Coplan::CommentThread.strip_markdown("## My Heading")
       expect(stripped).to include("My Heading")
       expect(stripped).not_to include("#")
     end
 
     it "extracts blockquote text without > markers" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("> Quoted text")
+      stripped, _ = Coplan::CommentThread.strip_markdown("> Quoted text")
       expect(stripped).to include("Quoted text")
       expect(stripped).not_to include(">")
     end
 
     it "extracts list item text without bullet markers" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("- Item one\n- Item two")
+      stripped, _ = Coplan::CommentThread.strip_markdown("- Item one\n- Item two")
       expect(stripped).to include("Item one")
       expect(stripped).to include("Item two")
       expect(stripped).not_to include("-")
     end
 
     it "handles nested formatting" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("**bold _and_ italic**")
+      stripped, _ = Coplan::CommentThread.strip_markdown("**bold _and_ italic**")
       expect(stripped).to include("bold and italic")
     end
 
     it "preserves position map integrity across complex markdown" do
       md = "# Title\n\nHello `world` and **bold** end."
-      stripped, pos_map = CoPlan::CommentThread.strip_markdown(md)
+      stripped, pos_map = Coplan::CommentThread.strip_markdown(md)
 
       # Every non-sentinel character in stripped should map back to a valid raw position.
       # Sentinel values (-1) are synthetic separators between block elements.
@@ -699,7 +733,7 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
 
     it "handles multibyte characters correctly in position mapping" do
       md = "Hello 🌍 `world` end"
-      stripped, pos_map = CoPlan::CommentThread.strip_markdown(md)
+      stripped, pos_map = Coplan::CommentThread.strip_markdown(md)
 
       stripped.each_char.with_index do |char, i|
         raw_pos = pos_map[i]
@@ -712,19 +746,19 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
 
     it "inserts spaces between table cells" do
       md = "| A | B |\n|---|---|\n| 1 | 2 |"
-      stripped, _ = CoPlan::CommentThread.strip_markdown(md)
+      stripped, _ = Coplan::CommentThread.strip_markdown(md)
       # Cells should be space-separated, rows newline-separated
       expect(stripped).to include("A B")
       expect(stripped).to include("1 2")
     end
 
     it "preserves softbreaks as newlines" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("Line one\nline two")
+      stripped, _ = Coplan::CommentThread.strip_markdown("Line one\nline two")
       expect(stripped).to include("Line one\nline two")
     end
 
     it "substitutes a footnote citation with the number the reader sees" do
-      stripped, _ = CoPlan::CommentThread.strip_markdown("A claim.[^src] Next.\n\n[^src]: Source.")
+      stripped, _ = Coplan::CommentThread.strip_markdown("A claim.[^src] Next.\n\n[^src]: Source.")
       expect(stripped).to include("A claim.1 Next.")
     end
 
@@ -733,20 +767,20 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
     # integrity example above is what would catch a real index here.
     it "maps citation digits to sentinel positions" do
       md = "A claim.[^src] Next.\n\n[^src]: Source."
-      stripped, pos_map = CoPlan::CommentThread.strip_markdown(md)
+      stripped, pos_map = Coplan::CommentThread.strip_markdown(md)
       expect(pos_map[stripped.index("1")]).to eq(-1)
     end
   end
 
   describe ".fold_whitespace" do
     it "collapses a run onto its first source position" do
-      folded, map = CoPlan::CommentThread.fold_whitespace("a \n b", [ 0, 1, 2, 3, 4 ])
+      folded, map = Coplan::CommentThread.fold_whitespace("a \n b", [ 0, 1, 2, 3, 4 ])
       expect(folded).to eq("a b")
       expect(map).to eq([ 0, 1, 4 ])
     end
 
     it "leaves text without runs untouched" do
-      folded, map = CoPlan::CommentThread.fold_whitespace("a b", [ 0, 1, 2 ])
+      folded, map = Coplan::CommentThread.fold_whitespace("a b", [ 0, 1, 2 ])
       expect(folded).to eq("a b")
       expect(map).to eq([ 0, 1, 2 ])
     end
@@ -770,18 +804,18 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
   end
 end
 
-RSpec.describe CoPlan::CommentThread, "structured source anchor tracking" do
+RSpec.describe Coplan::CommentThread, "structured source anchor tracking" do
   let(:user) { create(:coplan_user) }
   let(:content) { "# Plan\n\n| A | B |\n|---|---|\n| same | same |\n|||\n" }
   let(:plan) do
-    CoPlan::Plan.create!(title: "Source tracking", created_by_user: user).tap do |p|
+    Coplan::Plan.create!(title: "Source tracking", created_by_user: user).tap do |p|
       version = create(:plan_version, plan: p, revision: 1, content_markdown: content)
       p.update!(current_plan_version: version, current_revision: 1)
     end
   end
   let(:target) do
     html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
-    doc = CoPlan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
+    doc = Coplan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
     JSON.parse(doc.css("[data-source-target]")[3]["data-source-target"])
   end
   let!(:thread) do
@@ -790,7 +824,7 @@ RSpec.describe CoPlan::CommentThread, "structured source anchor tracking" do
   end
 
   def replace_content(new_content)
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: new_content, base_revision: plan.current_revision,
+    Coplan::Plans::ReplaceContent.call(plan: plan, new_content: new_content, base_revision: plan.current_revision,
       actor_type: "human", actor_id: user.id)
     thread.reload
   end

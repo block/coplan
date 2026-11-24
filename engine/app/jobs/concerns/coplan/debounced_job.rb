@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   # Coalesces a burst of same-key events into a single delayed job.
   #
   # The shape of the problem: something fires an event per occurrence — a
@@ -11,7 +11,7 @@ module CoPlan
   # everything since.
   #
   #   class DigestJob < ApplicationJob
-  #     include CoPlan::DebouncedJob
+  #     include Coplan::DebouncedJob
   #
   #     retry_on Net::OpenTimeout, wait: :polynomially_longer, attempts: 5
   #     debounces_with window: 2.minutes, retry_horizon: 30.minutes

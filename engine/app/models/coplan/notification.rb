@@ -1,12 +1,12 @@
-module CoPlan
+module Coplan
   class Notification < ApplicationRecord
     REASONS = %w[new_comment reply agent_response status_change mention review_requested review_response].freeze
 
-    belongs_to :user, class_name: "CoPlan::User"
-    belongs_to :plan, class_name: "CoPlan::Plan"
-    belongs_to :comment_thread, class_name: "CoPlan::CommentThread", optional: true
+    belongs_to :user, class_name: "Coplan::User"
+    belongs_to :plan, class_name: "Coplan::Plan"
+    belongs_to :comment_thread, class_name: "Coplan::CommentThread", optional: true
     belongs_to :review_request, optional: true
-    belongs_to :comment, class_name: "CoPlan::Comment", optional: true
+    belongs_to :comment, class_name: "Coplan::Comment", optional: true
     has_many :notification_deliveries, dependent: :delete_all
 
     validates :reason, presence: true, inclusion: { in: REASONS }
@@ -21,8 +21,11 @@ module CoPlan
     scope :read, -> { where.not(read_at: nil) }
     scope :newest_first, -> { order(created_at: :desc) }
 
-    after_commit :enqueue_web_push_deliveries, on: :create
-    after_commit :enqueue_adapter_deliveries, on: :create
+    # Who caused this notification, for Notifications::FanoutBudget. Not
+    # stored: it only decides whether this row's deliveries go out.
+    attr_accessor :fanout_actor_id
+
+    after_commit :enqueue_deliveries, on: :create
 
     def read?
       read_at.present?
@@ -42,22 +45,21 @@ module CoPlan
 
     private
 
-    def enqueue_adapter_deliveries
-      DispatchNotificationJob.perform_later(id) if CoPlan.configuration.notification_delivery_handlers.any?
-    end
+    # Web push goes to at most MAX_PER_USER most recently registered devices
+    # for the recipient, including accounts already over the cap before it
+    # was introduced. Quietly skips when Web Push isn't configured (host
+    # hasn't set VAPID keys) or the recipient hasn't subscribed any browsers.
+    def enqueue_deliveries
+      subscriptions = Coplan.configuration.web_push_configured? ? user.web_push_subscriptions.for_delivery.to_a : []
+      adapters = Coplan.configuration.notification_delivery_handlers.any?
+      cost = subscriptions.size + (adapters ? 1 : 0)
+      return if cost.zero?
+      return unless Notifications::FanoutBudget.spend?(actor_id: fanout_actor_id, cost: cost)
 
-    # Fan-out one WebPushDeliveryJob per active subscription belonging to the
-    # recipient. Quietly skips when Web Push isn't configured (host hasn't
-    # set VAPID keys) or the recipient hasn't subscribed any browsers yet.
-    def enqueue_web_push_deliveries
-      return unless CoPlan.configuration.web_push_configured?
-
-      user.web_push_subscriptions.find_each do |subscription|
-        WebPushDeliveryJob.perform_later(
-          notification_id: id,
-          subscription_id: subscription.id
-        )
+      subscriptions.each do |subscription|
+        WebPushDeliveryJob.perform_later(notification_id: id, subscription_id: subscription.id)
       end
+      DispatchNotificationJob.perform_later(id) if adapters
     end
   end
 end

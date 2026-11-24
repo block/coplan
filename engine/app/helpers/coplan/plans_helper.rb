@@ -1,6 +1,6 @@
 require "zlib"
 
-module CoPlan
+module Coplan
   module PlansHelper
     include MarkdownHelper
 
@@ -8,6 +8,13 @@ module CoPlan
       fragment = Nokogiri::HTML.fragment(render_content_regions(content.to_s))
       heading = fragment.at_css(".markdown-rendered:first-child > h1:first-child")
       if heading
+        if heading["id"].present? && heading["id"] != "plan-title"
+          # Numbered-section links and previews must survive title decoration.
+          alias_anchor = Nokogiri::XML::Node.new("span", fragment)
+          alias_anchor["id"] = heading["id"]
+          alias_anchor["data-heading-alias"] = ""
+          heading.prepend_child(alias_anchor)
+        end
         heading["id"] = "plan-title"
         heading["class"] = [ heading["class"], "plan-title__heading" ].compact.join(" ")
       end
@@ -121,7 +128,7 @@ module CoPlan
     # untyped fallback defaults to General at create). Safe in broadcast
     # partials (derives from the plan alone, no current_user).
     def plan_type_icon(plan, size: :md)
-      plan_type = plan.is_a?(CoPlan::PlanType) ? plan : plan.plan_type
+      plan_type = plan.is_a?(Coplan::PlanType) ? plan : plan.plan_type
       paths = PLAN_TYPE_ICONS[plan_type.icon] || PLAN_TYPE_ICONS["file-text"]
       # Stable per-name tint (Zlib.crc32, not #hash — that differs across
       # processes) so a type keeps its color everywhere, every request.
@@ -152,9 +159,9 @@ module CoPlan
       # full Commonmarker + Nokogiri parse per plan without an AI summary.
       # The document body itself is fetched only on a cache miss — list pages
       # preload just the stub (id + sha), never the MEDIUMTEXT columns.
-      cache_key = [ "coplan/plan-preview", MarkdownHelper::RENDER_CACHE_VERSION, plan.id,
+      cache_key = [ "coplan/plan-preview", plan.id,
                    stub.content_sha256 || plan.current_revision ]
-      plain = Rails.cache.fetch(cache_key) do
+      plain = Rails.cache.fetch(cache_key, expires_in: 15.minutes) do
         markdown_to_plain_text(PlanVersion.where(id: stub.id).pick(:content_markdown))
       end
       return nil if plain.blank?

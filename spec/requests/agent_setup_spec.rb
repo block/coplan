@@ -31,7 +31,7 @@ RSpec.describe "Agent setup", type: :request do
   end
 
   it "includes a host-configured install command" do
-    allow(CoPlan.configuration).to receive(:agent_setup_install_command).and_return("sq agents skills add coplan")
+    allow(Coplan.configuration).to receive(:agent_setup_install_command).and_return("sq agents skills add coplan")
 
     get agent_setup_path
 
@@ -39,7 +39,7 @@ RSpec.describe "Agent setup", type: :request do
   end
 
   it "renders HTML with a copyable setup URL for browsers" do
-    allow(CoPlan.configuration).to receive(:agent_setup_install_command).and_return("sq agents skills add coplan")
+    allow(Coplan.configuration).to receive(:agent_setup_install_command).and_return("sq agents skills add coplan")
 
     get agent_setup_path, headers: { "Accept" => browser_accept }
 

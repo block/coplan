@@ -1,4 +1,4 @@
-module CoPlan
+module Coplan
   module Notifications
     # Pushes each person's current unread count to their bell badge. One
     # grouped count for the whole set, then one stream per recipient —

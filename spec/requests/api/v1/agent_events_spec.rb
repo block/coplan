@@ -13,6 +13,20 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     other_token
   end
 
+  it "redacts retained queued comment bodies when read after soft deletion, including cursor replay" do
+    comment = create(:comment, comment_thread: create(:comment_thread, plan: plan), body_markdown: "Stored comment text")
+    event = Coplan::AgentEvent.create!(api_token: agent_token, plan: plan, comment_id: comment.id,
+      event_type: "comment.created", payload: { "comment_body" => comment.body_markdown, "plan_title" => plan.title })
+    get "/api/v1/agent/events", params: { wait: 0 }, headers: agent_headers
+    expect(response.parsed_body["events"].first.dig("payload", "comment_body")).to eq("Stored comment text")
+
+    comment.soft_delete!
+    event.update!(acked_at: Time.current)
+    get "/api/v1/agent/events", params: { wait: 0, cursor: "00000000-0000-0000-0000-000000000000" }, headers: agent_headers
+    expect(response.parsed_body["events"].first.dig("payload", "comment_body")).to eq(Coplan::Comment::DELETED_BODY)
+    expect(event.reload.payload["comment_body"]).to eq("Stored comment text")
+  end
+
   describe "agent sessions" do
     it "claims a session, drives states, and rejects bogus states" do
       post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
@@ -51,7 +65,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       post api_v1_plan_agent_session_path(plan), params: { state: "awaiting_input" }, headers: agent_headers, as: :json
 
       expect(response).to have_http_status(:unprocessable_content)
-      expect(CoPlan::AgentSession.where(plan_id: plan.id)).to be_empty
+      expect(Coplan::AgentSession.where(plan_id: plan.id)).to be_empty
     end
 
     # The server concludes `pending` (wake delivered) and `stale` (wake
@@ -67,7 +81,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     it "reads as presence rather than activity while watching" do
       post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
 
-      session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
+      session = Coplan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
       expect(session.display_status).to eq("Claude")
     end
 
@@ -84,7 +98,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
     it "moves a watching session to pending when an event arrives" do
       post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
-      session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
+      session = Coplan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
 
       session.wake!
 
@@ -93,7 +107,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
     it "is idempotent per (plan, token)" do
       2.times { post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json }
-      expect(CoPlan::AgentSession.where(plan_id: plan.id, api_token_id: agent_token.id).count).to eq(1)
+      expect(Coplan::AgentSession.where(plan_id: plan.id, api_token_id: agent_token.id).count).to eq(1)
     end
 
     describe "wake URL registration" do
@@ -111,7 +125,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
         expect(again["wake_url"]).to eq("https://agents.example.com/wake")
         expect(again).not_to have_key("wake_secret")
 
-        session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
+        session = Coplan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
         expect(session.wake_secret).to eq(first["wake_secret"])
       end
 
@@ -119,7 +133,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
         post api_v1_plan_agent_session_path(plan), params: { wake_url: "https://agents.example.com/wake" }, headers: agent_headers, as: :json
         post api_v1_plan_agent_session_path(plan), params: { wake_url: "" }, headers: agent_headers, as: :json
 
-        session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
+        session = Coplan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
         expect(session.wake_url).to be_nil
         expect(session.wake_secret).to be_nil
       end
@@ -138,9 +152,9 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     let(:comment) { create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "too formal!") }
 
     it "publishes comment events to subscribed agents and wakes the session" do
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
 
-      events = CoPlan::AgentEvent.for_token(agent_token)
+      events = Coplan::AgentEvent.for_token(agent_token)
       expect(events.count).to eq(1)
       event = events.first
       expect(event.event_type).to eq("comment.created")
@@ -154,48 +168,48 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       # A resolve/discard has no comment row, so self-suppression keys on
       # the actor_api_token_id the caller passes through the job instead.
       it "suppresses a status change performed by the subscribed token itself" do
-        CoPlan::Notifications::Create.call(
+        Coplan::Notifications::Create.call(
           comment_thread: thread, actor_id: hampton.id, reason: "status_change",
           actor_api_token_id: agent_token.id
         )
 
-        expect(CoPlan::AgentEvent.for_token(agent_token)).to be_empty
+        expect(Coplan::AgentEvent.for_token(agent_token)).to be_empty
       end
 
       it "still fans a human's status change out to attached agents" do
-        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, reason: "status_change")
+        Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, reason: "status_change")
 
-        expect(CoPlan::AgentEvent.for_token(agent_token).first.event_type).to eq("thread.status_changed")
+        expect(Coplan::AgentEvent.for_token(agent_token).first.event_type).to eq("thread.status_changed")
       end
 
       it "carries the acting token through the notifications job" do
-        CoPlan::CreateNotificationsJob.new.perform(
+        Coplan::CreateNotificationsJob.new.perform(
           comment_thread_id: thread.id, actor_id: hampton.id, reason: "status_change",
           actor_api_token_id: agent_token.id
         )
 
-        expect(CoPlan::AgentEvent.for_token(agent_token)).to be_empty
+        expect(Coplan::AgentEvent.for_token(agent_token)).to be_empty
       end
     end
 
     it "queues events for a detached session without giving it a pill" do
       session.update!(state: "complete", last_activity_at: 1.minute.ago)
 
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
 
       # The inbox is durable — it gets the backlog when it reattaches...
-      expect(CoPlan::AgentEvent.for_token(agent_token).count).to eq(1)
+      expect(Coplan::AgentEvent.for_token(agent_token).count).to eq(1)
       # ...but an abandoned session must not be resurrected into a pill.
       expect(session.reload.state).to eq("complete")
-      expect(CoPlan::AgentSession.visible).to be_empty
+      expect(Coplan::AgentSession.visible).to be_empty
     end
 
     it "does not resurrect a session whose agent stopped responding" do
       session.update!(state: "pending", last_activity_at: 10.minutes.ago)
 
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
 
-      expect(CoPlan::AgentSession.visible).to be_empty
+      expect(Coplan::AgentSession.visible).to be_empty
     end
 
     # A session whose connection is gone (and that registered no wake
@@ -204,22 +218,22 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     it "queues without a wake countdown when no connection is parked" do
       session.update!(last_transport_at: 5.minutes.ago)
 
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
 
-      expect(CoPlan::AgentEvent.for_token(agent_token).count).to eq(1)
+      expect(Coplan::AgentEvent.for_token(agent_token).count).to eq(1)
       expect(session.reload.state).to eq("watching")
     end
 
     describe "webhook wakes" do
-      before { allow(CoPlan::WakeWebhookJob).to receive(:perform_later) }
+      before { allow(Coplan::WakeWebhookJob).to receive(:perform_later) }
 
       it "pings the wake URL for each event" do
         session.update!(wake_url: "https://agents.example.com/wake", wake_secret: "s3cret")
 
-        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+        Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
 
-        event = CoPlan::AgentEvent.for_token(agent_token).first
-        expect(CoPlan::WakeWebhookJob).to have_received(:perform_later)
+        event = Coplan::AgentEvent.for_token(agent_token).first
+        expect(Coplan::WakeWebhookJob).to have_received(:perform_later)
           .with(agent_session_id: session.id, agent_event_id: event.id)
       end
 
@@ -229,9 +243,9 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
         session.update!(state: "complete", last_activity_at: 1.hour.ago,
           last_transport_at: nil, wake_url: "https://agents.example.com/wake", wake_secret: "s3cret")
 
-        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+        Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
 
-        expect(CoPlan::WakeWebhookJob).to have_received(:perform_later)
+        expect(Coplan::WakeWebhookJob).to have_received(:perform_later)
         # The pill, though, is earned by reacting — not by being pinged.
         expect(session.reload.state).to eq("complete")
       end
@@ -243,31 +257,31 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     it "does not wake the agent for its own comments" do
       own_comment = create(:comment, comment_thread: thread, author_type: "local_agent",
         author_id: hampton.id, agent_name: "Claude", api_token_id: agent_token.id, body_markdown: "my own reply")
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: own_comment, reason: "agent_response")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: own_comment, reason: "agent_response")
 
-      expect(CoPlan::AgentEvent.for_token(agent_token).count).to eq(0)
+      expect(Coplan::AgentEvent.for_token(agent_token).count).to eq(0)
     end
 
     it "types the first comment on a thread as created even when an agent opened it" do
       agent_comment = create(:comment, comment_thread: thread, author_type: "local_agent", author_id: other_token.id, agent_name: "Sara", body_markdown: "opening a thread")
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: other_token.id, comment: agent_comment, reason: "agent_response")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: other_token.id, comment: agent_comment, reason: "agent_response")
 
-      expect(CoPlan::AgentEvent.for_token(agent_token).first.event_type).to eq("comment.created")
+      expect(Coplan::AgentEvent.for_token(agent_token).first.event_type).to eq("comment.created")
     end
 
     it "types a later comment as replied regardless of author" do
       create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "first")
       second = create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "second")
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: second, reason: "new_comment")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: second, reason: "new_comment")
 
-      expect(CoPlan::AgentEvent.for_token(agent_token).first.event_type).to eq("comment.replied")
+      expect(Coplan::AgentEvent.for_token(agent_token).first.event_type).to eq("comment.replied")
     end
 
     describe "authority" do
       it "marks a comment from the token's own human as principal" do
-        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+        Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
 
-        payload = CoPlan::AgentEvent.for_token(agent_token).first.payload
+        payload = Coplan::AgentEvent.for_token(agent_token).first.payload
         expect(payload["authority"]).to eq("principal")
         expect(payload["from_principal"]).to be(true)
         expect(payload["from_plan_author"]).to be(true)
@@ -276,9 +290,9 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       it "marks a comment from anyone else as a collaborator" do
         sara = create(:coplan_user)
         sara_comment = create(:comment, comment_thread: thread, author_type: "human", author_id: sara.id, body_markdown: "drive-by thought")
-        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: sara.id, comment: sara_comment, reason: "new_comment")
+        Coplan::Notifications::Create.call(comment_thread: thread, actor_id: sara.id, comment: sara_comment, reason: "new_comment")
 
-        payload = CoPlan::AgentEvent.for_token(agent_token).first.payload
+        payload = Coplan::AgentEvent.for_token(agent_token).first.payload
         expect(payload["authority"]).to eq("collaborator")
         expect(payload["from_principal"]).to be(false)
         expect(payload["from_plan_author"]).to be(false)
@@ -292,9 +306,9 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
         create_agent_collab_session(agent_token, plan: sara_plan)
         sara_thread = create(:comment_thread, plan: sara_plan, plan_version: sara_plan.current_plan_version, created_by_user: sara)
         hampton_comment = create(:comment, comment_thread: sara_thread, author_type: "human", author_id: hampton.id, body_markdown: "mine")
-        CoPlan::Notifications::Create.call(comment_thread: sara_thread, actor_id: hampton.id, comment: hampton_comment, reason: "new_comment")
+        Coplan::Notifications::Create.call(comment_thread: sara_thread, actor_id: hampton.id, comment: hampton_comment, reason: "new_comment")
 
-        payload = CoPlan::AgentEvent.for_token(agent_token).where(plan_id: sara_plan.id).first.payload
+        payload = Coplan::AgentEvent.for_token(agent_token).where(plan_id: sara_plan.id).first.payload
         expect(payload["from_principal"]).to be(true)
         expect(payload["from_plan_author"]).to be(false)
       end
@@ -303,15 +317,15 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       # second agent working for Hampton speaks with Hampton's authority.
       it "treats an agent comment as coming from the human behind its token" do
         agent_comment = create(:comment, comment_thread: thread, author_type: "local_agent", author_id: hampton.id, agent_name: "Amp", body_markdown: "from another agent")
-        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: other_token.id, comment: agent_comment, reason: "agent_response")
+        Coplan::Notifications::Create.call(comment_thread: thread, actor_id: other_token.id, comment: agent_comment, reason: "agent_response")
 
-        payload = CoPlan::AgentEvent.for_token(agent_token).first.payload
+        payload = Coplan::AgentEvent.for_token(agent_token).first.payload
         expect(payload["from_principal"]).to be(true)
       end
     end
 
     it "publishes content changes with changed section keys" do
-      CoPlan::Plans::ReplaceContent.call(
+      Coplan::Plans::ReplaceContent.call(
         plan: plan,
         new_content: "# Title\n\nBrand new body.\n",
         base_revision: plan.current_revision,
@@ -320,7 +334,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
         change_summary: "Rewrite"
       )
 
-      event = CoPlan::AgentEvent.for_token(agent_token).where(event_type: "plan.content_changed").first
+      event = Coplan::AgentEvent.for_token(agent_token).where(event_type: "plan.content_changed").first
       expect(event).to be_present
       # ChangedSections::Result serializes as {"keys" => [...], "rewritten" => bool}.
       expect(event.payload["changed_sections"]["keys"]).to be_an(Array)
@@ -336,7 +350,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
     before do
       comment = create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "hello agents")
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
     end
 
     it "returns pending events for the calling token only" do
@@ -356,7 +370,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(JSON.parse(response.body)["events"]).to be_empty
 
       reply = create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "and another")
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: reply, reason: "reply")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: reply, reason: "reply")
 
       get api_v1_agent_events_path, params: { wait: 0, cursor: cursor }, headers: agent_headers
       events = JSON.parse(response.body)["events"]
@@ -368,7 +382,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     # connection. Over budget we answer immediately instead of letting
     # agents queue ahead of ordinary page requests.
     it "degrades long-poll to a non-blocking read when at the connection budget" do
-      allow(CoPlan::AgentEventBus).to receive(:with_slot).and_yield(false)
+      allow(Coplan::AgentEventBus).to receive(:with_slot).and_yield(false)
 
       started = Time.current
       get api_v1_agent_events_path, params: { wait: 30 }, headers: agent_headers
@@ -379,7 +393,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     end
 
     it "refuses a new stream over budget with Retry-After instead of blocking" do
-      allow(CoPlan::AgentEventBus).to receive(:with_slot).and_yield(false)
+      allow(Coplan::AgentEventBus).to receive(:with_slot).and_yield(false)
 
       get api_v1_agent_events_path, headers: agent_headers.merge("Accept" => "text/event-stream")
 
@@ -389,12 +403,12 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     end
 
     it "signals waiters when an event is published" do
-      allow(CoPlan::AgentEventBus).to receive(:signal)
+      allow(Coplan::AgentEventBus).to receive(:signal)
 
       comment = create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "wake up")
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "reply")
+      Coplan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "reply")
 
-      expect(CoPlan::AgentEventBus).to have_received(:signal).with(agent_token.id)
+      expect(Coplan::AgentEventBus).to have_received(:signal).with(agent_token.id)
     end
 
     # A parked long-poll is a held connection just like SSE: it must
@@ -439,15 +453,15 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       post api_v1_plan_comments_path(plan), params: { body_markdown: "token identity" }, headers: agent_headers, as: :json
 
       expect(response).to have_http_status(:created)
-      expect(CoPlan::AgentSession.last.agent_name).to eq("Claude")
-      expect(CoPlan::Comment.last.agent_name).to eq("Claude")
+      expect(Coplan::AgentSession.last.agent_name).to eq("Claude")
+      expect(Coplan::Comment.last.agent_name).to eq("Claude")
     end
 
     it "falls back to the token's agent name when there is no session" do
       post api_v1_plan_comments_path(plan), params: { body_markdown: "no session either" }, headers: agent_headers, as: :json
 
       expect(response).to have_http_status(:created)
-      expect(CoPlan::Comment.last.agent_name).to eq("Claude")
+      expect(Coplan::Comment.last.agent_name).to eq("Claude")
     end
 
     it "returns id alongside comment_id so creates match the rest of the API" do
@@ -464,9 +478,9 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     it "lets a comment be destroyed without tripping the notification foreign key" do
       thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: hampton)
       comment = create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "doomed")
-      CoPlan::Notification.create!(user_id: hampton.id, plan_id: plan.id, comment_thread_id: thread.id, comment_id: comment.id, reason: "new_comment")
+      Coplan::Notification.create!(user_id: hampton.id, plan_id: plan.id, comment_thread_id: thread.id, comment_id: comment.id, reason: "new_comment")
 
-      expect { comment.destroy! }.to change(CoPlan::Notification, :count).by(-1)
+      expect { comment.destroy! }.to change(Coplan::Notification, :count).by(-1)
     end
   end
 
@@ -488,7 +502,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
         # An empty body fails the comment, which must roll the thread back
         # too — otherwise the plan keeps an empty thread with a live anchor.
         post api_v1_plan_comments_path(plan), params: { body_markdown: "" }, headers: agent_headers, as: :json
-      }.not_to change(CoPlan::CommentThread, :count)
+      }.not_to change(Coplan::CommentThread, :count)
       expect(response).to have_http_status(:unprocessable_content)
     end
 
@@ -503,7 +517,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
   # connection has touched transport recently — which is the state
   # fan-out actually cares about.
   def create_agent_collab_session(token, plan: self.plan)
-    CoPlan::AgentSession.create!(
+    Coplan::AgentSession.create!(
       plan_id: plan.id,
       api_token_id: token.id,
       agent_name: token.agent_name,

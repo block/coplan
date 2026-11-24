@@ -10,9 +10,9 @@ RSpec.describe "Api::V1::Operations", type: :request do
   before do
     alice_token # ensure token exists
     # Revision 1 is a human version, so the agent has to have read the plan
-    # before it may write (CoPlan::Plans::HumanEditGuard).
+    # before it may write (Coplan::Plans::HumanEditGuard).
     agent_has_read(plan, alice_token)
-    CoPlan::EditLease.acquire!(
+    Coplan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: alice_token.id,
@@ -23,8 +23,8 @@ RSpec.describe "Api::V1::Operations", type: :request do
   [ true, false ].each do |reset|
     it "honors reset_reviews_on_change=#{reset} for direct operations" do
       plan.update!(reset_reviews_on_change: reset)
-      task = CoPlan::Reviews::Request.call(plan: plan, reviewer: alice, actor: alice)
-      receipt = CoPlan::Reviews::Respond.call(request: task, actor: alice, revision: 1, generation: task.generation, decision: "approved")
+      task = Coplan::Reviews::Request.call(plan: plan, reviewer: alice, actor: alice)
+      receipt = Coplan::Reviews::Respond.call(request: task, actor: alice, revision: 1, generation: task.generation, decision: "approved")
       post api_v1_plan_operations_path(plan), params: { lease_token: lease_token, base_revision: 1,
         operations: [ { op: "replace_exact", old_text: "Some content here.", new_text: "Updated content.", count: 1 } ] },
         headers: headers, as: :json
@@ -47,7 +47,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
         },
         headers: headers,
         as: :json
-    }.to change(CoPlan::PlanVersion, :count).by(1)
+    }.to change(Coplan::PlanVersion, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["revision"]).to eq(plan.current_revision + 1)
@@ -72,7 +72,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
   end
 
   it "apply operations fails without lease" do
-    CoPlan::EditLease.find_by(plan_id: plan.id)&.destroy
+    Coplan::EditLease.find_by(plan_id: plan.id)&.destroy
 
     post api_v1_plan_operations_path(plan),
       params: {
@@ -122,7 +122,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
         },
         headers: headers,
         as: :json
-    }.to change(CoPlan::PlanVersion, :count).by(1)
+    }.to change(Coplan::PlanVersion, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["applied"]).to eq(1)
@@ -160,5 +160,101 @@ RSpec.describe "Api::V1::Operations", type: :request do
       as: :json
     expect(response).to have_http_status(:conflict)
     expect(response.parsed_body["code"]).to eq("edit_locked")
+  end
+
+  [ false, true ].each do |use_session|
+    it "returns 422 for non-string empty-section content (session: #{use_session})" do
+      document = Coplan::Plan.create!(title: "Invalid section", created_by_user: alice)
+      version = Coplan::PlanVersion.create!(plan: document, revision: 1, content_markdown: "# H", actor_type: "human", actor_id: alice.id)
+      document.update!(current_revision: 1, current_plan_version: version)
+      agent_has_read(document, alice_token)
+      session = create(:edit_session, plan: document, actor_id: alice_token.id) if use_session
+      expect {
+        post api_v1_plan_operations_path(document), params: { base_revision: 1, session_id: session&.id,
+          operations: [ { op: "replace_section", heading: "# H", include_heading: false, new_content: 3 } ] }, headers: headers, as: :json
+      }.not_to change { document.plan_versions.count }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to include("new_content", "string")
+      expect(session.reload.operations_json).to be_empty if use_session
+    end
+  end
+
+  [ false, true ].each do |use_session|
+    it "rebases empty-section padding without changing the wrong occurrence (session: #{use_session})" do
+      document = Coplan::Plan.create!(title: "Padding", created_by_user: alice)
+      version = Coplan::PlanVersion.create!(plan: document, revision: 1,
+        content_markdown: "# H\n# Next\n\naaa", actor_type: "human", actor_id: alice.id)
+      document.update!(current_revision: 1, current_plan_version: version)
+      agent_has_read(document, alice_token)
+      operations = [
+        { op: "replace_section", heading: "# H", include_heading: false, new_content: "body" },
+        { op: "replace_exact", old_text: "a", new_text: "Z", occurrence: 2 }
+      ]
+      if use_session
+        post api_v1_plan_sessions_path(document), headers: headers, as: :json
+        expect(response).to have_http_status(:created)
+        session_id = response.parsed_body.fetch("id")
+        post api_v1_plan_operations_path(document), params: { base_revision: 1, session_id: session_id, operations: operations }, headers: headers, as: :json
+        expect(response).to have_http_status(:created)
+      end
+
+      post api_v1_plan_operations_path(document), params: { base_revision: 1,
+        operations: [ { op: "replace_exact", old_text: "# H\n", new_text: "# H" } ] }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+
+      if use_session
+        post commit_api_v1_plan_session_path(document, session_id), headers: headers, as: :json
+        expect(response).to have_http_status(:ok)
+      else
+        post api_v1_plan_operations_path(document), params: { base_revision: 1, operations: operations }, headers: headers, as: :json
+        expect(response).to have_http_status(:created)
+      end
+      expect(document.reload.current_revision).to eq(3)
+      expect(document.current_content).to eq("# H\nbody\n# Next\n\naZa")
+      expect(document.current_plan_version.api_token_id).to eq(alice_token.id)
+      expect(document.current_plan_version.base_revision).to eq(1)
+    end
+  end
+
+  # A stale request whose first operation changes the document's length
+  # before an intervening edit. The second operation must still delete
+  # its own paragraph, and the intervening edit must survive.
+  describe "a stale request after an earlier operation changes the length" do
+    let(:expanded) { "AAAA expanded into a forty-char sentence" }
+    let(:stale_plan) do
+      p = Coplan::Plan.create!(title: "Stale Plan", created_by_user: alice)
+      v = Coplan::PlanVersion.create!(plan: p, revision: 1, content_markdown: "# Stale\n\nAAAA\n\nBBBB\n\nCCCC", actor_type: "human", actor_id: alice.id)
+      p.update!(current_plan_version: v, current_revision: 1)
+      agent_has_read(p, alice_token)
+      # Another agent inserts "XX" inside CCCC.
+      v2 = Coplan::PlanVersion.create!(
+        plan: p, revision: 2, content_markdown: "# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC", actor_type: "local_agent", actor_id: alice.id,
+        operations_json: [ { "op" => "replace_exact", "old_text" => "", "new_text" => "XX",
+          "resolved_range" => [ 23, 23 ], "new_range" => [ 23, 25 ], "delta" => 2 } ]
+      )
+      p.update!(current_plan_version: v2, current_revision: 2)
+      p
+    end
+
+    # "BB" also occurs in a span shifted by the wrong amount, which used to
+    # delete the wrong text; "BBBB" does not, which used to be refused.
+    %w[BBBB BB].each do |needle|
+      it "deletes the paragraph it targeted (needle #{needle})" do
+        post api_v1_plan_operations_path(stale_plan),
+          params: {
+            base_revision: 1,
+            operations: [
+              { op: "replace_exact", old_text: "AAAA", new_text: expanded },
+              { op: "delete_paragraph_containing", needle: needle }
+            ]
+          },
+          headers: headers, as: :json
+
+        expect(response).to have_http_status(:created)
+        stale_plan.reload
+        expect(stale_plan.current_revision).to eq(3)
+        expect(stale_plan.current_content).to eq("# Stale\n\n#{expanded}\n\nCCXXCC")
+      end
+    end
   end
 end

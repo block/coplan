@@ -15,7 +15,7 @@ RSpec.describe "Agent review event prompts" do
   end
 
   { "coplan-attach" => "brief", "coplan-bridge" => "wake_prompt" }.each do |tool, method|
-    %w[requested requirement_changed withdrawn].each do |action|
+    %w[requested requirement_changed withdrawn removed].each do |action|
       it "shows #{action} review data in #{tool} without directing a document edit" do
         event = { "type" => "review.requested", "plan_id" => "plan",
                   "payload" => { "action" => action, "requirement" => "optional", "review_request_id" => "review" } }
@@ -31,6 +31,17 @@ RSpec.describe "Agent review event prompts" do
       prompt = format_event(tool, method, event)
       expect(prompt).to include('"decision":"approved"', '"revision":4', "/agent-instructions/comments")
       expect(prompt).not_to include("then apply any edit")
+    end
+
+    %w[conflict stale human_edit_pending].each do |reason|
+      it "guides #{reason} recovery in #{tool} without a thread reply or blind replay" do
+        event = { "type" => "session.commit_failed", "plan_id" => "plan",
+                  "payload" => { "session_id" => "failed-session", "reason" => reason, "message" => "Failed" } }
+        prompt = format_event(tool, method, event)
+        expect(prompt).to include('"session_id":"failed-session"', '"reason":"' + reason + '"',
+          "GET /api/v1/plans/plan", "preserving human edits", "cannot be reused", "recovery already succeeded")
+        expect(prompt).not_to include("Reply on the thread first", "then apply any edit")
+      end
     end
 
     it "retains comment collaboration instructions in #{tool}" do
