@@ -33,6 +33,19 @@ RSpec.describe Coplan::AgentEvents::Publish do
 
       expect { publish_comment(loaded) }.not_to change(Coplan::AgentEvent, :count)
     end
+
+    it "keeps every queued event when waking a session fails" do
+      second = create(:api_token, user: user, agent_name: "Claude")
+      [ watcher_token, second ].each do |token|
+        Coplan::AgentSession.find_or_create_by!(plan: plan, api_token: token) { |s| s.state = "watching"; s.agent_name = token.agent_name }
+          .update!(wake_url: "https://agents.example.com/hooks/wake", wake_secret: "s3cret")
+      end
+      allow(Coplan::WakeWebhookJob).to receive(:perform_later)
+      allow_any_instance_of(Coplan::AgentSession).to receive(:broadcast_pill).and_raise(RuntimeError, "cable down")
+
+      expect { publish_comment(comment) }.to raise_error(RuntimeError, "cable down")
+      expect(Coplan::AgentEvent.where(comment_id: comment.id).pluck(:api_token_id)).to contain_exactly(watcher_token.id, second.id)
+    end
   end
 
   describe "with recipient_token_id" do
