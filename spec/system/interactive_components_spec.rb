@@ -59,7 +59,8 @@ RSpec.describe "Interactive components", type: :system do
       expect(page).to have_text("1 + 2 + 4 + 8 + 16 + 32 = 63 seconds")
     end
     expect(page).to have_css(".document-component[data-render-ms]", count: 2)
-    simulator.hover
+    simulator.scroll_to(:center)
+    within_frame(simulator.find("iframe")) { find("output").hover }
     tab = simulator.find(".document-component__actions")
     expect(simulator).to have_css(".document-component__actions") { |actions| tab_revealed?(actions) }
     tab.find("button[data-source-target]").click

@@ -5,7 +5,8 @@ Checkout submits the first attempt. A failed attempt enters the retry queue. In 
 ::: {.component title="Payment path"}
 
 root.innerHTML = `
-  <svg viewBox="0 0 400 88" width="100%" role="img" aria-label="A failed checkout enters the retry queue">
+  <svg viewBox="0 0 400 88" width="400" style="display:block;max-width:100%;margin:auto"
+       role="img" aria-label="A failed checkout enters the retry queue">
     <g fill="var(--coplan-surface-muted)" stroke="var(--coplan-border)">
       <rect x="4" y="24" width="116" height="44" rx="8"/>
       <rect x="280" y="24" width="116" height="44" rx="8"/>
