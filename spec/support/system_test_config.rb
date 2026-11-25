@@ -7,6 +7,20 @@ require "capybara/rspec"
 # forcing downloads there fights selenium-manager into mismatched pairs.
 ENV["SE_FORCE_BROWSER_DOWNLOAD"] ||= "true" unless ENV["CI"]
 
+# Capybara 3.40 clears storage for "*" during Chrome teardown. Chrome 158
+# rejects that origin. Discard the temporary profile to clear every origin.
+module ChromeSessionReset
+  def reset!
+    super
+  rescue Selenium::WebDriver::Error::InvalidArgumentError => error
+    raise unless error.message.include?("* is not a valid URL")
+
+    quit
+  end
+end
+
+Capybara::Selenium::Driver::ChromeDriver.prepend(ChromeSessionReset)
+
 RSpec.configure do |config|
   config.before(:each, type: :system) do
     # Explicit desktop size: the workspace sidebar collapses behind a
@@ -14,7 +28,8 @@ RSpec.configure do |config|
     # (Mobile-specific tests resize the window themselves.) Note
     # :selenium_chrome_headless is a Capybara-registered driver that
     # ignores screen_size — the :selenium/using form respects it.
-    driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 900 ] do |options|
+    screen_size = [ 1400, 900 ]
+    driven_by :selenium, using: :headless_chrome, screen_size: screen_size do |options|
       options.unhandled_prompt_behavior = "ignore"
       options.logging_prefs = { browser: "ALL" }
       # Use Chrome for Testing (provisioned by selenium-manager), NOT the
@@ -32,6 +47,9 @@ RSpec.configure do |config|
       # managed developer machines. CI uses the runner's own Chrome +
       # chromedriver pair, same as before the pin.
       options.browser_version = "150" unless ENV["CI"]
+      # Rails sizes the first window. Chrome also needs the size at startup
+      # when a storage reset has discarded the previous browser profile.
+      options.add_argument("--window-size=#{screen_size.join(",")}")
       # CI runners give /dev/shm a small tmpfs; Chrome uses it for shared
       # memory and dies mid-suite when it fills ("Chrome instance exited"
       # at session creation). Spill to /tmp instead — harmless locally.
