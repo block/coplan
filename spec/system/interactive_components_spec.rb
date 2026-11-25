@@ -37,15 +37,17 @@ RSpec.describe "Interactive components", type: :system do
     end
     within_frame(find('iframe[title="Component"]')) do
       expect(page).to have_text("1 + 2 + 4 = 7 seconds")
-      find('input[type="range"]').send_keys(:arrow_right)
-      expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds")
+      slider = find('input[type="range"]')
+      slider.click
+      slider.send_keys(:end)
+      expect(page).to have_text("1 + 2 + 4 + 8 + 16 + 32 = 63 seconds")
     end
     simulator = find("figure:has(iframe[title='Component'])")
     expect(simulator).to have_no_css("figcaption, summary", visible: :all)
     simulator.hover
     simulator.find('button[aria-label="Expand component"]').click
     expect(simulator).to match_css(":popover-open")
-    within_frame(simulator.find("iframe")) { expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds") }
+    within_frame(simulator.find("iframe")) { expect(page).to have_text("1 + 2 + 4 + 8 + 16 + 32 = 63 seconds") }
     simulator.hover
     simulator.find('button[aria-label="Collapse component"]').click
     expect(simulator).not_to match_css(":popover-open")
@@ -54,7 +56,7 @@ RSpec.describe "Interactive components", type: :system do
     find("body").send_keys(:escape)
     within_frame(simulator.find("iframe")) do
       expect(page).to have_css('html[style*="color-scheme: dark"]')
-      expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds")
+      expect(page).to have_text("1 + 2 + 4 + 8 + 16 + 32 = 63 seconds")
     end
     expect(page).to have_css(".document-component[data-render-ms]", count: 2)
     simulator.hover
