@@ -17,7 +17,7 @@ module Coplan
       section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type start checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx data-math-style].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type start checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-heading-alias data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx data-math-style].freeze
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
@@ -130,6 +130,8 @@ module Coplan
     # so previews require no duplicate citation data or network request.
     def transform_reference_anchors(html, numbered_sections: true)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      # Only server-created aliases can redirect a reference to their heading.
+      doc.css("[data-heading-alias]").remove_attr("data-heading-alias")
       used_ids = doc.css("[id]").filter_map { |node| node["id"].presence }.to_set
       section_ids = Set.new
 
@@ -150,9 +152,17 @@ module Coplan
           section_number = heading.text.squish[/\A(\d+(?:\.\d+)*)\b/, 1]
           next unless section_number
 
-          heading["id"] ||= unique_dom_id("section-#{section_number.tr('.', '-')}", used_ids)
-          used_ids << heading["id"]
-          section_ids << heading["id"]
+          section_id = "section-#{section_number.tr('.', '-')}"
+          if heading["id"] != section_id
+            section_id = unique_dom_id(section_id, used_ids)
+            if heading["id"].present?
+              add_heading_alias(heading, section_id)
+            else
+              heading["id"] = section_id
+            end
+          end
+          used_ids << section_id
+          section_ids << section_id << heading["id"]
         end
       end
 
@@ -202,6 +212,13 @@ module Coplan
       suffix = 2
       suffix += 1 while used_ids.include?("#{base}-#{suffix}")
       "#{base}-#{suffix}"
+    end
+
+    def add_heading_alias(heading, id)
+      anchor = Nokogiri::XML::Node.new("span", heading.document)
+      anchor["id"] = id
+      anchor["data-heading-alias"] = ""
+      heading.prepend_child(anchor)
     end
 
     def enhance_reference_anchor(anchor, type:)

@@ -34,6 +34,74 @@ RSpec.describe "Plan references", type: :system do
     expect(page).to have_current_path(/#section-1\z/, url: true)
   end
 
+  it "previews and follows numbered and slug links to the same heading" do
+    padding = ("A paragraph to make the jump visible.\n\n" * 25).strip
+    document = Coplan::Plans::Create.call(user: user, actor_type: "human", content: <<~MARKDOWN)
+      # Section link check
+
+      See the [numbered section](#section-4-1) or the [heading slug](#41-findings).
+
+      #{padding}
+
+      <h3 id="41-findings">4.1. Findings</h3>
+
+      This is the findings preview.
+
+      #{padding}
+    MARKDOWN
+    document_path = plan_page_path(document)
+
+    { "numbered section" => "section-4-1", "heading slug" => "41-findings" }.each do |label, fragment|
+      visit document_path
+      link = find_link(label, href: "##{fragment}")
+      link.hover
+      expect(page).to have_css(".reference-preview__title", text: "4.1. Findings", visible: true)
+      expect(page).to have_css(".reference-preview__body", text: "This is the findings preview.", visible: true)
+      link.click
+      expect(page).to have_current_path(/##{fragment}\z/, url: true)
+      expect(page).to have_css('h3[id="41-findings"]', obscured: false)
+    end
+
+    visit root_path
+    visit "#{document_path}#section-4-1"
+    expect(page).to have_css('h3[id="41-findings"]', obscured: false)
+    expect(page.evaluate_script(<<~JS)).to be(true)
+      document.getElementById("41-findings").getBoundingClientRect().top >=
+        document.querySelector(".site-nav").getBoundingClientRect().bottom
+    JS
+  end
+
+  it "previews a numbered alias on another slide and opens that slide" do
+    document = Coplan::Plans::Create.call(user: user, actor_type: "human", content: <<~MARKDOWN)
+      # Deck section links
+
+      See [the second review](#section-4-1-2).
+
+      ::: {.presentation}
+
+      <h2 id="first-review">4.1. First review</h2>
+
+      First slide details.
+
+      ---
+
+      <h2 id="later-review">4.1. Later review</h2>
+
+      Second slide details.
+
+      :::
+    MARKDOWN
+    visit plan_page_path(document)
+
+    link = find_link("the second review", href: "#section-4-1-2")
+    link.hover
+    expect(page).to have_css(".reference-preview__title", text: "4.1. Later review", visible: true)
+    expect(page).to have_css(".reference-preview__body", text: "Second slide details.", visible: true)
+    link.click
+    expect(page).to have_current_path(/#section-4-1-2\z/, url: true)
+    expect(page).to have_css(".deck-slide--current h2#later-review", visible: true)
+  end
+
   # References live under the document as a footnote section — same page as
   # the content, no tabs.
   def open_add_reference_modal
@@ -145,7 +213,7 @@ RSpec.describe "Plan references", type: :system do
       # The suppression is specific to the drag — an ordinary hover still
       # previews. Moving off the anchor first is load bearing: the pointer is
       # still inside it, and staying inside fires no second mouseenter.
-      find("#section-2-1").hover
+      find("h2", text: "2.1 Rollout").hover
       section_link.hover
       expect(page).to have_css(".reference-preview__title", text: "2.1 Rollout", visible: :visible)
     end

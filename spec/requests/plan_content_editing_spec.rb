@@ -331,7 +331,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       post preview_plan_path(plan), params: { content: "# Preview\n\n- [ ] task" }, as: :json
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Preview</h1>")
+      expect(Nokogiri::HTML.fragment(response.body).at_css("h1").text.strip).to eq("Preview")
       expect(response.body).not_to include("coplan--checkbox#toggle")
     end
 

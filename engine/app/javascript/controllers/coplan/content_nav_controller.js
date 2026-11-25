@@ -351,7 +351,11 @@ export default class extends Controller {
   revealHashTarget() {
     let id
     try { id = decodeURIComponent(window.location.hash.slice(1)) } catch { return }
-    if (id && this._itemsById?.has(id)) this.revealEntry(id, { includeSelf: true })
+    if (!id) return
+
+    const target = document.getElementById(id)
+    const headingId = target?.hasAttribute("data-heading-alias") ? target.closest("h1, h2, h3, h4, h5, h6")?.id : id
+    if (this._itemsById?.has(headingId)) this.revealEntry(headingId, { includeSelf: true })
   }
 
   toggleLinkedEntry(id) {

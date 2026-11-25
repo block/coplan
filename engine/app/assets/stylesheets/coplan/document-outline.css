@@ -300,6 +300,7 @@
 .markdown-rendered h4,
 .markdown-rendered h5,
 .markdown-rendered h6,
+.markdown-rendered [data-heading-alias],
 .plan-title {
   scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
 }

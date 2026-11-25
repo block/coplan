@@ -10,10 +10,7 @@ module Coplan
       if heading
         if heading["id"].present? && heading["id"] != "plan-title"
           # Numbered-section links and previews must survive title decoration.
-          alias_anchor = Nokogiri::XML::Node.new("span", fragment)
-          alias_anchor["id"] = heading["id"]
-          alias_anchor["data-heading-alias"] = ""
-          heading.prepend_child(alias_anchor)
+          add_heading_alias(heading, heading["id"])
         end
         heading["id"] = "plan-title"
         heading["class"] = [ heading["class"], "plan-title__heading" ].compact.join(" ")

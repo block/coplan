@@ -4,7 +4,7 @@ RSpec.describe Coplan::MarkdownHelper, type: :helper do
   describe "#render_markdown" do
     it "converts markdown to HTML" do
       html = helper.render_markdown("# Hello\n\n**bold** text")
-      expect(html).to include("<h1>")
+      expect(Nokogiri::HTML.fragment(html).at_css("h1").text.strip).to eq("Hello")
       expect(html).to include("<strong>bold</strong>")
       expect(html).to include("markdown-rendered")
     end
@@ -170,7 +170,26 @@ RSpec.describe Coplan::MarkdownHelper, type: :helper do
     it "gives numbered headings stable section ids" do
       doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
 
-      expect(doc.at_css("h3")["id"]).to eq("section-3-1")
+      heading = doc.at_css("h3")
+      expect(doc.at_css("#section-3-1")).to satisfy { |target| target == heading || target&.parent == heading }
+    end
+
+    it "keeps heading ids and assigns unique numbered aliases" do
+      doc = Nokogiri::HTML.fragment(helper.render_markdown(<<~MARKDOWN))
+        <h2 id="section-3-1">3.1 Existing target</h2>
+
+        <h3 id="31-rollout">3.1 Rollout</h3>
+
+        Read the [number](#section-3-1-2) or the [slug](#31-rollout).
+
+        <span id="author-anchor" data-heading-alias></span>
+      MARKDOWN
+
+      expect(doc.css("#section-3-1").map(&:name)).to eq([ "h2" ])
+      expect(doc.css("#section-3-1-2").size).to eq(1)
+      expect(doc.at_css('h3[id="31-rollout"] > #section-3-1-2[data-heading-alias]')).to be_present
+      expect(doc.css("p a.reference-anchor--section").map { |link| link["href"] }).to eq([ "#section-3-1-2", "#31-rollout" ])
+      expect(doc.at_css("#author-anchor")["data-heading-alias"]).to be_nil
     end
 
     it "enhances explicit links to numbered sections for previews" do
