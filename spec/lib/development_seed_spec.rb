@@ -408,8 +408,8 @@ RSpec.describe Coplan::DevelopmentSeed do
       described_class.call
       plan = seeded_plan("interactive-components")
       revision = plan.current_revision
-      expect(plan.current_content).to include('type="diagram"', "choose Edit on the diagram", "+ → Component → Diagram", "Quick guide", "drag across the result")
-      expect(plan.current_plan_version.component_catalog.fetch("types")).to have_key("diagram")
+      expect(plan.current_content).to include("<svg", "+ → Component → Base", "Quick guide", "drag across the result")
+      expect(plan.current_plan_version.component_catalog).to eq({ "types" => {}, "libraries" => {} })
       expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
       described_class.call
       expect(plan.reload.current_revision).to eq(revision)

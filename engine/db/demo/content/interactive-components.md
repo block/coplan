@@ -1,12 +1,22 @@
 ## Payment path
 
-Checkout submits the first attempt. A failed attempt enters the retry queue. In the document editor, choose Edit on the diagram, change a node label, then choose Preview. To build another graph, choose **+ → Component → Diagram**. Its starter opens in Edit. Open **Quick guide** for node and edge examples.
+Checkout submits the first attempt. A failed attempt enters the retry queue. In the editor, change a label in the SVG below and choose **Preview**. To make your own component, choose **+ → Component → Base**. Its **Quick guide** introduces the JavaScript you can use.
 
-::: {.component type="diagram"}
+::: {.component title="Payment path"}
 
-diagram.node("checkout", "Checkout");
-diagram.node("retry", "Retry queue");
-diagram.edge("checkout", "retry", "on failure");
+root.innerHTML = `
+  <svg viewBox="0 0 400 88" width="100%" role="img" aria-label="A failed checkout enters the retry queue">
+    <g fill="var(--coplan-surface-muted)" stroke="var(--coplan-border)">
+      <rect x="4" y="24" width="116" height="44" rx="8"/>
+      <rect x="280" y="24" width="116" height="44" rx="8"/>
+    </g>
+    <path d="M120 46h154m-7-6 7 6-7 6" fill="none" stroke="currentColor"/>
+    <g fill="currentColor" text-anchor="middle">
+      <text x="62" y="51">Checkout</text>
+      <text x="200" y="37" font-size="13">on failure</text>
+      <text x="338" y="51">Retry queue</text>
+    </g>
+  </svg>`;
 
 :::
 

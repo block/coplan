@@ -92,11 +92,7 @@
             <% component_types.each do |name, type| %>
               <button type="button" data-component-type="<%= name %>" data-action="coplan--editor#insertComponent">
                 <svg width="32" height="28" viewBox="0 0 32 28" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
-                  <% if name == "diagram" %>
-                    <path d="M16 8v5M7 18v-5h18v5"/><rect x="11" y="2" width="10" height="6" rx="1.5"/><rect x="2" y="18" width="10" height="7" rx="1.5"/><rect x="20" y="18" width="10" height="7" rx="1.5"/>
-                  <% else %>
-                    <rect x="2" y="3" width="28" height="22" rx="3"/><path d="M2 9h28m-18 4-3 3 3 3m8-6 3 3-3 3"/>
-                  <% end %>
+                  <rect x="2" y="3" width="28" height="22" rx="3"/><path d="M2 9h28m-18 4-3 3 3 3m8-6 3 3-3 3"/>
                 </svg>
                 <%= type.fetch("label") %>
               </button>

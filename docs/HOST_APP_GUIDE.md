@@ -25,7 +25,7 @@ In a Markdown plan, an author can use a JavaScript component region. Coplan supp
 
 The shell blocks remote resources and fetch, disables peer connections, and sends a deny-all connection policy where supported. Browser support for complete network isolation varies. A host that requires guaranteed zero egress can use source-only rendering.
 
-Register browser-ready ES modules at boot. The catalog, examples, and registered source appear in the public `/agent-instructions/components` guide. Bundle only code intended for delivery to readers. A type may export async `setup({root, title})` returning its declared bindings and `mount({root, ...bindings})` to render the result. Both run inside the same frame as the author script.
+Base is the only built-in component type and uses standard browser JavaScript. Hosts can register additional types and browser-ready ES modules at boot. The catalog, examples, and registered source appear in the public `/agent-instructions/components` guide. Bundle only code intended for delivery to readers. A type may export async `setup({root, title})` returning its declared bindings and `mount({root, ...bindings})` to render the result. Both run inside the same frame as the author script.
 
 ```ruby
 Coplan.configure do |config|

@@ -139,7 +139,7 @@ module Coplan
         showcase: "All six callout types including Summary, a custom label, a list and code inside a callout, and plain quotes for comparison; comment on callout text or edit it in Editor" },
       { key: "interactive-components", author: "hampton", type: "Design Doc", title: "Interactive components: checkout retries",
         tags: %w[demo diagrams javascript], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
-        showcase: "A three-line diagram and a live retry simulator with point and area annotations on the live view" },
+        showcase: "An inline SVG checkout diagram and a live retry simulator with point and area annotations on the live view" },
       { key: "component-stress-lab", author: "hampton", type: "Design Doc", title: "Component stress lab",
         tags: %w[demo diagrams performance], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
         showcase: "An SVG service map with up to 384 services and 1,344 routes, and a canvas simulation with up to 8,388,608 queue updates" },

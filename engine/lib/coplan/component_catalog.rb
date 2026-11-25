@@ -15,19 +15,6 @@ module Coplan
       @libraries = {}
       @types = {}
       @guides = {}
-      dir = File.join(__dir__, "components")
-      library("diagram@1", source: File.read(File.join(dir, "diagram.js")), example: 'const { Diagram } = await import("diagram")')
-      type("diagram", source: File.read(File.join(dir, "diagram_type.js")), uses: [ "diagram@1" ],
-        bindings: [ "diagram" ],
-        guide: "This starter draws a vertical flow. Its two authoring methods are diagram.node(id, label) and diagram.edge(from, to, label). Nodes appear in declaration order. The edge label is optional.",
-        example: <<~JS.chomp)
-        diagram.node("checkout", "Checkout");
-        diagram.node("payment", "Payment");
-        diagram.node("receipt", "Receipt");
-
-        diagram.edge("checkout", "payment", "submit");
-        diagram.edge("payment", "receipt", "approved");
-      JS
     end
 
     NAME = /\A[a-z][a-z0-9-]*\z/

@@ -55,7 +55,7 @@ RSpec.describe "Agent Instructions", type: :request do
       get agent_instructions_guide_path(guide: "components")
       body = response.body
       expect(body).to include("Chart quick guide", "`````text\n#{guidance}\n`````", Coplan::ComponentCatalog::BASE_EXAMPLE)
-      expect(body.index("::: {.component}")).to be < body.index('::: {.component type="diagram"}')
+      expect(body.index("::: {.component}")).to be < body.index('::: {.component type="chart"}')
       expect(body).to include("| `chart` | `root`, `plot` | `plot@2` |", '| `plot@2` | `"plot"` |')
       get agent_instructions_guide_path(guide: "components", format: :html)
       expect(Nokogiri::HTML(response.body).css("pre code").map(&:text).map(&:strip)).to include(guidance)

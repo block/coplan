@@ -7,10 +7,10 @@ RSpec.describe "Document components", type: :request do
     <<~'MD'
       # Demo
 
-      ::: {.component #retry type="diagram" uses="maths@1" title="Retry flow"}
+      ::: {.component #retry type="retry" uses="maths@1" title="Retry flow"}
 
       const { delay } = await import("maths");
-      diagram.node("retry", "Retry " + delay(2));
+      showDelay(delay(2));
 
       :::
     MD
@@ -18,6 +18,9 @@ RSpec.describe "Document components", type: :request do
 
   before do
     allow(Coplan.configuration).to receive(:component_catalog).and_return(catalog)
+    catalog.library("units@1", source: "export const seconds = n => n + ' seconds'", example: "seconds(2)")
+    catalog.type("retry", source: 'import { seconds } from "units"; export function setup({ root }) { return { showDelay(n) { root.textContent = seconds(n) } } }',
+      uses: [ "units@1" ], bindings: [ "showDelay" ], example: "showDelay(2)")
     catalog.library("maths@1", source: "export const delay = n => n * 10", example: "delay(2)")
   end
 
@@ -42,7 +45,7 @@ RSpec.describe "Document components", type: :request do
     get plan_page_path(plan)
     block = Nokogiri::HTML.fragment(response.body).at_css("figure#retry")
     payload = JSON.parse(block["data-coplan--component-program-value"])
-    expect(payload.fetch("libraries").keys).to contain_exactly("diagram", "maths")
+    expect(payload.fetch("libraries").keys).to contain_exactly("units", "maths")
     expect(payload.dig("libraries", "maths")).to include("* 10")
     expect(first.component_catalog.dig("libraries", "maths@1", "sha256")).to eq(Digest::SHA256.hexdigest(payload.dig("libraries", "maths")))
     expect(block.at_css("iframe")["sandbox"]).to eq("allow-scripts")
@@ -58,9 +61,12 @@ RSpec.describe "Document components", type: :request do
     expect(thread.reload).not_to be_out_of_date
     expect(thread.anchor_text).to include("delay(3)")
     expect(plan.reload.current_plan_version.component_catalog.dig("libraries", "maths@1", "source")).to include("* 20")
+    allow(Coplan.configuration).to receive(:component_catalog).and_return(Coplan::ComponentCatalog.new)
     get plan_version_page_path(plan, first)
     historical = Nokogiri::HTML.fragment(response.body).at_css("figure#retry")
-    expect(JSON.parse(historical["data-coplan--component-program-value"]).dig("libraries", "maths")).to include("* 10")
+    saved = JSON.parse(historical["data-coplan--component-program-value"])
+    expect(saved.dig("wrapper", "bindings")).to eq([ "showDelay" ])
+    expect(saved.dig("libraries", "maths")).to include("* 10")
     expect(first.reload.component_catalog.dig("libraries", "maths@1", "source")).to include("* 10")
   end
 
@@ -180,15 +186,15 @@ RSpec.describe "Document components", type: :request do
 
   it "keeps source visible for an unknown library, conflicts, and disabled execution" do
     sign_in_as(user)
-    catalog.library("diagram@2", source: "export const version = 2", example: "version")
+    catalog.library("units@2", source: "export const version = 2", example: "version")
     post preview_draft_plans_path, params: { content: content.sub("maths@1", "missing@1") }
-    expect(response.body).to include("Unknown component library: missing@1", "diagram.node")
+    expect(response.body).to include("Unknown component library: missing@1", "showDelay")
     expect(response.body).not_to include("<iframe")
-    post preview_draft_plans_path, params: { content: content.sub("maths@1", "diagram@2") }
-    expect(response.body).to include("Conflicting versions of diagram")
+    post preview_draft_plans_path, params: { content: content.sub("maths@1", "units@2") }
+    expect(response.body).to include("Conflicting versions of units")
     allow(Coplan.configuration).to receive(:components_enabled).and_return(false)
     post preview_draft_plans_path, params: { content: }
-    expect(response.body).to include("diagram.node")
+    expect(response.body).to include("showDelay")
     expect(response.body).not_to include("<iframe")
   end
 end

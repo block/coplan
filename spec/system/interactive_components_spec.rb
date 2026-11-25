@@ -19,10 +19,10 @@ RSpec.describe "Interactive components", type: :system do
     expect(page).to have_current_path(root_path)
   end
 
-  it "draws the typed diagram, runs interactive JS, and opens a component discussion" do
+  it "draws the inline SVG, runs interactive JS, and opens a component discussion" do
     plan = Coplan::Plans::Create.call(title: "Components", content: source, user: author, actor_type: "human")
     visit plan_page_path(plan)
-    within_frame(find('iframe[title="Diagram"]')) do
+    within_frame(find('iframe[title="Payment path"]')) do
       expect(page).to have_css("svg text", text: "Retry queue")
       expect(page.evaluate_script("document.querySelector('[nonce]')")).to be_nil
       expect(page.evaluate_script("document.querySelector('meta[http-equiv=Content-Security-Policy]').content")).to eq("script-src blob:")
@@ -91,7 +91,7 @@ RSpec.describe "Interactive components", type: :system do
     slot.hover
     expect(simulator).to have_css(".document-component__actions") { |actions| tab_revealed?(actions) }
     expect(slot).to have_css("button[data-component-discussions]", exact_text: "1")
-    diagram = find("figure:has(iframe[title='Diagram'])")
+    diagram = find("figure:has(iframe[title='Payment path'])")
     diagram.hover
     diagram.find("button[data-source-target]").click
     diagram.find(".document-component__selection").send_keys(:enter)
@@ -106,7 +106,7 @@ RSpec.describe "Interactive components", type: :system do
   it "opens the shared comment action on selected component text and keeps the quote on the posted annotation" do
     plan = Coplan::Plans::Create.call(content: source, user: author, actor_type: "human")
     visit plan_page_path(plan)
-    figure = find("figure:has(iframe[title='Diagram'])")
+    figure = find("figure:has(iframe[title='Payment path'])")
     frame = figure.find("iframe")
     select_label = lambda do |label = "Checkout"|
       within_frame(frame) do
@@ -145,7 +145,7 @@ RSpec.describe "Interactive components", type: :system do
   it "restores the shared action when a live update removes an expanded component" do
     plan = Coplan::Plans::Create.call(content: source, user: author, actor_type: "human")
     visit plan_page_path(plan)
-    figure = find("figure:has(iframe[title='Diagram'])")
+    figure = find("figure:has(iframe[title='Payment path'])")
     figure.hover
     figure.find('button[aria-label="Expand component"]').click
     within_frame(figure.find("iframe")) do
@@ -170,7 +170,7 @@ RSpec.describe "Interactive components", type: :system do
         return new Promise(resolve => { window.finishDecode = () => resolve(bitmap) })
       }
     JS
-    within_frame(find("iframe[title='Diagram']")) do
+    within_frame(find("iframe[title='Payment path']")) do
       find("svg text", exact_text: "Checkout").double_click
       find("body").send_keys("c")
     end
@@ -208,7 +208,7 @@ RSpec.describe "Interactive components", type: :system do
     expect(page).to have_no_css(".source-comments blockquote", text: "Checkout")
     expect(find("#source-comment-body").value).to eq("A different draft")
     find("#source-comment-body").send_keys(:escape)
-    within_frame(find("iframe[title='Diagram']")) do
+    within_frame(find("iframe[title='Payment path']")) do
       find("svg text", exact_text: "Retry queue").double_click
       find("body").send_keys("c")
     end
@@ -347,14 +347,15 @@ RSpec.describe "Interactive components", type: :system do
   it "opens on the rendered component and runs edited JavaScript when Preview is chosen" do
     catalog = Coplan::ComponentCatalog.new
     catalog.library("amount@1", source: "export const cents = 250", example: "cents")
-    catalog.type("receipt", source: "export function setup() { return {} }", bindings: [], example: "")
+    catalog.library("currency@1", source: "export const symbol = '$'", example: "symbol")
+    catalog.type("receipt", source: "export function setup() { return {} }", uses: [ "currency@1" ], bindings: [], example: "")
     allow(Coplan.configuration).to receive(:component_catalog).and_return(catalog)
-    header = '::: {.component #path title="Legacy label" type="diagram"}'
-    markdown = "# Components\n\n#{header}\n\ndiagram.node('a', 'Original');\n\n:::\n"
+    header = '::: {.component #path title="Legacy label" type="receipt"}'
+    markdown = "# Components\n\n#{header}\n\nroot.textContent = 'Original';\n\n:::\n"
     plan = Coplan::Plans::Create.call(title: "Components", content: markdown, user: author, actor_type: "human")
     visit plan_edit_page_path(plan)
     block = find(".document-editor__component", wait: 20)
-    within_frame(block.find("iframe")) { expect(page).to have_css("svg text", text: "Original") }
+    within_frame(block.find("iframe")) { expect(page).to have_text("Original") }
     script_field = 'textarea[aria-label="Component JavaScript"]'
     expect(block).to have_no_css(script_field)
     block.click_button("Edit", exact: true)
@@ -362,7 +363,7 @@ RSpec.describe "Interactive components", type: :system do
     expect(block).to have_no_link("Component guide", exact: false)
     block.click_button("Modules")
     expect(block).to have_unchecked_field("amount@1")
-    expect(block).to have_no_field("diagram@1")
+    expect(block).to have_no_field("currency@1")
     block.click_button("Modules")
     expect(block).to have_css('.document-editor__component-colors .hljs-string', text: "'Original'", wait: 15)
     token = block.find(".document-editor__component-colors .hljs-string", text: "'Original'")
@@ -370,21 +371,21 @@ RSpec.describe "Interactive components", type: :system do
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
       expect(token.evaluate_script("getComputedStyle(this).color")).not_to eq(token.evaluate_script("getComputedStyle(this.parentElement).color"))
     end
-    expect(block.find(script_field).value).to eq("diagram.node('a', 'Original');")
+    expect(block.find(script_field).value).to eq("root.textContent = 'Original';")
     expect(block).to have_no_css("iframe", visible: true)
     click_button "Raw", exact: true
     raw = find('[aria-label="Markdown source"]')
     expect(page.evaluate_script("arguments[0].textContent", raw)).to include(markdown.strip)
     click_button "Editor", exact: true
 
-    block.select("Receipt", from: "Type")
+    expect(block).to have_select("Type", selected: "Receipt")
     block.click_button("Quick guide")
     expect(page).to have_css("dialog[open] h2", text: "Receipt quick guide")
     click_button "Close quick guide", enable_aria_label: true
-    expect(block.find(script_field).value).to eq("diagram.node('a', 'Original');")
+    expect(block.find(script_field).value).to eq("root.textContent = 'Original';")
     block.select("Base", from: "Type")
     block.click_button("Modules")
-    expect(block).to have_unchecked_field("diagram@1")
+    expect(block).to have_unchecked_field("currency@1")
     block.check("amount@1")
     code = 'root.textContent = "Cents " + (await import("amount")).cents;'
     block.find(script_field).set(code)
@@ -421,14 +422,26 @@ RSpec.describe "Interactive components", type: :system do
     expect(input.value).to eq(large)
   end
 
-  { "Base" => nil, "Diagram" => "diagram" }.each do |label, type|
+  { "Base" => nil, "Receipt" => "receipt" }.each do |label, type|
     it "inserts #{label} with focused starter code and an in-place guide" do
+      if type
+        catalog = Coplan::ComponentCatalog.new
+        wrapper = <<~JS
+          export function setup() { return { receipt: {} } }
+          export function mount({ root, receipt }) { root.textContent = "Total: " + receipt.total }
+        JS
+        catalog.type(type, source: wrapper, bindings: [ "receipt" ], example: "receipt.total = 250;")
+        allow(Coplan.configuration).to receive(:component_catalog).and_return(catalog)
+      end
       plan = Coplan::Plans::Create.call(title: "Scratchpad", content: "# Scratchpad\n\nTry it here.", user: author, actor_type: "human")
       visit plan_edit_page_path(plan)
       find(".document-editor__body .ProseMirror p", text: "Try it here.").click
       click_button "Insert content", enable_aria_label: true
       click_button "Component", exact: true
-      within("[aria-label='Component types']") { click_button label, exact: true }
+      within("[aria-label='Component types']") do
+        expect(all("button").map(&:text)).to eq(type ? [ "Base", "Receipt" ] : [ "Base" ])
+        click_button label, exact: true
+      end
       block = find(".document-editor__component")
       starter = block.find("textarea:focus").value
       expect(block).to have_no_css("iframe", visible: :all)
@@ -444,12 +457,7 @@ RSpec.describe "Interactive components", type: :system do
       expect(block.find("textarea").value).to eq(starter)
       block.click_button("Preview", exact: true)
       within_frame(block.find("iframe")) do
-        if type
-          expect(page).to have_css("svg text", text: "Payment")
-          expect(page).to have_css("svg text", text: "approved")
-        else
-          expect(find("main")).to have_text("Hello!")
-        end
+        expect(find("main")).to have_text(type ? "Total: 250" : "Hello!")
       end
       click_button "Raw", exact: true
       raw = find('[aria-label="Markdown source"]')
