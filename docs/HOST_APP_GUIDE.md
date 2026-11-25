@@ -40,7 +40,7 @@ end
 
 The visual editor lists registered types under **+ → Component**. Supply a runnable author script in `example:` to seed new blocks. Optional plain-text `guide:` explains the type in the editor’s quick guide and the agent reference.
 
-Install the engine migration when upgrading. Each new revision that contains components saves its selected modules, their digests, and any type wrappers. Old revisions without a catalog display source. Disabling execution also disables the frame endpoint.
+Install the engine migration when upgrading. Each new revision that contains components saves its selected modules, their digests, and any type wrappers. Removing a registered type keeps previously saved revisions readable from their snapshots. Before editing and saving a document that uses the retired type, convert those blocks to Base or register a compatible type under the same name. Old revisions without a catalog display source. Disabling execution also disables the frame endpoint.
 
 ## Rendered-content caching
 
