@@ -110,15 +110,27 @@ export default class extends Controller {
     })
   }
 
+  replaceRangeLocation() {
+    const location = new URL(window.location.href)
+    location.searchParams.set("from", this.fromValue)
+    location.searchParams.set("to", this.toValue)
+
+    const navigator = window.Turbo?.navigator
+    if (navigator?.history?.replace && navigator.view) {
+      // The comparison changes in place, so Turbo never renders this URL
+      // itself. Cache the current page under that URL for browser Back.
+      navigator.history.replace(location, navigator.history.restorationIdentifier)
+      navigator.view.lastRenderedLocation = location
+    } else {
+      window.history.replaceState(window.history.state, "", location)
+    }
+  }
+
   async load() {
     this.request?.abort()
     this.syncSelection()
     this.retryTarget.hidden = true
-
-    const location = new URL(window.location.href)
-    location.searchParams.set("from", this.fromValue)
-    location.searchParams.set("to", this.toValue)
-    window.history.replaceState(window.history.state, "", location)
+    this.replaceRangeLocation()
 
     const url = new URL(this.linkFor(this.toValue).dataset.diffUrl, window.location.origin)
     url.searchParams.set("from", this.fromValue)

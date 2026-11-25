@@ -226,6 +226,31 @@ RSpec.describe "Plan history page", type: :system do
       expect(page).to have_current_path(plan_history_page_path(plan, from: 2, to: 3))
     end
 
+    it "restores a changed range from Turbo's cache after browser Back" do
+      visit plan_history_page_path(plan)
+      select "v1", from: "From"
+      expect(page).to have_css("#version-diff .del", text: "First task")
+
+      click_link "View v4", exact: true
+      expect(page).to have_css("h1", text: "History Plan — v4")
+      page.execute_script(<<~JS)
+        window.historyRestoreRequests = 0
+        document.addEventListener("turbo:before-fetch-request", event => {
+          const { pathname, searchParams } = event.detail.url
+          if (pathname.endsWith("/history") && searchParams.get("from") === "2" && searchParams.get("to") === "4") {
+            window.historyRestoreRequests++
+          }
+        })
+      JS
+
+      page.go_back
+      expect(page).to have_current_path(plan_history_page_path(plan, from: 2, to: 4))
+      expect(page).to have_select("From", selected: "v1")
+      expect(page).to have_select("To", selected: "v4")
+      expect(page).to have_css("#version-diff .del", text: "First task")
+      expect(page.evaluate_script("window.historyRestoreRequests")).to eq(0)
+    end
+
     it "opens a single revision with the keyboard and handles the empty baseline" do
       visit plan_history_page_path(plan)
       find("[data-revision='1'] .history-split__entry").send_keys(:enter)
