@@ -158,7 +158,7 @@ module Coplan
       {
         key: "many-small-edits", author: "hampton", type: "Design Doc", title: "Workspace invitations: seven small improvements",
         tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
-        scenario: "Eight versions with small attributed diffs. Open History and check v2 while v8 is selected to compare v1 → v8."
+        scenario: "Eight versions with small attributed diffs. Open History and choose v1 in From and v8 in To."
       },
       {
         key: "pending-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: awaiting approval",
@@ -313,7 +313,7 @@ module Coplan
       [ "retain receipts for 7 days", "retain receipts for 30 days", "Align receipt retention with support needs" ],
       [ "sample 1% of requests", "sample 5% of requests", "Increase the dark-read sample" ],
       [ "ramp to 10%", "ramp to 20%", "Expand the first rollout cohort" ],
-      [ "alert above 2% errors", "alert above 1% errors", "Catch regressions earlier" ],
+      [ "alert above 2% errors", "alert above 1% errors", nil ],
       [ "review every month", "review every week", "Schedule weekly rollout checks" ]
     ].freeze
 

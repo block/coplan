@@ -536,7 +536,9 @@ RSpec.describe Coplan::DevelopmentSeed do
       expect(agent_edits.count).to eq(7)
       expect(agent_edits.pluck(:api_token_id)).to all(be_present)
       expect(agent_edits.pluck(:operations_json)).to all(have_attributes(size: 1))
-      expect(seeded_plan("demo-library").current_content).to include("check v2 while v8 is selected to compare v1 → v8")
+      expect(seeded_plan("demo-library").current_content).to include("choose v1 in From and v8 in To")
+      expect(agent_edits.find_by!(revision: 7).change_summary).to be_nil
+      expect(agent_edits.find_by!(revision: 8).history_line_changes).to eq([ 1, 1 ])
 
       changed = seeded_plan("changed-review")
       expect(changed.current_revision).to eq(2)
@@ -582,6 +584,7 @@ RSpec.describe Coplan::DevelopmentSeed do
       expect(thread.reload.status).to eq("resolved")
       expect(edited.reload.current_revision).to eq(9)
       expect(edited.current_content).to eq(edited_content)
+      expect(agent_edits.find_by!(revision: 7).change_summary).to be_nil
       expect(retained.reload.current_revision).to eq(2)
       expect(retained.review_requests.pluck(:current_response_id)).to match_array(retained_ids)
       expect(retained.reset_reviews_on_change).to be(false)

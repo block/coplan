@@ -1,15 +1,23 @@
 <% selected = @first_version && @version && version.revision.between?(@first_version.revision, @version.revision) %>
+<% line_changes = version.history_line_changes(previous_version: previous_version) %>
 <div class="history-split__item<%= ' history-split__item--active' if selected %>"
      data-coplan--history-target="item" data-revision="<%= version.revision %>">
-  <%= check_box_tag "revision_#{version.revision}", version.revision, selected,
-        id: "history-revision-#{version.revision}", class: "history-split__checkbox",
-        aria: { describedby: "history-selection-help" },
-        data: { action: "coplan--history#toggle" } %>
-  <%= label_tag "history-revision-#{version.revision}", "Include changes in v#{version.revision}", class: "visually-hidden" %>
-  <%= link_to plan_version_diff_browse_path(plan, version),
+  <%= link_to plan_version_browse_path(plan, version),
         class: "history-split__entry",
-        data: { turbo_frame: "version-diff", action: "coplan--history#select", revision: version.revision } do %>
-    <div class="history-split__version">v<%= version.revision %></div>
+        aria: { current: ("true" if version.revision == @version&.revision) },
+        data: { action: "coplan--history#select", revision: version.revision, diff_url: plan_version_diff_browse_path(plan, version) } do %>
+    <div class="history-split__entry-heading">
+      <span class="history-split__version">v<%= version.revision %></span>
+      <% if line_changes %>
+        <% added, removed = line_changes %>
+        <% description = "#{pluralize(added, 'line')} added, #{pluralize(removed, 'line')} removed" %>
+        <span class="history-split__stats" title="<%= description %>">
+          <span class="visually-hidden"><%= description %></span>
+          <span class="history-split__added" aria-hidden="true">+<%= number_with_delimiter(added) %></span>
+          <span class="history-split__removed" aria-hidden="true">−<%= number_with_delimiter(removed) %></span>
+        </span>
+      <% end %>
+    </div>
     <div class="history-split__meta">
       <% if version.actor_user %>
         <%= user_avatar(version.actor_user) %> <span><%= history_actor_name(version) %></span>

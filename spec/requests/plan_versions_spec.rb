@@ -69,12 +69,14 @@ RSpec.describe "Plan versions", type: :request do
         plan.update!(current_plan_version: v3, current_revision: 3)
       end
 
-      it "compares the snapshot before the first checked revision with the last checked revision" do
+      it "compares the snapshot before the first included revision with the end revision" do
         get plan_version_diff_page_path(plan, v3, from: 2)
 
         expect(response).to have_http_status(:ok)
         doc = Nokogiri::HTML(response.body)
-        expect(doc.text).to include("v1 → v3", "Combined changes introduced in v2–v3")
+        expect(doc.text).to include("v1 → v3")
+        expect(doc.at_css(".version-diff-preview__byline")).to be_nil
+        expect(doc.text).not_to include("Markdown source only")
         expect(doc.css(".diff-view .del").text).to include("Some content here")
         expect(doc.css(".diff-view .ins").text).to include("Final wording")
         expect(doc.css(".diff-view").text).not_to include("Intermediate wording")
@@ -136,7 +138,9 @@ RSpec.describe "Plan versions", type: :request do
 
         expect(response).to have_http_status(:ok)
         doc = Nokogiri::HTML(response.body)
-        expect(doc.css("#plan-history input[checked]").map { |input| input["value"] }).to contain_exactly("2", "3")
+        expect(doc.at_css("#history_base option[selected]")["value"]).to eq("1")
+        expect(doc.at_css("#history_head option[selected]")["value"]).to eq("3")
+        expect(doc.css(".history-split__item--active").map { |row| row["data-revision"] }).to contain_exactly("2", "3")
         expect(doc.at_css("#version-diff").text).to include("v1 → v3")
 
         get plan_version_page_path(plan, v3, from: 2)

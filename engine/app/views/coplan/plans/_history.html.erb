@@ -1,19 +1,16 @@
-<%# Unified history feed: content versions (PlanVersion) and metadata events
-    (PlanEvent) interleaved by created_at. Each item exposes `history_kind`
-    so we render the right partial without introspecting class names. %>
+<% versions = history_items.select { |item| item.history_kind == :version }.index_by(&:revision) %>
+<% revisions = versions.keys.sort.reverse %>
+<% revision_options = revisions.map { |revision| ["v#{revision}", revision] } %>
+<% base_revision = @previous_version&.revision || 0 %>
 <div id="plan-history" data-controller="coplan--history"
      data-coplan--history-from-value="<%= @first_version.revision %>"
      data-coplan--history-to-value="<%= @version.revision %>">
-  <div class="history-selection">
-    <p id="history-selection-help" class="text-sm text-muted">Check revisions to combine their changes. Gaps fill automatically. Unchecking inside a range keeps the newer changes.</p>
-    <button type="button" class="btn btn--ghost btn--sm" data-action="coplan--history#clear">Clear selection</button>
-  </div>
   <div class="history-split">
     <div class="history-split__list" id="plan-history-list">
       <% history_items.each do |item| %>
         <% case item.history_kind %>
         <% when :version %>
-          <%= render partial: "coplan/plans/version_item", locals: { version: item, plan: plan } %>
+          <%= render "coplan/plans/version_item", version: item, plan: plan, previous_version: versions[item.revision - 1] %>
         <% when :event %>
           <%= render partial: "coplan/plans/event_item", locals: { event: item, plan: plan } %>
         <% end %>
@@ -21,9 +18,30 @@
     </div>
 
     <div class="history-split__detail">
-      <p class="text-sm text-muted" role="status" data-coplan--history-target="status"></p>
-      <button type="button" class="btn btn--ghost btn--sm" hidden data-coplan--history-target="retry" data-action="coplan--history#load">Retry comparison</button>
-      <%= render template: "coplan/plan_versions/diff" %>
+      <div class="history-comparison" role="group" aria-label="Compare versions">
+        <div class="history-comparison__range">
+          <div class="history-comparison__endpoint">
+            <%= label_tag :history_base, "From" %>
+            <%= select_tag :history_base, options_for_select(revision_options.select { |_, revision| revision < @version.revision } + [["Empty document", 0]], base_revision),
+                  class: "history-comparison__select", data: { coplan__history_target: "base", action: "coplan--history#changeBase" } %>
+          </div>
+          <span class="history-comparison__arrow" aria-hidden="true">→</span>
+          <div class="history-comparison__endpoint">
+            <%= label_tag :history_head, "To" %>
+            <%= select_tag :history_head, options_for_select(revision_options.select { |_, revision| revision > base_revision }, @version.revision),
+                  class: "history-comparison__select", data: { coplan__history_target: "head", action: "coplan--history#changeHead" } %>
+          </div>
+        </div>
+        <div class="history-comparison__feedback">
+          <span class="text-sm text-muted" role="status" data-coplan--history-target="status"></span>
+          <button type="button" class="btn btn--ghost btn--sm" hidden data-coplan--history-target="retry" data-action="coplan--history#load">Retry comparison</button>
+          <%= link_to "View v#{@version.revision}", plan_version_browse_path(plan, @version, from: @first_version.revision),
+                class: "text-sm", data: { coplan__history_target: "snapshot" } %>
+        </div>
+      </div>
+      <div class="history-split__diff" role="region" aria-label="Version differences" tabindex="0">
+        <%= render template: "coplan/plan_versions/diff" %>
+      </div>
     </div>
   </div>
 </div>

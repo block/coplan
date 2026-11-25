@@ -69,21 +69,13 @@ module Coplan
 
     after_create_commit :broadcast_history_update, unless: -> { event_type == "comment_permanently_deleted" }
 
-    # Prepend the new event into the open history tab and bump the count
-    # badge so anyone watching the plan sees metadata changes appear live
-    # alongside content versions.
+    # Prepend metadata changes alongside content versions in open history.
     def broadcast_history_update
       Broadcaster.prepend_to(
         plan,
         target: "plan-history-list",
         partial: "coplan/plans/event_item",
         locals: { event: self, plan: plan }
-      )
-      count = plan.plan_versions.count + plan.plan_events.count
-      Broadcaster.replace_to(
-        plan,
-        target: "history-count",
-        html: ApplicationController.helpers.content_tag(:span, ApplicationController.helpers.pluralize(count, "entry"), class: "section-count", id: "history-count")
       )
     end
   end

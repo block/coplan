@@ -42,4 +42,26 @@ RSpec.describe Coplan::PlanVersion, type: :model do
     version = build(:plan_version, actor_type: "robot")
     expect(version).not_to be_valid
   end
+
+  describe "#history_line_changes" do
+    it "counts each line in the initial snapshot as an addition" do
+      version = build(:plan_version, revision: 1, content_markdown: "# Plan\n\nFirst draft")
+
+      expect(version.history_line_changes).to eq([ 3, 0 ])
+    end
+
+    it "counts additions and removals in the stored text diff" do
+      version = build(:plan_version, revision: 2, diff_unified: " unchanged\n-old\n+new\n+another\n")
+
+      expect(version.history_line_changes).to eq([ 2, 1 ])
+    end
+
+    it "compares imported snapshots without a stored diff" do
+      previous = build(:plan_version, revision: 1, content_markdown: "# Plan\n\nBefore\n")
+      version = build(:plan_version, revision: 2, content_markdown: "# Plan\n\nAfter\n")
+      [ previous, version ].each(&:valid?)
+
+      expect(version.history_line_changes(previous_version: previous)).to eq([ 1, 1 ])
+    end
+  end
 end

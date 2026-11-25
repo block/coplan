@@ -36,6 +36,15 @@
       {"id":"toggle","keys":["t"],"description":"Toggle the table of contents"}
     ]
   },
+  "history": {
+    "group": "History",
+    "bindings": [
+      {"id":"older","keys":["ArrowDown","j"],"description":"Select an older version"},
+      {"id":"newer","keys":["ArrowUp","k"],"description":"Select a newer version"},
+      {"id":"extend-older","keys":["Shift+ArrowDown"],"description":"Move the range selection toward older versions"},
+      {"id":"extend-newer","keys":["Shift+ArrowUp"],"description":"Move the range selection toward newer versions"}
+    ]
+  },
   "comments": {
     "group": "Review comments",
     "overlays": [".thread-popover"],
