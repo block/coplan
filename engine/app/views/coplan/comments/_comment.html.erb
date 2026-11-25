@@ -11,14 +11,14 @@
      data-coplan--comment-actions-author-type-value="<%= comment.author_type %>">
   <% if comment.deleted? %>
     <div class="comment__body text-sm text-muted">
-      <em>Comment deleted</em>
+      <em><%= t("coplan.discussions.comment_deleted") %></em>
     </div>
   <% else %>
     <div class="comment__header text-sm text-muted">
       <% author = comment_author_user(comment) %>
       <% if comment.agent? %>
         <%= image_tag comment_agent_icon_source(comment), alt: "", class: "comment__agent-avatar" %>
-        <strong class="comment__agent-name"><%= comment.agent_harness&.display_name.presence || comment.agent_name.presence || "Agent" %></strong>
+        <strong class="comment__agent-name"><%= comment.agent_harness&.display_name.presence || comment.agent_name.presence || t("coplan.discussions.messages.agent") %></strong>
         <span class="comment__agent-owner"><%= comment_agent_owner_label(comment) %></span>
       <% elsif author %>
         <%= user_avatar(author) %>
@@ -26,10 +26,10 @@
       <% else %>
         <strong><%= comment_author_name(comment) %></strong>
       <% end %>
-      <span class="comment__meta"><%= time_ago_in_words(comment.created_at) %> ago<% if comment.updated_at > comment.created_at %><span class="comment__edited"> · edited</span><% end %></span>
+      <span class="comment__meta"><%= relative_ui_time(comment.created_at) %><% if comment.updated_at > comment.created_at %><span class="comment__edited"> <%= t("coplan.discussions.edited") %></span><% end %></span>
     </div>
     <div class="comment__body" data-coplan--comment-actions-target="body">
-      <%= cache(["comment-body-v2", comment], expires_in: 15.minutes, skip_digest: true) do %>
+      <%= cache(["comment-body-v2", markdown_cache_locale(comment.body_markdown, footnotes: true), comment], expires_in: 15.minutes, skip_digest: true) do %>
         <%# footnote_prefix keeps footnote ids unique per comment — the plan
             body and every other comment render in the same DOM. Comment
             images don't expand: the comments panel and footnote previews
@@ -42,17 +42,17 @@
       <div class="comment__editor" data-coplan--comment-actions-target="editor" hidden>
         <%= form_with url: plan_comment_thread_comment_path(comment.comment_thread.plan, comment.comment_thread, comment), method: :patch, data: { action: "submit->coplan--comment-actions#save" } do %>
           <%= render "coplan/comment_threads/composer_fields", plan: comment.comment_thread.plan,
-                label: "Edit comment", submit_label: "Save changes", field_name: "comment[body_markdown]",
+                label: t("coplan.discussions.messages.edit_comment"), submit_label: t("coplan.display.save_changes"), editing: true, field_name: "comment[body_markdown]",
                 field_id: dom_id(comment, :edit_body), error_id: dom_id(comment, :edit_error), body: comment.body_markdown,
                 cancel_action: "coplan--comment-actions#cancelEdit" %>
         <% end %>
       </div>
       <div class="comment__actions" data-coplan--comment-actions-target="delete" hidden>
-        <button type="button" class="comment-window__action" data-action="coplan--comment-actions#edit">Edit</button>
-        <%= button_to "Delete",
+        <button type="button" class="comment-window__action" data-action="coplan--comment-actions#edit"><%= t("coplan.common.edit") %></button>
+        <%= button_to t("coplan.discussions.messages.delete"),
               plan_comment_thread_comment_path(comment.comment_thread.plan, comment.comment_thread, comment),
               method: :delete,
-              form: { data: { turbo_confirm: "Delete this comment?" } },
+              form: { data: { turbo_confirm: t("coplan.discussions.messages.delete_this_comment") } },
               class: "comment-window__action" %>
       </div>
     <% end %>

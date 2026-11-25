@@ -1,0 +1,100 @@
+---
+en:
+  coplan:
+    client:
+      reader:
+        actual_size: Actual size
+        actual_size_hint: Actual size (1)
+        added_by: Added by %{name}
+        added_in_version: Added in v%{revision}
+        ai_agent: AI agent
+        calculating_origin: Calculating writing provenance…
+        citation_preview: Citation preview
+        close_editor: Close the editor to highlight sources
+        close_expander: Close
+        close_expander_hint: Close (Esc)
+        collapse_row: Collapse row
+        comment_on_item: Comment
+        comment_whole_diagram: Comment on whole diagram
+        copied: Copied!
+        coplan_plan: Coplan plan
+        copy_cell: Copy
+        copy_failed: Copy failed
+        copy_section_link: Copy link to this section
+        copy_section_link_named: Copy link to %{title}
+        diagram_controls: Diagram. Press C for comment mode, Enter to expand.
+        diagram_element_comment: "%{label}. Enter to comment."
+        diagram_failed: Diagram could not be rendered.
+        diagram_hover: Hover an item to comment · Esc to browse
+        diagram_whole_hint: Whole-diagram comments available · Esc to browse
+        document_sort: Back to the document's order
+        expand_diagram: Expand diagram
+        expand_image: Expand image
+        expand_row: Expand row
+        expand_table: Expand table
+        expanded_image: Expanded image
+        expanded_mermaid: Expanded Mermaid diagram
+        expanded_table: Expanded table
+        expanded_view: Expanded view
+        finish_editing: Finish editing to inspect
+        fit: Fit to screen
+        fit_hint: Fit to screen (0)
+        github_pull_request: GitHub pull request
+        github_repository: GitHub repository
+        google_doc: Google Doc
+        google_sheet: Google Sheet
+        google_slides: Google Slides
+        government_website: Government website
+        inspect_writing: Inspect writing
+        load_origin_failed: Could not load writing provenance.
+        loading_sources: Loading sources…
+        mermaid_diagram: Mermaid diagram
+        move_in_table: Move
+        no_preview_text: This section has no preview text.
+        no_source_matches: No matching prose or code to highlight.
+        open_discussions:
+          one: "%{count} open discussion, including collapsed sub-sections"
+          other: "%{count} open discussions, including collapsed sub-sections"
+        open_source: 'Open source: %{title} in a new tab (%{type}, %{domain})'
+        origin_unrecorded: Origin unrecorded
+        pan_mouse: Drag to pan · scroll or pinch to zoom · double-click to fit · 0 fit · 1 actual size
+        pan_touch: Drag to pan · pinch to zoom · double-tap to fit
+        plan_updated: This plan was updated. Your draft is preserved here — reload to see the latest version.
+        plan_updated_revision: This plan was updated (now at revision %{revision}). Your draft is preserved here — reload to see the latest version.
+        processing_upload: Processing…
+        reload: Reload
+        reset_sort: Reset sort order
+        retry: Retry
+        section_link_copied: Copied link to section
+        section_preview: 'Section preview: %{title}'
+        slide_count: Slide %{position} of %{total}
+        sort_by: Sort by %{column}
+        source_document_changed: Document changed. Reopen writing provenance.
+        source_highlights_unavailable: Source highlights unavailable in this browser
+        sources_unavailable: Sources unavailable. Try again.
+        still_calculating: Still calculating. Try again in a moment.
+        subsections: "%{title} sub-sections"
+        table: Table
+        table_columns:
+          one: "%{count} column"
+          other: "%{count} columns"
+        table_rows:
+          one: "%{count} row"
+          other: "%{count} rows"
+        too_large_to_inspect: This document is too large to inspect. Writing percentages are still available.
+        unknown_author: Unknown author
+        updated_by: |-
+          Updated by %{name}
+          %{ago} · %{when}
+        updated_since_visit: Updated since your last visit. Open History for details.
+        upload_connection_failed: Upload failed — check your connection and try again.
+        upload_status_failed: Upload failed (%{status}). Try again.
+        uploading:
+          one: Uploading %{count} file… %{percent}%
+          other: Uploading %{count} files… %{percent}%
+        website: Website
+        wrap_cells: Wrap cell text
+        zoom_in: Zoom in
+        zoom_in_hint: Zoom in (+)
+        zoom_out: Zoom out
+        zoom_out_hint: Zoom out (−)

@@ -1,6 +1,7 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
-// Copies text to the clipboard and gives lightweight "Copied!" feedback on
+// Copies text to the clipboard and gives lightweight t("coplan.client.common.copied") feedback on
 // the button that triggered it. The text comes from the `text` value when
 // present, otherwise from the `source` target's text content — so the same
 // controller works for "copy this URL" chips and "copy this snippet" blocks.
@@ -20,11 +21,11 @@ export default class extends Controller {
 
     try {
       await navigator.clipboard.writeText(text)
-      this.#flash("Copied!")
+      this.#flash(t("coplan.client.common.copied"))
     } catch {
       // Clipboard API unavailable (e.g., non-secure context). Fall back to
       // selecting the source text so the user can copy manually.
-      this.#flash("Press ⌘C to copy")
+      this.#flash(t("coplan.client.common.copy_manually"))
       if (this.hasSourceTarget) {
         const range = document.createRange()
         range.selectNodeContents(this.sourceTarget)
@@ -55,7 +56,7 @@ export default class extends Controller {
   disconnect() {
     clearTimeout(this.resetTimer)
     // Restore the label so Turbo's page cache never snapshots a stale
-    // "Copied!" state.
+    // t("coplan.client.common.copied") state.
     if (this.hasButtonTarget && this.buttonTarget.dataset.originalLabel) {
       this.buttonTarget.textContent = this.buttonTarget.dataset.originalLabel
       this.buttonTarget.classList.remove("copy-button--copied")

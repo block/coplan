@@ -1,0 +1,36 @@
+<% content_for :head do %>
+  <meta name="turbo-refresh-scroll" content="preserve">
+<% end %>
+
+<section id="language" class="card mb-md" aria-labelledby="settings-language-label">
+  <% locales = Coplan.configuration.ui_locales %>
+  <% language_names = locales.to_h { |locale| [locale.to_s, t("coplan.settings.language.native_name", locale: locale, default: locale.to_s)] } %>
+  <% options = language_names.map { |locale, name| [name, locale, { lang: locale }] } %>
+  <% browser_label = t("coplan.settings.language.browser", locale: @browser_locale, language: language_names.fetch(@browser_locale.to_s)) %>
+  <% options.unshift([browser_label, "", { lang: @browser_locale }]) %>
+  <%= form_with url: coplan.settings_language_path, method: :patch, class: "settings-row",
+        data: {
+          turbo_action: "replace",
+          controller: "coplan--language-setting",
+          action: "turbo:submit-start->coplan--language-setting#started turbo:before-fetch-response->coplan--language-setting#beforeResponse turbo:submit-end->coplan--language-setting#finished",
+          "coplan--language-setting-save-failed-value": t("coplan.settings.language.save_failed")
+        } do |form| %>
+    <div class="settings-row__main">
+      <%= form.label :language, t("coplan.settings.language.label"), for: "settings-language-choice",
+            id: "settings-language-label", class: "settings-row__label" %>
+      <p id="settings-language-hint" class="settings-row__hint"><%= t("coplan.settings.language.hint") %></p>
+    </div>
+    <div class="settings-language__action">
+      <div class="settings-language__select">
+        <%= form.select :language,
+              options_for_select(options, session[:coplan_ui_locale]),
+              {}, id: "settings-language-choice", autofocus: flash[:coplan_focus_language],
+              aria: { describedby: "settings-language-hint" },
+              data: { action: "change->coplan--language-setting#submit", "coplan--language-setting-target": "select" } %>
+      </div>
+      <p class="settings-row__hint settings-row__hint--error" role="status"
+         data-coplan--language-setting-target="error"></p>
+      <noscript><%= form.button t("coplan.settings.language.apply"), class: "btn btn--secondary" %></noscript>
+    </div>
+  <% end %>
+</section>

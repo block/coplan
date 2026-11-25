@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { diffArrays } from "diff"
 import { codeHighlight } from "coplan/code_highlight"
 import { richUploads } from "coplan/rich_uploads"
@@ -39,7 +40,7 @@ nodes = nodes.update("list_item", {
   toDOM: node => node.attrs.checked === null ? listItemSpec.toDOM(node) :
     ["li", { class: "document-editor__task", "data-coplan-task": String(node.attrs.checked) },
       ["span", { contenteditable: "false" }, ["input", { type: "checkbox", checked: node.attrs.checked ? "checked" : null,
-        "data-coplan-task-checkbox": "", "aria-label": `Task: ${node.firstChild.textContent}` }]],
+        "data-coplan-task-checkbox": "", "aria-label": t("coplan.client.editor.task_label", { text: node.firstChild.textContent }) }]],
       ["div", { class: "document-editor__task-content" }, 0]]
 })
 nodes = nodes.update("ordered_list", {
@@ -53,13 +54,13 @@ nodes = nodes.update("ordered_list", {
 nodes = nodes.addBefore("paragraph", "preserved", {
   group: "block", atom: true, attrs: { source: {}, kind: { default: null }, label: { default: null }, inserted: { default: false } },
   toDOM: node => ["div", { class: "document-editor__preserved", hidden: node.attrs.source.trim() ? null : "hidden", contenteditable: "false" },
-    ["small", "Preserved Markdown block"], ["pre", node.attrs.source]]
+    ["small", t("coplan.client.editor.preserved_block")], ["pre", node.attrs.source]]
 })
 nodes = nodes.addBefore("text", "footnote_reference", {
   inline: true, group: "inline", atom: true, attrs: { label: {} },
   leafText: node => `[^${node.attrs.label}]`,
   parseDOM: [{ tag: "sup[data-coplan-footnote]", getAttrs: dom => ({ label: dom.dataset.coplanFootnote }) }],
-  toDOM: node => ["sup", { "data-coplan-footnote": node.attrs.label, class: "document-editor__footnote", title: `Reference: ${node.attrs.label}`, contenteditable: "false" }, ["button", { type: "button", "data-citation-label": node.attrs.label, "data-action": "coplan--editor#openCitation", "aria-label": `Edit citation ${node.attrs.label}` }, `[${node.attrs.label}]`]]
+  toDOM: node => ["sup", { "data-coplan-footnote": node.attrs.label, class: "document-editor__footnote", title: t("coplan.client.editor.reference_label", { label: node.attrs.label }), contenteditable: "false" }, ["button", { type: "button", "data-citation-label": node.attrs.label, "data-action": "coplan--editor#openCitation", "aria-label": t("coplan.client.editor.edit_citation", { label: node.attrs.label }) }, `[${node.attrs.label}]`]]
 })
 const imageSpec = nodes.get("image")
 nodes = nodes.update("image", { ...imageSpec,
@@ -70,7 +71,7 @@ nodes = nodes.update("image", { ...imageSpec,
 nodes = nodes.addBefore("paragraph", "template_note", {
   group: "block", content: "text*", marks: "", code: true, defining: true, isolating: true,
   attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
-  toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Comment" }, 0]
+  toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": t("coplan.client.editor.template_comment") }, 0]
 })
 // A callout is a blockquote whose first line is a GitHub alert marker such as
 // `[!NOTE]`. The marker line is kept verbatim as an attribute, so the body
@@ -941,7 +942,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       preserved: (node, view, getPos) => sourceNodeView(node, view, getPos, preview, sourceRangeAt),
       image: (node, view, getPos) => imageNodeView(node, view, getPos),
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview, sourceRangeAt)
-    }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
+    }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": t("coplan.client.editor.document_body"), "aria-multiline": "true" },
     clipboardSerializer: new DOMSerializer({ ...DOMSerializer.nodesFromSchema(schema),
       image: node => ["img", { src: node.attrs.src, alt: node.attrs.alt, title: node.attrs.title,
         width: node.attrs.width, "data-coplan-image-width": "" }]
@@ -1427,7 +1428,7 @@ function indentCode(state, dispatch) {
 }
 
 function linkCommand(state, dispatch) {
-  const href = window.prompt("Link URL (https://…)")
+  const href = window.prompt(t("coplan.client.editor.link_url"))
   // Native prompts do not expose typing versus paste evidence.
   if (href && /^(https?:\/\/|mailto:)/i.test(href)) toggleMark(schema.marks.link, { href })(state, dispatch && (tr => dispatch(tr.setMeta("coplan-input-origin", "unknown"))))
   return true
@@ -1465,8 +1466,8 @@ function imageNodeView(initial, view, getPos) {
   image.draggable = false
   const handle = document.createElement("button")
   handle.type = "button"; handle.className = "document-editor__image-handle"
-  handle.setAttribute("aria-label", "Resize image")
-  handle.title = "Drag to resize · drag to full width to reset. Arrow keys resize; End resets."
+  handle.setAttribute("aria-label", t("coplan.client.editor.resize_image"))
+  handle.title = t("coplan.client.editor.resize_image_hint")
   handle.setAttribute("data-coplan--image-resize-target", "handle")
   handle.dataset.action = "click->coplan--image-resize#focus:prevent:stop pointerdown->coplan--image-resize#start pointermove->coplan--image-resize#move pointerup->coplan--image-resize#finish pointercancel->coplan--image-resize#cancel lostpointercapture->coplan--image-resize#cancel keydown->coplan--image-resize#keydown"
   const corner = document.createElementNS("http://www.w3.org/2000/svg", "svg")
@@ -1509,10 +1510,10 @@ function blockChrome(getPos, label) {
   dom.coplanPosition = getPos
   const header = document.createElement("div"); header.className = "document-editor__block-header"; header.contentEditable = "false"
   const title = document.createElement("span"); title.textContent = label
-  const edit = document.createElement("button"); edit.type = "button"; edit.textContent = "Edit Markdown"
+  const edit = document.createElement("button"); edit.type = "button"; edit.textContent = t("coplan.client.editor.edit_markdown")
   edit.dataset.action = "coplan--editor#editSource"
-  const copy = document.createElement("button"); copy.type = "button"; copy.textContent = "Copy"
-  copy.setAttribute("aria-label", "Copy block as Markdown")
+  const copy = document.createElement("button"); copy.type = "button"; copy.textContent = t("coplan.client.editor.copy")
+  copy.setAttribute("aria-label", t("coplan.client.editor.copy_markdown"))
   copy.dataset.action = "coplan--editor#copyBlock"
   header.append(title, edit, copy); dom.append(header)
   return { dom, header, title, edit, copy }
@@ -1532,7 +1533,7 @@ function previewSettled(body, view, getPos, sourceRangeAt) {
 
 function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
   let node = initial, generation = 0
-  const { dom, title, edit, copy } = blockChrome(getPos, "Markdown block")
+  const { dom, title, edit, copy } = blockChrome(getPos, t("coplan.client.editor.markdown_block"))
   if (["reference", "link_reference"].includes(node.attrs.kind)) {
     dom.hidden = true
     return { dom, update: next => next.type === node.type && next.attrs.kind === node.attrs.kind,
@@ -1541,10 +1542,12 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
   if (["presentation", "iframe"].includes(node.attrs.kind)) {
     dom.classList.add("document-editor__content-block")
     dom.contentEditable = "false"
-    title.textContent = node.attrs.kind === "presentation" ? "Presentation" : "Embedded page"
+    title.textContent = node.attrs.kind === "presentation"
+      ? t("coplan.client.editor.presentation")
+      : t("coplan.client.editor.embedded_page")
     edit.remove()
     const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "×"
-    remove.setAttribute("aria-label", node.attrs.kind === "presentation" ? "Remove presentation" : "Remove embedded page")
+    remove.setAttribute("aria-label", node.attrs.kind === "presentation" ? t("coplan.client.editor.remove_presentation") : t("coplan.client.editor.remove_embed"))
     remove.dataset.action = "coplan--editor#deleteContentBlock"
     dom.querySelector(".document-editor__block-header").append(remove)
     if (node.attrs.kind === "presentation") {
@@ -1554,7 +1557,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
       path.setAttribute("d", "M3 3h18v13H3z M12 16v5 M8 21h8 M7 7h10 M7 11h6")
       icon.append(path); title.prepend(icon)
-      const toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = "Preview"
+      const toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = t("coplan.client.editor.preview")
       toggle.className = "document-editor__presentation-preview"
       toggle.dataset.action = "coplan--editor#togglePresentationPreview"
       toggle.setAttribute("aria-expanded", "false")
@@ -1563,7 +1566,8 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       const status = document.createElement("small"); status.setAttribute("role", "status"); status.hidden = true; title.after(status)
       const input = document.createElement("textarea")
       input.className = "document-editor__block-source"
-      input.setAttribute("aria-label", "Presentation Markdown")
+      input.dataset.presentationSource = ""
+      input.setAttribute("aria-label", t("coplan.client.editor.presentation_markdown"))
       input.dataset.action = "input->coplan--editor#blockSourceChanged keydown->coplan--editor#blockKeydown"
       input.value = presentationContent(node.attrs.source).content
       dom.append(input, body)
@@ -1578,16 +1582,16 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
           if (before && item.attrs.kind === "presentation") deckIndex++
         })
         renderedSource = source
-        if (!renderedDeck) body.textContent = "Loading preview…"
+        if (!renderedDeck) body.textContent = t("coplan.client.editor.loading_preview")
         status.hidden = true
-        if (renderedDeck) toggle.textContent = "Refreshing…"
+        if (renderedDeck) toggle.textContent = t("coplan.client.editor.refreshing_preview")
         body.setAttribute("aria-busy", "true")
         try {
           const html = await preview(source)
           if (sequence === generation) {
             const template = document.createElement("template"); template.innerHTML = html
             const deck = template.content.querySelectorAll(".deck-region")[deckIndex]
-            if (!deck) throw new Error("Presentation unavailable")
+            if (!deck) throw new Error(t("coplan.client.editor.presentation_unavailable"))
             if (renderedDeck !== deck.outerHTML) {
               renderedDeck = deck.outerHTML
               body.replaceChildren(deck)
@@ -1596,13 +1600,13 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
           }
         } catch {
           if (sequence === generation) {
-            if (renderedDeck) { status.textContent = "Could not refresh preview. Toggle Preview to retry."; status.hidden = false }
-            else body.textContent = "Preview unavailable. Return to Markdown to keep editing."
+            if (renderedDeck) { status.textContent = t("coplan.client.editor.refresh_preview_failed"); status.hidden = false }
+            else body.textContent = t("coplan.client.editor.preview_failed_edit_markdown")
           }
         } finally {
           if (sequence === generation) {
             body.removeAttribute("aria-busy")
-            if (!body.hidden) toggle.textContent = "Edit Markdown"
+            if (!body.hidden) toggle.textContent = t("coplan.client.editor.edit_markdown")
           }
         }
       }
@@ -1617,7 +1621,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       dom.coplanTogglePreview = () => {
         const showing = body.hidden
         toggle.setAttribute("aria-expanded", String(showing))
-        toggle.textContent = showing ? "Edit Markdown" : "Preview"
+        toggle.textContent = showing ? t("coplan.client.editor.edit_markdown") : t("coplan.client.editor.preview")
         input.hidden = showing; body.hidden = !showing
         clearTimeout(previewTimer)
         if (showing) return renderPreview()
@@ -1641,12 +1645,12 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     copy.remove()
     const fields = document.createElement("div"); fields.className = "document-editor__embed-fields"
     const attrs = parseIframeSource(node.attrs.source)
-    for (const [name, label, fallback] of [["src", "URL", ""], ["title", "Title", "Embedded content"], ["width", "Width", "100%"], ["height", "Height", "480"]]) {
+    for (const [name, label, fallback] of [["src", "URL", ""], ["title", t("coplan.client.editor.embed_title"), t("coplan.client.editor.embed_content")], ["width", t("coplan.client.editor.embed_width"), "100%"], ["height", t("coplan.client.editor.embed_height"), "480"]]) {
       const wrapper = document.createElement("label"); wrapper.textContent = label
       const input = document.createElement("input"); input.value = attrs[name] || fallback
       input.dataset.embedAttribute = name
       input.dataset.action = "input->coplan--editor#embedChanged keydown->coplan--editor#blockKeydown"
-      input.setAttribute("aria-label", `Embedded page ${name === "src" ? "URL" : label.toLowerCase()}`)
+      input.setAttribute("aria-label", t("coplan.client.editor.embed_field", { field: name === "src" ? "URL" : label.toLowerCase() }))
       if (name === "src") input.inputMode = "url"
       wrapper.append(input); fields.append(wrapper)
     }
@@ -1654,7 +1658,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     const hint = document.createElement("p"); hint.className = "document-editor__embed-hint"
     const form = view.dom.closest("[data-coplan--editor-embed-domains-value]")
     const hosts = JSON.parse(form?.dataset.coplanEditorEmbedDomainsValue || form?.getAttribute("data-coplan--editor-embed-domains-value") || "[]")
-    hint.textContent = (hosts.length ? `Approved domains: ${hosts.join(", ")}. HTTPS only.` : "No iframe domains are approved. An administrator can add them in Coplan Admin.") + " Title describes the page for screen readers; it is not a visible caption."
+    hint.textContent = (hosts.length ? t("coplan.client.editor.approved_embed_domains", { hosts: hosts.join(", ") }) : t("coplan.client.editor.no_embed_domains")) + t("coplan.client.editor.embed_title_help")
     dom.append(fields, hint, previewBody)
     const settlePreview = (content, asText = false) => {
       // A preview above the active field/button must not move it mid-action.
@@ -1678,7 +1682,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       const sequence = ++generation, source = node.attrs.source
       previewTimer = setTimeout(async () => {
         try { const html = await preview?.(source); if (html && sequence === generation) settlePreview(html) }
-        catch { if (sequence === generation) settlePreview("Preview unavailable", true) }
+        catch { if (sequence === generation) settlePreview(t("coplan.client.editor.preview_unavailable"), true) }
       }, 300)
     }
     render()
@@ -1693,10 +1697,10 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
 
   dom.contentEditable = "false"
   if (node.attrs.kind === "table") {
-    edit.textContent = "Edit table"
+    edit.textContent = t("coplan.client.editor.edit_table")
     edit.dataset.action = "coplan--editor#toggleBlockSource"
     const input = document.createElement("textarea"); input.className = "document-editor__block-source"
-    input.setAttribute("aria-label", "Table Markdown"); input.hidden = true; input.value = node.attrs.source
+    input.setAttribute("aria-label", t("coplan.client.editor.table_markdown")); input.hidden = true; input.value = node.attrs.source
     input.dataset.action = "input->coplan--editor#blockSourceChanged keydown->coplan--editor#blockKeydown"
     dom.append(input)
   }
@@ -1707,7 +1711,10 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     if (dom.hidden) return
     const isTable = node.attrs.kind !== "list" && /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
     const isReferences = /^\s*\[\^[^\]]+\]:/m.test(source)
-    title.textContent = node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : "Markdown block"
+    title.textContent = node.attrs.kind === "list" ? t("coplan.client.editor.list")
+      : isTable ? t("coplan.client.editor.table")
+      : isReferences ? t("coplan.client.editor.references")
+      : t("coplan.client.editor.markdown_block")
     body.replaceChildren()
     const fallback = document.createElement("pre"); fallback.textContent = source; body.append(fallback)
     // Rendering definitions alone drops them as unused footnotes. Keep their
@@ -1730,11 +1737,11 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
 }
 function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
   let node = initial, generation = 0, timer
-  const { dom, header, title, edit } = blockChrome(getPos, "Code")
+  const { dom, header, title, edit } = blockChrome(getPos, t("coplan.client.editor.code"))
   dom.classList.add("document-editor__code-window")
   const controls = document.createElement("div"); controls.className = "document-editor__window-controls"
   const remove = document.createElement("button"); remove.type = "button"; remove.className = "document-editor__window-close"
-  remove.setAttribute("aria-label", "Delete code block"); remove.title = "Delete code block"; remove.textContent = "×"
+  remove.setAttribute("aria-label", t("coplan.client.editor.delete_code")); remove.title = t("coplan.client.editor.delete_code"); remove.textContent = "×"
   remove.dataset.action = "coplan--editor#deleteCode"
   controls.append(remove)
   for (const color of ["yellow", "green"]) {
@@ -1742,7 +1749,7 @@ function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
     dot.setAttribute("aria-hidden", "true"); controls.append(dot)
   }
   const language = document.createElement("input"); language.type = "text"; language.className = "document-editor__code-language"
-  language.setAttribute("aria-label", "Code language"); language.placeholder = "Plain text"; language.setAttribute("list", "coplan-code-languages")
+  language.setAttribute("aria-label", t("coplan.client.editor.code_language")); language.placeholder = t("coplan.client.editor.plain_text"); language.setAttribute("list", "coplan-code-languages")
   language.dataset.action = "focus->coplan--editor#languageEditingBoundary input->coplan--editor#languageInput change->coplan--editor#languageChanged blur->coplan--editor#languageEditingBoundary"
   title.replaceWith(controls, language)
   const pre = document.createElement("pre"), contentDOM = document.createElement("code"); pre.append(contentDOM); dom.append(pre)
@@ -1759,7 +1766,7 @@ function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
       try {
         const html = await preview(serializeBlock(node))
         if (sequence === generation) { diagram.innerHTML = html; previewSettled(diagram, view, getPos, sourceRangeAt) }
-      } catch { if (sequence === generation) diagram.textContent = "Preview unavailable. Your Mermaid source is retained." }
+      } catch { if (sequence === generation) diagram.textContent = t("coplan.client.editor.mermaid_preview_failed") }
     }, 250)
   }
   render()
@@ -1783,7 +1790,7 @@ export function createMarkdownDocument(element, source, changed) {
     "Ctrl-z": undo, "Meta-z": undo, "Ctrl-Shift-z": redo, "Meta-Shift-z": redo, "Ctrl-y": redo,
     Tab: (state, dispatch) => { dispatch(state.tr.insertText("  ")); return true }
   }), keymap(baseKeymap)] })
-  const view = new EditorView(element, { state, attributes: { role: "textbox", "aria-label": "Markdown source", "aria-multiline": "true", spellcheck: "false" },
+  const view = new EditorView(element, { state, attributes: { role: "textbox", "aria-label": t("coplan.client.editor.markdown_source"), "aria-multiline": "true", spellcheck: "false" },
     handlePaste(view, event) {
       const text = event.clipboardData?.getData("text/plain")
       if (text === undefined) return false

@@ -1,0 +1,73 @@
+---
+en:
+  coplan:
+    keyboard_shortcuts:
+      bindings:
+        comments:
+          next: Next open thread
+          previous: Previous open thread
+          reply: Reply to the open thread
+          resolve: Resolve the open thread
+          resolved: Show or hide resolved threads
+        deck:
+          start: Start presenting
+        editor:
+          save: Save pending changes (otherwise autosaved)
+        help:
+          show: Show keyboard shortcuts
+        library:
+          home: Clear filters or return to the library root
+          next: Select the next item
+          open: Open the selected item
+          previous: Select the previous item
+          up: Go up one folder
+        native:
+          dismiss: Close the open dialog or menu
+        outline:
+          toggle: Toggle the table of contents
+        plan:
+          back: Go back
+          next: Next section
+          previous: Previous section
+        presentation:
+          draw: Toggle the drawing pen
+          exit: Close overlay, stow pen, leave full screen, or end show
+          first: First slide
+          fullscreen: Toggle full screen
+          last: Last slide
+          next: Next slide
+          previous: Previous slide
+        reply:
+          link: Link the selected text, or insert a link
+          newline: Add a line to a comment
+          pasteLink: Paste a URL over selected text to link it
+          submit: Submit a comment or reply
+        results:
+          next: Next search result
+          open: Open the selected search result
+          previous: Previous search result
+        search:
+          open: Search plans and people
+        table:
+          copy: Copy the selected cell
+          down: Move down
+          end: Last cell in the table
+          first: First cell in the row
+          last: Last cell in the row
+          left: Move left
+          pageDown: Move down a page
+          pageUp: Move up a page
+          right: Move right
+          start: First cell in the table
+          up: Move up
+      groups:
+        editing: Editing
+        everywhere: Everywhere
+        expanded_tables: Expanded tables
+        library: Library
+        plan: Plan
+        presentations: Presentations
+        review_comments: Review comments
+        search_results: Search results
+        while_presenting: While presenting
+        writing_comments: Writing comments

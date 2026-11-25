@@ -1,3 +1,4 @@
+<% use_coplan_client_messages(:workspace) %>
 <%# Turbo must not serve a cached snapshot of the workspace on back/forward:
     the "since you last looked" strip and unread badges depend on what you
     just read, so a restoration visit re-fetches.
@@ -40,7 +41,7 @@
 
     <%# Drive-style breadcrumb: where you are in this library. Segments are
         drop targets — drag a plan or folder onto one to move it up. %>
-    <nav class="workspace-crumbs" aria-label="Folder location">
+    <nav class="workspace-crumbs" aria-label="<%= t("coplan.library.folder_location") %>">
       <%= link_to workspace_path(folder: nil),
             class: "workspace-crumbs__crumb #{'workspace-crumbs__crumb--current' if @breadcrumbs.empty?}",
             data: {
@@ -66,18 +67,18 @@
         <span class="workspace-add" data-controller="coplan--menu">
           <button type="button" class="btn btn--sm btn--icon workspace-add__trigger"
                   popovertarget="workspace-add-menu" data-coplan--menu-target="trigger"
-                  aria-label="Add plan or folder" title="Add plan or folder">
+                  aria-label="<%= t("coplan.library.add_plan_or_folder") %>" title="<%= t("coplan.library.add_plan_or_folder") %>">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           </button>
           <div id="workspace-add-menu" popover="auto" class="menu workspace-add__menu" data-coplan--menu-target="menu"
-               data-action="toggle->coplan--menu#reposition" role="menu" aria-label="Add to this folder">
+               data-action="toggle->coplan--menu#reposition" role="menu" aria-label="<%= t("coplan.interface.add_to_folder") %>">
             <button type="button" class="menu__item" role="menuitem" popovertarget="new-plan-modal" data-action="coplan--menu#close" autofocus>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
-              Plan
+              <%= t("coplan.library.plan") %>
             </button>
             <button type="button" class="menu__item" role="menuitem" popovertarget="new-folder-modal" data-action="coplan--menu#close">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-              Folder
+              <%= t("coplan.library.folder") %>
             </button>
           </div>
         </span>
@@ -87,19 +88,19 @@
     <% if flash[:archive_undo_plan_id].present? %>
       <div id="archive-confirmation" class="archive-confirmation" role="status">
         <div class="archive-confirmation__message">
-          <strong>Archived “<%= flash[:archive_undo_plan_title] %>”</strong>
-          <span>It’s hidden from this <%= @folder ? "folder" : "library" %>.</span>
+          <strong><%= t("coplan.interface.archived_plan", title: flash[:archive_undo_plan_title]) %></strong>
+          <span><%= @folder ? t("coplan.interface.hidden_from_folder") : t("coplan.interface.hidden_from_library") %></span>
         </div>
         <div class="archive-confirmation__actions">
-          <%= button_to "Undo archive", unarchive_plan_path(flash[:archive_undo_plan_id]), method: :patch,
+          <%= button_to t("coplan.library.messages.undo_archive"), unarchive_plan_path(flash[:archive_undo_plan_id]), method: :patch,
                 params: { return_to_home: true }, class: "btn btn--primary btn--sm" %>
-          <%= link_to "View archived", workspace_path(filter: "archived"), class: "btn btn--secondary btn--sm" %>
+          <%= link_to t("coplan.library.messages.view_archived"), workspace_path(filter: "archived"), class: "btn btn--secondary btn--sm" %>
         </div>
       </div>
     <% end %>
 
     <% if @can_write %>
-      <%= render layout: "coplan/shared/add_modal", locals: { id: "new-plan-modal", title: "Choose a plan type" } do %>
+      <%= render layout: "coplan/shared/add_modal", locals: { id: "new-plan-modal", title: t("coplan.library.messages.choose_a_plan_type") } do %>
         <div class="new-plan-types" data-controller="coplan--new-plan">
           <% @creation_plan_types.each do |plan_type| %>
             <%= link_to new_plan_path(plan_type_id: plan_type.id, folder_id: @folder&.id),
@@ -113,23 +114,23 @@
           <% end %>
         </div>
       <% end %>
-      <%= render layout: "coplan/shared/add_modal", locals: { id: "new-folder-modal", title: "New folder" } do %>
+      <%= render layout: "coplan/shared/add_modal", locals: { id: "new-folder-modal", title: t("coplan.library.messages.new_folder") } do %>
         <%# model: a fresh record — a bare scope: :folder would silently bind
             the @folder being viewed and prefill its name. %>
         <%= form_with model: Coplan::Folder.new, url: folders_path, scope: :folder, method: :post, class: "add-modal__form" do |f| %>
           <div class="form-group">
-            <%= f.label :name, "Name", for: "new_folder_name" %>
+            <%= f.label :name, t("coplan.access.name"), for: "new_folder_name" %>
             <%= f.text_field :name, id: "new_folder_name", required: true, maxlength: 100, autofocus: true,
-                  placeholder: "e.g. Payments" %>
+                  placeholder: t("coplan.library.messages.e_g_payments") %>
           </div>
           <div class="form-group">
-            <%= f.label :parent_id, "Inside", for: "new_folder_parent" %>
+            <%= f.label :parent_id, t("coplan.library.messages.inside"), for: "new_folder_parent" %>
             <%= f.select :parent_id,
-                  options_for_select([[ "#{workspace_root_label} (top level)", "" ]] + folder_select_options.map { |path, id, _| [ path, id ] }, @folder&.id),
+                  options_for_select([[ t("coplan.library.messages.workspace_root_label_top_level", workspace_root_label: workspace_root_label), "" ]] + folder_select_options.map { |path, id, _| [ path, id ] }, @folder&.id),
                   {}, id: "new_folder_parent" %>
           </div>
           <div class="add-modal__actions">
-            <%= f.submit "Create folder", class: "btn btn--primary btn--sm" %>
+            <%= f.submit t("coplan.library.messages.create_folder"), class: "btn btn--primary btn--sm" %>
           </div>
         <% end %>
       <% end %>
@@ -137,17 +138,17 @@
 
     <% active_filters = [] %>
     <% if params[:tag].present? %>
-      <% active_filters << ["Tag: #{params[:tag]}", workspace_path(tag: nil)] %>
+      <% active_filters << [t("coplan.library.messages.tag_tag", tag: params[:tag]), workspace_path(tag: nil)] %>
     <% end %>
     <% if params[:plan_type].present? %>
-      <% type_name = @plan_types&.find { |pt| pt.id == params[:plan_type] }&.name || "Type" %>
-      <% active_filters << ["Type: #{type_name}", workspace_path(plan_type: nil)] %>
+      <% type_name = @plan_types&.find { |pt| pt.id == params[:plan_type] }&.name || t("coplan.library.messages.type") %>
+      <% active_filters << [t("coplan.library.messages.type_type_name", type_name: type_name), workspace_path(plan_type: nil)] %>
     <% end %>
     <% if @updated_window %>
-      <% active_filters << ["Updated: last #{@updated_window.delete_suffix('d')} days", workspace_path(updated: nil)] %>
+      <% active_filters << [t("coplan.library.messages.updated_last_d_days", d: @updated_window.delete_suffix('d')), workspace_path(updated: nil)] %>
     <% end %>
     <% if @filter.present? %>
-      <% filter_label = { "draft" => "Private", "published" => "Published", "archived" => "Archived" }.fetch(@filter) %>
+      <% filter_label = { "draft" => t("coplan.search.private"), "published" => t("coplan.library.messages.published"), "archived" => t("coplan.common.messages.archived") }.fetch(@filter) %>
       <% active_filters << [filter_label, workspace_path(filter: nil)] %>
     <% end %>
 
@@ -156,10 +157,10 @@
         <% active_filters.each do |label, clear_path| %>
           <span class="workspace__filter-chip">
             <%= label %>
-            <%= link_to "✕", clear_path, class: "workspace__filter-clear", aria: { label: "Clear #{label} filter" } %>
+            <%= link_to "✕", clear_path, class: "workspace__filter-clear", aria: { label: t("coplan.library.messages.clear_label_filter", label: label) } %>
           </span>
         <% end %>
-        <%= link_to "Clear all", workspace_path(filter: nil, tag: nil, plan_type: nil, updated: nil),
+        <%= link_to t("coplan.library.messages.clear_all"), workspace_path(filter: nil, tag: nil, plan_type: nil, updated: nil),
               class: "active-filter__clear" %>
       </div>
     <% end %>
@@ -168,10 +169,10 @@
 
     <% if @subfolders %>
       <% if @recent_updates.present? %>
-        <details class="recent-updates" aria-label="Changed since you last looked">
+        <details class="recent-updates" aria-label="<%= t("coplan.library.changed_since_you_last_looked") %>">
           <summary class="recent-updates__heading">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
-            Since you last looked <span class="recent-updates__count"><%= pluralize(@recent_updates.size, "change") %></span>
+            <%= t("coplan.library.since_you_last_looked") %> <span class="recent-updates__count"><%= t("coplan.display.changes", count: @recent_updates.size) %></span>
           </summary>
           <ul class="recent-updates__list">
             <% @recent_updates.each do |entry| %>
@@ -180,7 +181,7 @@
                 <%= link_to plan.title, plan_browse_path(plan), class: "recent-updates__link" %>
                 <span class="recent-updates__badge recent-updates__badge--<%= entry[:badge].parameterize %>"><%= entry[:badge] %></span>
                 <span class="recent-updates__meta text-muted">
-                  <%= plan.created_by_user.name %> · <%= time_ago_in_words(plan.updated_at) %> ago
+                  <%= plan.created_by_user.name %> · <%= relative_ui_time(plan.updated_at) %>
                 </span>
               </li>
             <% end %>
@@ -206,20 +207,20 @@
       <% else %>
         <div id="workspace-empty-state" class="empty-state card">
           <% if @folder %>
-            <p>Nothing in <strong><%= @folder.name %></strong> yet.</p>
+            <p><%= t("coplan.interface.empty_folder_html", folder: tag.strong(@folder.name)) %></p>
             <% if @can_write %>
-              <p class="text-muted text-sm">Drag a plan here from another folder, or file one from its plan page.</p>
+              <p class="text-muted text-sm"><%= t("coplan.library.drag_a_plan_here_from") %></p>
               <%# Archived and hidden plans still count: ensure_empty would refuse. %>
               <% if @folder.placements.none? %>
-                <%= button_to "Delete folder", folder_path(@folder), method: :delete,
+                <%= button_to t("coplan.library.messages.delete_folder"), folder_path(@folder), method: :delete,
                       class: "btn btn--secondary btn--sm",
-                      form: { data: { turbo_confirm: "Delete the folder “#{@folder.name}”?" } } %>
+                      form: { data: { turbo_confirm: t("coplan.library.messages.delete_the_folder_name", name: @folder.name) } } %>
               <% end %>
             <% end %>
           <% elsif @can_write %>
-            <p>You haven't created any plans yet. Use + to add one.</p>
+            <p><%= t("coplan.library.you_haven_t_created_any") %></p>
           <% else %>
-            <p>Nothing here yet.</p>
+            <p><%= t("coplan.interface.empty_location") %></p>
           <% end %>
         </div>
       <% end %>
@@ -237,10 +238,10 @@
       <% else %>
         <div class="empty-state card">
           <% if @filter == "archived" %>
-            <p>Nothing in the archive<%= " matches the current filters" if params[:tag].present? || params[:plan_type].present? || @folder %>.</p>
-            <p class="text-muted text-sm">Archiving a plan hides it from lists and search without deleting it — it will show up here.</p>
+            <p><%= (params[:tag].present? || params[:plan_type].present? || @folder) ? t("coplan.interface.no_archived_plans_for_filter") : "#{t("coplan.library.nothing_in_the_archive")}." %></p>
+            <p class="text-muted text-sm"><%= t("coplan.library.archiving_a_plan_hides_it") %></p>
           <% else %>
-            <p>No plans match the current filters<%= " in #{@folder.name}" if @folder %>.</p>
+            <p><%= @folder ? t("coplan.interface.no_plans_in_folder", folder: @folder.name) : "#{t("coplan.library.no_plans_match_the_current")}." %></p>
           <% end %>
         </div>
       <% end %>

@@ -1,6 +1,6 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
-const DIRECTIONS = ["up", "right", "down", "left"]
 const BITS = [1, 2, 4, 8]
 const rotate = (mask) => ((mask << 1) & 15) | (mask >> 3)
 
@@ -66,18 +66,26 @@ export default class extends Controller {
     }
     this.won = connected.has(15) && Boolean(masks[15] & 2)
     this.element.classList.toggle("is-solved", this.won)
+    const list = new Intl.ListFormat(document.documentElement.lang)
+    const directions = [ t("coplan.client.lost.up"), t("coplan.client.lost.right"), t("coplan.client.lost.down"), t("coplan.client.lost.left") ]
     this.tileTargets.forEach((tile, index) => {
       tile.classList.toggle("is-connected", connected.has(index))
-      const ends = DIRECTIONS.filter((_, direction) => masks[index] & BITS[direction]).join(" and ")
-      tile.setAttribute("aria-label", `Row ${Math.floor(index / 4) + 1}, column ${index % 4 + 1}: ${ends}${connected.has(index) ? ", connected to start" : ""}. Rotate clockwise.`)
+      const cell = {
+        row: Math.floor(index / 4) + 1,
+        column: index % 4 + 1,
+        ends: list.format(directions.filter((_, direction) => masks[index] & BITS[direction]))
+      }
+      tile.setAttribute("aria-label", connected.has(index)
+        ? t("coplan.client.lost.connected_tile", cell)
+        : t("coplan.client.lost.unconnected_tile", cell))
       // Keep the focused tile reachable after winning; reset is the next tab stop.
       tile.setAttribute("aria-disabled", String(this.won))
       tile.tabIndex = this.won ? -1 : 0
     })
-    this.movesTarget.textContent = `${this.moves} ${this.moves === 1 ? "turn" : "turns"}`
+    this.movesTarget.textContent = t("coplan.client.lost.turns", { count: this.moves })
     const message = this.won
-      ? "Route found! If only every broken link were this easy."
-      : "Connect IN to OUT. The blue line shows how far you’ve made it."
+      ? t("coplan.client.lost.won")
+      : t("coplan.client.lost.instructions")
     if (this.statusTarget.textContent !== message) this.statusTarget.textContent = message
   }
 }

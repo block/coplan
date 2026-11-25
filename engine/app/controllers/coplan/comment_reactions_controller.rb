@@ -11,11 +11,11 @@ module Coplan
       kind = params[:kind].to_s
       reacted = { "true" => true, "false" => false }[params[:reacted].to_s]
       unless CommentReaction::KINDS.key?(kind) && !reacted.nil?
-        render plain: "Unknown reaction.", status: :unprocessable_content
+        render plain: I18n.t("coplan.discussions.messages.unknown_reaction"), status: :unprocessable_content
         return
       end
       if @comment.deleted?
-        render plain: "You can't react to a deleted comment.", status: :unprocessable_content
+        render plain: I18n.t("coplan.discussions.messages.you_can_t_react_to"), status: :unprocessable_content
         return
       end
 

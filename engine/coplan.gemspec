@@ -13,6 +13,7 @@ Gem::Specification.new do |spec|
   end
 
   spec.add_dependency "rails", ">= 8.0"
+  spec.add_dependency "rails-i18n", "~> 8.0"
   spec.add_dependency "commonmarker"
   spec.add_dependency "diff-lcs"
   spec.add_dependency "diffy"

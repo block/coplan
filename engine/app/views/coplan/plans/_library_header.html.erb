@@ -10,7 +10,7 @@
         <% if details.any? %><%= details.join(" · ") %> · <% end %>
         <span class="library-header__handle">/<%= @library.handle %></span>
         <% if @profile&.profile_url.present? %>
-          · <%= link_to "Directory ↗", @profile.profile_url, target: "_blank", rel: "noopener",
+          · <%= link_to t("coplan.library.messages.directory"), @profile.profile_url, target: "_blank", rel: "noopener",
                 class: "library-header__directory-link" %>
         <% end %>
       </p>
@@ -19,7 +19,7 @@
 
   <% unless @can_write %>
     <span class="library-header__badge" title="You can browse this library, but only <%= @profile&.name || @library.name %> can file things into it">
-      Read only
+      <%= t("coplan.library.read_only") %>
     </span>
   <% end %>
 </header>

@@ -1,12 +1,12 @@
-<% content_for :title, "Libraries" %>
+<% content_for :title, t("coplan.library.libraries") %>
 
 <div class="library">
   <header class="library__header">
     <div class="library__identity">
       <div>
-        <h1 class="library__title">Libraries</h1>
+        <h1 class="library__title"><%= t("coplan.library.libraries") %></h1>
         <p class="library__subtitle text-muted">
-          <%= pluralize(@libraries.size, "library") %> you can browse
+          <%= t("coplan.display.libraries", count: @libraries.size) %>
         </p>
       </div>
     </div>
@@ -23,7 +23,7 @@
         <span class="text-muted">/<%= library.handle %></span>
       </span>
       <% count = @plan_counts[library.id].to_i %>
-      <span class="folder-row__count text-muted"><%= count.zero? ? "empty" : pluralize(count, "plan") %></span>
+      <span class="folder-row__count text-muted"><%= count.zero? ? t("coplan.display.empty") : t("coplan.display.plans", count: count) %></span>
     <% end %>
   <% end %>
 </div>

@@ -1,0 +1,24 @@
+---
+en:
+  coplan:
+    client:
+      common:
+        copied: Copied!
+        copy_manually: Press ⌘C to copy
+        dictation_start_failed: Dictation couldn't start%{detail}. Check Microphone settings and try again.
+        enable_notifications_failed: Couldn't enable notifications.
+        enabling_notifications: Enabling…
+        mic_blocked: Mic blocked. Allow microphone access in your browser and system privacy settings.
+        mic_capture_failed: Couldn't capture microphone audio. Check Microphone settings and your system input.
+        mic_connection_failed: The browser's speech service couldn't connect. Try dictation in Chrome, or enable server transcription.
+        mic_language_unsupported: Speech recognition doesn't support this language. Try another browser or enable server transcription.
+        mic_no_speech: No speech heard. Check your audio input and try again.
+        mic_not_found: No microphone found. Connect an input and choose it in Microphone settings.
+        mic_open_failed: Couldn't open the microphone. Check whether another app is using it, or choose another input.
+        mic_recognition_unavailable: Speech recognition is unavailable in this browser. Try Chrome, or enable server transcription.
+        mic_unavailable: The selected microphone is unavailable. Choose another audio input.
+        notification_permission_denied: Permission was not granted.
+        notifications_ready: All set!
+        reply_notifications: You'll get a desktop notification when someone replies.
+        save_setting_failed: Couldn't save that — try again.
+        save_theme_failed: Couldn't save your theme — try again.

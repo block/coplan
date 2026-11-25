@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 /*
@@ -56,7 +57,7 @@ export default class extends Controller {
       if (restored) restored.checked = true
       this._reflect(previous)
     }
-    this._setError("Couldn't save that — try again.")
+    this._setError(t("coplan.client.settings.save_hotkey_failed"))
   }
 
   // Bits of the row that follow the choice rather than the server: the

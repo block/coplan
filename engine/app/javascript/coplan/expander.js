@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 // The shared takeover surface. Two very different things in a plan — a
 // Mermaid diagram and a data table — both need the identical outer
 // experience: a modal that owns the viewport, one title/toolbar/close
@@ -26,7 +27,7 @@ export const ICONS = {
 
 // Opens the surface. Returns a handle: fill `body`, hang controls off
 // `addTool`, write a one-line readout with `setStatus`.
-export function openExpander({ title = "", label = "Expanded view", variant = null, status = false, onClose = null, container = document.body } = {}) {
+export function openExpander({ title = "", label = t("coplan.client.reader.expanded_view"), variant = null, status = false, onClose = null, container = document.body } = {}) {
   current?.close()
 
   const dialog = document.createElement("dialog")
@@ -40,7 +41,7 @@ export function openExpander({ title = "", label = "Expanded view", variant = nu
   const heading = element("h2", "expander__title")
   heading.textContent = title
   const tools = element("div", "expander__tools")
-  const closeButton = toolButton({ label: "Close", hint: "Close (Esc)", icon: ICONS.close, className: "expander__close" })
+  const closeButton = toolButton({ label: t("coplan.client.reader.close_expander"), hint: t("coplan.client.reader.close_expander_hint"), icon: ICONS.close, className: "expander__close" })
   closeButton.addEventListener("click", () => dialog.close())
   bar.append(heading, tools, closeButton)
 
@@ -159,18 +160,18 @@ export function mountPanZoom(expander, content, { width, height, onChange = null
     onClick: () => { spec.onClick(); viewport.focus({ preventScroll: true }) }
   })
 
-  tool({ label: "Zoom out", hint: "Zoom out (−)", icon: ICONS.zoomOut, onClick: () => panZoom.zoomOut() })
+  tool({ label: t("coplan.client.reader.zoom_out"), hint: t("coplan.client.reader.zoom_out_hint"), icon: ICONS.zoomOut, onClick: () => panZoom.zoomOut() })
   readout = expander.addToolReadout(`${Math.round(panZoom.scale * 100)}%`)
-  tool({ label: "Zoom in", hint: "Zoom in (+)", icon: ICONS.zoomIn, onClick: () => panZoom.zoomIn() })
-  tool({ label: "Fit to screen", hint: "Fit to screen (0)", icon: ICONS.fit, onClick: () => panZoom.fit() })
-  tool({ label: "Actual size", hint: "Actual size (1)", icon: ICONS.actual, onClick: () => panZoom.actualSize() })
+  tool({ label: t("coplan.client.reader.zoom_in"), hint: t("coplan.client.reader.zoom_in_hint"), icon: ICONS.zoomIn, onClick: () => panZoom.zoomIn() })
+  tool({ label: t("coplan.client.reader.fit"), hint: t("coplan.client.reader.fit_hint"), icon: ICONS.fit, onClick: () => panZoom.fit() })
+  tool({ label: t("coplan.client.reader.actual_size"), hint: t("coplan.client.reader.actual_size_hint"), icon: ICONS.actual, onClick: () => panZoom.actualSize() })
 
   const hint = element("span", "expander__hint")
   // On a touch screen the gestures are the whole interface — and the
   // keyboard shortcuts are not available — so say the touch ones instead.
   hint.textContent = window.matchMedia("(hover: none)").matches
-    ? "Drag to pan · pinch to zoom · double-tap to fit"
-    : "Drag to pan · scroll or pinch to zoom · double-click to fit · 0 fit · 1 actual size"
+    ? t("coplan.client.reader.pan_touch")
+    : t("coplan.client.reader.pan_mouse")
   expander.setStatus(hint)
   // The toolbar and hint change the available canvas height. Finish the
   // initial fit synchronously, before someone can zoom or read its scale.

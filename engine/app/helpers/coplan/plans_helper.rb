@@ -52,9 +52,9 @@ module Coplan
     # label people already know — and the owner's name otherwise, because
     # the same crumb in someone else's library shouldn't claim to be yours.
     def workspace_root_label
-      return "My Plans" if @can_write
+      return I18n.t("coplan.documents.messages.my_plans") if @can_write
 
-      "#{@profile&.name || @library.owner.try(:name) || @library.name}’s plans"
+      I18n.t("coplan.documents.messages.name_s_plans", name: @profile&.name || @library.owner.try(:name) || @library.name)
     end
 
     # The folder a workspace link points at: the override when one is given
@@ -85,8 +85,8 @@ module Coplan
 
     def plan_state_badge(plan)
       flags = []
-      flags << hidden_state_flag("Private", "Not shared — hidden from lists and search; anyone with the link can still read it") if plan.draft?
-      flags << hidden_state_flag("Archived", "Hidden from lists unless filtered for") if plan.archived?
+      flags << hidden_state_flag(I18n.t("coplan.search.private"), I18n.t("coplan.documents.messages.not_shared_hidden_from_lists")) if plan.draft?
+      flags << hidden_state_flag(I18n.t("coplan.common.messages.archived"), I18n.t("coplan.documents.messages.hidden_from_lists_unless_filtered")) if plan.archived?
       return "".html_safe if flags.empty?
 
       safe_join([ " ", safe_join(flags, " ") ])
@@ -138,7 +138,7 @@ module Coplan
       content_tag(:span, glyph,
         class: "plan-type-icon plan-type-icon--#{size} plan-type-icon--#{tint}",
         title: plan_type.name,
-        aria: { label: "#{plan_type.name} document" })
+        aria: { label: I18n.t("coplan.documents.messages.name_document", name: plan_type.name) })
     end
 
     # What the mic button says about itself. The push-to-talk key is a
@@ -146,9 +146,9 @@ module Coplan
     # you which key yours ended up being — and "hold something to talk"
     # is worse than saying nothing.
     def voice_button_description(hotkey)
-      return "Comment by voice" if hotkey == "off"
+      return I18n.t("coplan.documents.messages.comment_by_voice") if hotkey == "off"
 
-      "Comment by voice — or hold #{User::VOICE_HOTKEY_LABELS[hotkey]} to talk"
+      I18n.t("coplan.documents.messages.comment_by_voice_or_hold", hotkey: voice_hotkey_label(hotkey))
     end
 
     def plan_content_preview(plan, limit: 200)

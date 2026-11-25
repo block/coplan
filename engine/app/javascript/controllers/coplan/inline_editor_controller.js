@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { captureViewport, restoreViewport } from "coplan/viewport_anchor"
 import { captureDeckPositions, restoreDeckPositions } from "coplan/deck_state"
@@ -86,9 +87,9 @@ export default class extends Controller {
     try {
       const response = await fetch(this.contentUrlValue, { cache: "no-store", signal: abort.signal, headers: { Accept: "text/html" } })
       const revision = response.headers.get("X-Coplan-Revision")
-      if (!response.ok || !revision) throw new Error("Could not refresh the reading view. Check your connection or sign in again")
+      if (!response.ok || !revision) throw new Error(t("coplan.client.editor.refresh_reader_failed"))
       const html = await response.text()
-      if (!await this.refreshThreads()) throw new Error("Could not refresh comments. Try Done again")
+      if (!await this.refreshThreads()) throw new Error(t("coplan.client.editor.refresh_comments_failed"))
       const body = this.readerTarget.querySelector("#plan-content-body")
       const deckPositions = captureDeckPositions(body)
       body.innerHTML = html
@@ -125,7 +126,7 @@ export default class extends Controller {
       this.updateOutline()
       window.Stimulus?.getControllerForElementAndIdentifier(layout, "coplan--text-selection")?.highlightAnchors()
     } catch (error) {
-      this.controller?.fail(`${error.name === "AbortError" ? "The reading view timed out" : error.message}. The editor remains open with your saved draft.`)
+      this.controller?.fail(t("coplan.client.editor.reader_kept_open", { error: error.name === "AbortError" ? t("coplan.client.editor.reader_timeout") : error.message }))
     } finally { clearTimeout(timeout); this.editorTarget.inert = false; this.closing = false; this.setTriggers(false) }
   }
 
@@ -137,7 +138,7 @@ export default class extends Controller {
 
   draftSaved(event) {
     if (!this.draftValue || !this.hasDraftStateTarget) return
-    this.draftStateTarget.textContent = `Saved · v${event.detail.revision}`
+    this.draftStateTarget.textContent = t("coplan.client.editor.inline_saved", { revision: event.detail.revision })
     document.title = `${this.controller.snapshot().title} — Coplan`
   }
 
@@ -209,7 +210,7 @@ export default class extends Controller {
     this.loading = false
     this.setTriggers(false)
     if (this.hasErrorTarget) {
-      this.errorTarget.textContent = `Could not open the editor: ${event.detail.error?.message || "please try again"}`
+      this.errorTarget.textContent = t("coplan.client.editor.editor_open_failed", { error: event.detail.error?.message || t("coplan.client.editor.try_again") })
       this.errorTarget.hidden = false
     }
   }

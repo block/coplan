@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 /*
@@ -82,8 +83,8 @@ export default class extends Controller {
         this._announce(stored)
       }
       // After a Turbo navigation this control is gone, so say it page-wide.
-      if (this.element.isConnected) this._setError("Couldn't save that — try again.")
-      else this._toast("Couldn't save your theme — try again.")
+      if (this.element.isConnected) this._setError(t("coplan.client.common.save_setting_failed"))
+      else this._toast(t("coplan.client.common.save_theme_failed"))
     })
   }
 

@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { selectedMicrophone, selectMicrophone, supportsRecognitionTrack, microphoneError } from "coplan/microphone"
 
@@ -8,7 +9,7 @@ export default class extends Controller {
   connect() {
     this.canSelect = this.transcriptionValue || supportsRecognitionTrack()
     this.refreshTarget.hidden = !this.canSelect
-    if (!this.canSelect) this.statusTarget.textContent = "This browser uses its default microphone. Change the input in browser or system settings."
+    if (!this.canSelect) this.statusTarget.textContent = t("coplan.client.discussions.system_microphone_only")
   }
 
   disconnect() { this.generation = (this.generation || 0) + 1 }
@@ -24,12 +25,12 @@ export default class extends Controller {
 
   loadDefaultInput() {
     const selected = selectedMicrophone()
-    this.inputTarget.replaceChildren(new Option("System default", ""))
-    if (selected) this.inputTarget.add(new Option("Saved microphone (unsupported)", selected))
+    this.inputTarget.replaceChildren(new Option(t("coplan.client.discussions.system_default"), ""))
+    if (selected) this.inputTarget.add(new Option(t("coplan.client.discussions.saved_microphone_unsupported"), selected))
     this.inputTarget.value = selected
     this.statusTarget.textContent = selected
-      ? "This browser cannot use the saved microphone. Choose System default to resume dictation."
-      : "This browser uses its default microphone. Change the input in browser or system settings."
+      ? t("coplan.client.discussions.saved_microphone_unusable")
+      : t("coplan.client.discussions.system_microphone_only")
     this.position()
   }
 
@@ -54,15 +55,15 @@ export default class extends Controller {
       if (!this.element.isConnected) return
       const inputs = devices.filter(device => device.kind === "audioinput")
       const selected = selectedMicrophone()
-      this.inputTarget.replaceChildren(new Option("System default", ""))
+      this.inputTarget.replaceChildren(new Option(t("coplan.client.discussions.system_default"), ""))
       inputs.filter(device => device.deviceId && device.deviceId !== "default").forEach((device, index) => {
         this.inputTarget.add(new Option(device.label || `Microphone ${index + 1}`, device.deviceId))
       })
       if (selected && !inputs.some(device => device.deviceId === selected)) {
-        this.inputTarget.add(new Option("Selected microphone (unavailable)", selected))
+        this.inputTarget.add(new Option(t("coplan.client.discussions.selected_microphone_unavailable"), selected))
       }
       this.inputTarget.value = selected
-      this.statusTarget.textContent = inputs.some(device => device.label) ? "Used for both comment dictation and the voice button." : "Allow microphone access to see input names."
+      this.statusTarget.textContent = inputs.some(device => device.label) ? t("coplan.client.discussions.microphone_use") : t("coplan.client.discussions.microphone_permission")
     } catch (error) { this.statusTarget.textContent = microphoneError(error) }
     finally { if (this.element.isConnected) this.position() }
   }
@@ -70,7 +71,7 @@ export default class extends Controller {
   async refresh() {
     const generation = this.generation = (this.generation || 0) + 1
     this.refreshTarget.disabled = true
-    this.statusTarget.textContent = "Requesting microphone access…"
+    this.statusTarget.textContent = t("coplan.client.discussions.requesting_microphone")
     try {
       // Permission reveals device names. Never record or upload this stream.
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })

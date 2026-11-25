@@ -15,7 +15,7 @@
           </span>
         </div>
         <% if allow_removal && current_user && Coplan::PlanPolicy.new(current_user, plan).update? %>
-          <%= button_to "✕", plan_reference_path(plan, ref), method: :delete, class: "references-list__remove", title: "Remove reference", data: { turbo_confirm: "Remove this reference?", turbo_stream: true } %>
+          <%= button_to "✕", plan_reference_path(plan, ref), method: :delete, class: "references-list__remove", title: t("coplan.documents.messages.remove_reference"), data: { turbo_confirm: t("coplan.documents.messages.remove_this_reference"), turbo_stream: true } %>
         <% end %>
       </li>
     <% end %>

@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
@@ -57,6 +58,6 @@ export default class extends Controller {
       this.pendingVisibilityFocus = event.target.closest('[data-visibility-option]')?.dataset.visibilityOption
       if (this.hasVisibilityButtonTarget) this.visibilityButtonTargetConnected(this.visibilityButtonTarget)
     }
-    else this.visibilityErrorTarget.textContent = "Couldn't change visibility. Please try again."
+    else this.visibilityErrorTarget.textContent = t("coplan.client.workspace.change_visibility_failed")
   }
 }

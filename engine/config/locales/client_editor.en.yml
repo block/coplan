@@ -1,0 +1,136 @@
+---
+en:
+  coplan:
+    client:
+      editor:
+        approved_embed_domains: 'Approved domains: %{hosts}. HTTPS only.'
+        check_saved_version_failed: Could not check the saved version
+        citation_changed: This citation changed while you were editing. Close and reopen it to review the new text.
+        citation_required: Add the citation text or source link.
+        citation_sync_failed: The citation is in your draft. Retry Save to sync it.
+        citation_title: 'Citation: %{label}'
+        code: Code
+        code_language: Code language
+        comment_end_marker: We couldn't add that text because it would end the comment. Use -- > to show a closing marker.
+        confirm_replace_reviewed: Replace reviewed v%{revision} with this draft? The saved version remains in history.
+        conflict_restart: Conflict — reload document to start over
+        copied: Copied
+        copy: Copy
+        copy_block_failed: Could not copy this block
+        copy_markdown: Copy block as Markdown
+        delete_code: Delete code block
+        document_body: Document body
+        done: Done
+        done_and_save: Done editing and save changes
+        done_editing: Done editing
+        done_editing_status: Done editing · %{message}
+        draft_recovered: Recovered draft · waiting to sync
+        drop_files_again: Upload failed. Drop the files again to retry.
+        earlier_formatting: Earlier formatting tools
+        edit_citation: Edit citation %{label}
+        edit_markdown: Edit Markdown
+        edit_table: Edit table
+        editing_save_failed: Couldn't save. Your edits are still here. %{message}
+        editor_load_failed: The editor could not load. Reload to retry.
+        editor_loading: The editor is still loading. Your draft is retained.
+        editor_open_failed: 'Could not open the editor: %{error}'
+        embed_content: Embedded content
+        embed_field: Embedded page %{field}
+        embed_height: Height
+        embed_title: Title
+        embed_title_help: " Title describes the page for screen readers; it is not a visible caption."
+        embed_width: Width
+        embedded_page: Embedded page
+        files_uploaded_without_insertion: Files uploaded to Attachments. Their insertion point was removed; copy their Markdown there to embed them.
+        fix_field: Correct the highlighted field to save
+        fix_field_before_back: Correct the highlighted field before going back
+        fix_field_draft: Correct the highlighted field to save this draft
+        inline_saved: Saved · v%{revision}
+        invalid_code_language: Use a language without backticks or line breaks.
+        invalid_fence: Use a language or fence info string without backticks or line breaks.
+        link_url: Link URL (https://…)
+        list: List
+        loading_preview: Loading preview…
+        markdown_block: Markdown block
+        markdown_source: Markdown source
+        merged_live: Live update merged · saving your changes
+        mermaid_preview_failed: Preview unavailable. Your Mermaid source is retained.
+        more_formatting: More formatting tools
+        no_embed_domains: No iframe domains are approved. An administrator can add them in Coplan Admin.
+        not_saved: Not saved
+        offline_draft: Offline — your draft is retained
+        offline_retry: Offline or disconnected · draft retained. We’ll retry when connected.
+        older_draft_review: An older draft needs review before syncing.
+        opening: Opening document
+        plain_text: Plain text
+        presentation: Presentation
+        presentation_markdown: Presentation Markdown
+        presentation_unavailable: Presentation unavailable
+        preserved_block: Preserved Markdown block
+        preview: Preview
+        preview_failed_edit_markdown: Preview unavailable. Return to Markdown to keep editing.
+        preview_unavailable: Preview unavailable
+        reader_kept_open: "%{error}. The editor remains open with your saved draft."
+        reader_timeout: The reading view timed out
+        ready_to_save: Changes ready to save
+        recovered_draft_review: Recovered draft needs review before syncing.
+        reference_label: 'Reference: %{label}'
+        references: References
+        refresh_comments_failed: Could not refresh comments. Try Done again
+        refresh_preview_failed: Could not refresh preview. Toggle Preview to retry.
+        refresh_reader_failed: Could not refresh the reading view. Check your connection or sign in again
+        refreshing_preview: Refreshing…
+        reload_conflict: Conflict — reload document
+        reload_saved_version: "%{message}. Reload to use the saved version."
+        remove_embed: Remove embedded page
+        remove_presentation: Remove presentation
+        resize_image: Resize image
+        resize_image_hint: Drag to resize · drag to full width to reset. Arrow keys resize; End resets.
+        resolve_before_back: Resolve the conflict before going back · draft retained
+        resolve_before_save: Resolve the conflicting edit before saving
+        retry_interrupted_upload: "%{error} Check Attachments before dropping the files again to retry."
+        retry_rejected_uploads: "%{errors} Drop rejected files again to retry."
+        retry_sync: Retry sync
+        retrying_sync: Retrying sync…
+        reused:
+          one: "%{count} existing file reused."
+          other: "%{count} existing files reused."
+        reverted: Reverted to saved version · v%{revision}
+        reverting: Reverting…
+        review_before_replacing: Review this older draft before replacing the saved version
+        review_both_versions: "%{message}. Your draft and the saved version are both retained. Review them before continuing."
+        same_passage_conflict: Both edits change the same passage
+        save_before_upload: Save this document before uploading. Your files have not been uploaded; drop them again to retry.
+        save_citation: Save citation
+        save_failed: Could not save
+        save_failed_click: Couldn't save · click to retry
+        save_timed_out: The request timed out. Your draft is retained; retry to verify the saved version.
+        saved_changes_pending: Saved · newer changes waiting
+        saved_version: All changes saved · v%{revision}
+        saving: Saving…
+        saving_before_back: Saving before going back…
+        saving_document: Saving document
+        saving_soon: Saving soon…
+        session_changed: Your session changed. Sign in again in another tab, then retry here. Your draft is retained.
+        session_draft_retained: Sign in again · draft retained
+        session_refresh_failed: Could not refresh your session. Your draft is retained; retry here after signing in.
+        sign_in_and_retry: Sign in again in another tab, then retry here. Your draft is retained.
+        sign_in_before_upload: Sign in again in another tab, then drop the files again to retry.
+        start_writing: Start writing to create this plan
+        storage_unavailable: Browser storage unavailable · keep this page open until saved
+        sync_failed: Could not sync. Check your connection or sign in again; your draft is retained.
+        table: Table
+        table_markdown: Table Markdown
+        tag_conflict: Both edits change the tags
+        task_label: 'Task: %{text}'
+        template_comment: Comment
+        try_again: please try again
+        updated_live: Updated live · v%{revision}
+        upload_failed: Could not upload files. Drop them again to retry.
+        upload_failed_with_session: Could not upload files. Check your connection or sign in again, then drop them again to retry.
+        upload_files_count: "%{count} files"
+        upload_interrupted: Upload interrupted. Check Attachments before dropping the files again to retry.
+        uploaded:
+          one: "%{count} file uploaded."
+          other: "%{count} files uploaded."
+        uploading_file: Uploading %{files}…

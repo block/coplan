@@ -1,6 +1,6 @@
 <dl class="writing-provenance__counts">
   <% writing_provenance_rows(summary).each do |row| %>
-    <% category = { "human" => "Human written", "ai" => "AI written", "unknown" => "Unknown" }.fetch(row.fetch(:kind)) %>
+    <% category = { "human" => t("coplan.documents.messages.human_written"), "ai" => t("coplan.documents.messages.ai_written"), "unknown" => t("coplan.common.messages.unknown") }.fetch(row.fetch(:kind)) %>
     <div>
       <dt aria-label="<%= [row.fetch(:label), category].uniq.join(", ") %>" title="<%= row.fetch(:details).join(" · ") %>"><span class="writing-provenance__swatch writing-provenance__swatch--<%= row.fetch(:kind) %>"></span><%= row.fetch(:label) %></dt>
       <dd><%= writing_provenance_percent(row.fetch(:characters), summary.fetch("total")) %></dd>
@@ -8,9 +8,9 @@
   <% end %>
 </dl>
 <div class="writing-provenance__actions">
-  <button type="button" class="writing-provenance__inspect" data-action="coplan--writing-provenance#highlight" data-coplan--writing-provenance-target="highlight">Inspect writing</button>
-  <details class="writing-provenance__info"><summary aria-label="About writing sources">ⓘ</summary>
-    <p>Shares count the non-whitespace Markdown characters still in this document. New paste and unrecorded input are Unknown. History before August 18, 2026 is Unknown unless an agent identity was recorded. Later editor changes from before writing sources launched are assumed human-written. Reported agent identities are separate from human review. Inspect text to see who added it and when; diagrams and images keep their appearance.</p>
+  <button type="button" class="writing-provenance__inspect" data-action="coplan--writing-provenance#highlight" data-coplan--writing-provenance-target="highlight"><%= t("coplan.documents.inspect_writing") %></button>
+  <details class="writing-provenance__info"><summary aria-label="<%= t("coplan.documents.about_writing_sources") %>">ⓘ</summary>
+    <p><%= t("coplan.documents.shares_count_the_non_whitespace") %></p>
   </details>
 </div>
 <p class="writing-provenance__error" role="status" hidden data-coplan--writing-provenance-target="error"></p>

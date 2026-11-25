@@ -1,0 +1,76 @@
+---
+es:
+  coplan:
+    client:
+      discussions:
+        added_to_draft: Añadido al borrador. Revísalo antes de enviarlo.
+        adding_to_draft: Añadiendo al borrador…
+        comment_by_voice: Comentar por voz
+        copied: Copiado
+        copy_failed: No se pudo copiar
+        copy_link: Copiar enlace
+        copy_link_failed: No se pudo copiar el enlace. Vuelve a intentarlo.
+        dictate: Dictar
+        dictation_timed_out: Se agotó el tiempo de transcripción. Vuelve a intentarlo.
+        dictation_unavailable: El dictado no está disponible en este navegador. Prueba Chrome o configura la transcripción en el servidor.
+        discussion_started_by: Discusión iniciada por %{name}
+        discussions_in_section:
+          one: "%{count} discusión en esta sección, abrir la primera"
+          other: "%{count} discusiones en esta sección, abrir la primera"
+        draft_changed: El borrador cambió. Cancela y vuelve a seleccionar el texto.
+        edit_failed: No se pudo guardar esta edición. Vuelve a intentarlo.
+        edit_offline: No se pudo contactar con el servidor. Tu edición sigue aquí. Intenta guardarla de nuevo.
+        element_discussions:
+          one: "%{label}. %{count} discusión. Pulsa C o Intro para comentar."
+          other: "%{label}. %{count} discusiones. Pulsa C o Intro para comentar."
+        hold_to_talk: Comentar por voz — o mantén pulsado %{shortcut} para hablar
+        input_changed: Se cambió la entrada de audio.
+        input_unsupported: La entrada seleccionada no es compatible
+        invalid_link: Introduce un URI sin espacios, por ejemplo https://… o codex://….
+        link_copied: Enlace copiado
+        link_help: Busca planes y personas o pega un enlace.
+        link_search_unavailable: La búsqueda no está disponible. Aún puedes pegar un enlace.
+        listening: Escuchando…
+        mic_unavailable: Micrófono no disponible
+        microphone_permission: Permite el acceso al micrófono para ver los nombres de las entradas.
+        microphone_start_failed: No se pudo iniciar el micrófono. Vuelve a intentarlo.
+        microphone_use: Se usa para dictar comentarios y para el botón de voz.
+        no_comments: Aún no hay comentarios.
+        no_matches: No hay coincidencias
+        no_open_discussions: No hay discusiones abiertas.
+        no_resolved_discussions: No hay discusiones resueltas.
+        no_speech: No se detectó voz. Vuelve a intentarlo.
+        no_username: sin nombre de usuario — no se puede mencionar
+        open_discussion: Abrir discusión %{position}
+        outdated_discussions: Comentarios sobre elementos anteriores (%{count})
+        post_failed: No se pudo publicar el comentario. Tu borrador sigue aquí. Vuelve a intentarlo.
+        post_offline: No se pudo contactar con el servidor. Tu borrador sigue aquí. Vuelve a intentarlo cuando se restablezca la conexión.
+        reacted_with: "%{who} reaccionó con %{reaction}"
+        reaction_failed: No se pudo guardar tu reacción. Vuelve a intentarlo.
+        requesting_microphone: Solicitando acceso al micrófono…
+        retry: Volver a intentar
+        save_first_voice: Guarda el documento antes de comentar por voz
+        saved_microphone_unsupported: Micrófono guardado (no compatible)
+        saved_microphone_unusable: Este navegador no puede usar el micrófono guardado. Elige el predeterminado del sistema para reanudar el dictado.
+        saving: Guardando…
+        search_unavailable: Búsqueda no disponible
+        searching: Buscando…
+        selected_microphone_unavailable: Micrófono seleccionado (no disponible)
+        stop: Detener
+        system_default: Predeterminado del sistema
+        system_microphone_only: Este navegador usa el micrófono predeterminado. Cambia la entrada en la configuración del navegador o del sistema.
+        tidying: Preparando el texto…
+        transcribing: Transcribiendo…
+        transcription_failed: No se pudo transcribir. Vuelve a intentarlo.
+        unnamed: "(sin nombre)"
+        voice_agent_started: El agente empezó a trabajar…
+        voice_anchor_added: Comentario añadido a «%{quote}»
+        voice_comment_added: Comentario añadido al documento
+        voice_comments_added: Se añadieron %{count} comentarios
+        voice_done: Listo. Échale un vistazo.
+        voice_input_unusable: Este navegador no puede usar el micrófono seleccionado para reconocer voz. Elige el predeterminado del sistema o prueba Chrome de escritorio.
+        voice_not_heard: No se oyó nada
+        voice_not_understood: No se entendió lo que dijiste
+        voice_received: Recibido.
+        voice_transcriber_unreachable: No se pudo contactar con el servicio de transcripción. Revisa la conexión y vuelve a intentarlo.
+        voice_transcription_timed_out: Se agotó el tiempo de transcripción. Vuelve a intentarlo.

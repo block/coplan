@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import VoiceController from "controllers/coplan/voice_controller"
 
 // Share the microphone capture, silence detection, and browser fallback with
@@ -11,8 +12,8 @@ export default class extends VoiceController {
     this.generation = 0
     if (!this.mode) {
       this.buttonTarget.disabled = true
-      this.buttonTarget.title = "Dictation is unavailable in this browser. Try Chrome or configure server transcription."
-      this.labelTarget.textContent = "Mic unavailable"
+      this.buttonTarget.title = t("coplan.client.discussions.dictation_unavailable")
+      this.labelTarget.textContent = t("coplan.client.discussions.mic_unavailable")
       return
     }
     if (this.mode === "recognize") this._setUpRecognition()
@@ -50,9 +51,9 @@ export default class extends VoiceController {
       }
     }
     this.setBusy(true)
-    this.labelTarget.textContent = "Stop"
+    this.labelTarget.textContent = t("coplan.client.discussions.stop")
     this.buttonTarget.setAttribute("aria-pressed", "true")
-    try { super._start() } catch { this._reportMiss("Couldn't start the microphone. Please try again.") }
+    try { super._start() } catch { this._reportMiss(t("coplan.client.discussions.microphone_start_failed")) }
   }
 
   async _startRecording() {
@@ -65,7 +66,7 @@ export default class extends VoiceController {
         const onstop = recorder.onstop
         recorder.onstop = () => { if (generation === this.generation) onstop() }
       }
-    } catch { this._reportMiss("Couldn't start the microphone. Please try again.") }
+    } catch { this._reportMiss(t("coplan.client.discussions.microphone_start_failed")) }
     finally {
       this.capturePending = false
       this.buttonTarget.disabled = !this.mode || this.processing
@@ -75,12 +76,12 @@ export default class extends VoiceController {
   _stopListening() {
     super._stopListening()
     this.buttonTarget.setAttribute("aria-pressed", "false")
-    this.labelTarget.textContent = "Dictate"
+    this.labelTarget.textContent = t("coplan.client.discussions.dictate")
   }
 
   microphoneChanged() {
     this.cancel()
-    this._setStatus("Audio input changed.")
+    this._setStatus(t("coplan.client.discussions.input_changed"))
   }
 
   _onRecognitionError(event) {
@@ -92,7 +93,7 @@ export default class extends VoiceController {
     super._onRecognitionEnd()
     if (!this.processing) {
       this.setBusy(false)
-      if (!this.recognitionFailed && !this.finalTranscript?.trim()) this._setStatus("No speech heard. Try again.")
+      if (!this.recognitionFailed && !this.finalTranscript?.trim()) this._setStatus(t("coplan.client.discussions.no_speech"))
     }
   }
 
@@ -100,7 +101,7 @@ export default class extends VoiceController {
     const generation = this.generation
     this.processing = true
     this.buttonTarget.disabled = true
-    this._setStatus(audio ? "Transcribing…" : "Adding to your draft…")
+    this._setStatus(audio ? t("coplan.client.discussions.transcribing") : t("coplan.client.discussions.adding_to_draft"))
     try {
       if (audio) {
         this.request = new AbortController()
@@ -112,11 +113,11 @@ export default class extends VoiceController {
         const response = await fetch(this.urlValue, { method: "POST", body, signal: this.request.signal,
           headers: { "Accept": "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content } })
         const data = await response.json()
-        if (!response.ok) throw new Error(data.error || "Couldn't transcribe. Please try again.")
+        if (!response.ok) throw new Error(data.error || t("coplan.client.discussions.transcription_failed"))
         transcript = data.transcript
       }
       if (generation !== this.generation || !this.element.isConnected) return
-      if (!transcript?.trim()) throw new Error("No speech heard. Try again.")
+      if (!transcript?.trim()) throw new Error(t("coplan.client.discussions.no_speech"))
       const input = this.inputTarget
       const start = input.selectionStart
       const end = input.selectionEnd
@@ -125,9 +126,9 @@ export default class extends VoiceController {
       input.setRangeText(prefix + transcript.trim() + suffix, start, end, "end")
       input.dispatchEvent(new Event("input", { bubbles: true }))
       input.focus({ preventScroll: true })
-      this._setStatus("Added to draft. Review before sending.")
+      this._setStatus(t("coplan.client.discussions.added_to_draft"))
     } catch (error) {
-      if (generation === this.generation) this._setStatus(error.name === "AbortError" ? "Transcription timed out. Try again." : error.message, true)
+      if (generation === this.generation) this._setStatus(error.name === "AbortError" ? t("coplan.client.discussions.dictation_timed_out") : error.message, true)
     } finally {
       if (generation === this.generation) {
         clearTimeout(this.timeout)

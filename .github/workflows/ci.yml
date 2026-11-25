@@ -34,6 +34,9 @@ jobs:
       - name: Run RuboCop
         run: bin/rubocop
 
+      - name: Lint translations
+        run: bin/i18n-lint
+
   # Database, request, service, and other non-browser coverage on both adapters.
   test:
     name: MySQL non-browser

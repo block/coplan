@@ -1,0 +1,33 @@
+---
+es:
+  coplan:
+    common:
+      actions: Acciones
+      agent: agente
+      appearance: Apariencia
+      cancel: Cancelar
+      close: Cerrar
+      comment: Comentar
+      document_outline: Índice del documento
+      edit: Editar
+      feed: Actividad
+      hide_table_of_contents: Ocultar índice
+      loading_pending: Cargando…
+      manage_reviewers: Gestionar revisores
+      messages:
+        agent_name_via_user_name: "%{agent_name} (en nombre de %{user_name})"
+        archived: Archivado
+        capitalize_environment: Entorno de %{capitalize}
+        moved_name_to_level: Se movió «%{name}» a %{level}.
+        sign_in: Iniciar sesión
+        that_folder_no_longer_exists: Esa carpeta ya no existe.
+        unknown: Desconocido
+        unknown_folder: Carpeta desconocida
+        your_session_ended_sign_in: Tu sesión terminó. Inicia sesión y vuelve a intentarlo. Tu borrador sigue aquí.
+      mode: Modo
+      open_discussion: Abrir conversación
+      reviews: Revisiones
+      show_table_of_contents_t: Mostrar índice (t)
+      signed_in_as: Sesión iniciada como
+      theme: Tema
+      toggle_t: Mostrar u ocultar (t)

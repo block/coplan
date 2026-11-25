@@ -16,6 +16,57 @@ RSpec.describe "Navigation chrome", type: :system do
 
   before { sign_in(user) }
 
+  it "tries Spanish search from Settings and restores the browser language" do
+    allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
+    visit settings_root_path
+    page.execute_script("window.languageSettingsPage = true")
+    expect(page).to have_no_button("Apply language")
+    select "Español", from: "Language"
+
+    expect(page).to have_css('html[lang="es"]')
+    expect(page).to have_css("h1", text: "Configuración")
+    expect(page).to have_select("Idioma", selected: "Español")
+    expect(page).to have_css("#settings-language-choice:focus")
+    find_button("Buscar planes y personas", enable_aria_label: true).click
+    find_field("Buscar planes y personas", enable_aria_label: true).fill_in with: "zzznomatchesqvxj"
+    expect(page).to have_text("No hay coincidencias para «zzznomatchesqvxj».")
+
+    find_field("Buscar planes y personas", enable_aria_label: true).send_keys(:escape)
+    select "Browser language (English)", from: "Idioma"
+    expect(page).to have_css('html[lang="en"]')
+    expect(page).to have_select("Language", selected: "Browser language (English)")
+    expect(page.evaluate_script("window.languageSettingsPage")).to be(true)
+  end
+
+  it "restores the dropdown and reports a network or gateway failure in place" do
+    allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
+    visit settings_root_path
+    page.execute_script(<<~JS, settings_language_path)
+      const languagePath = arguments[0]
+      const fetch = window.fetch
+      let attempts = 0
+      window.fetch = (url, options) => {
+        if (new URL(url, location.href).pathname !== languagePath) return fetch(url, options)
+        if (++attempts === 1) return Promise.reject(new TypeError("Network failure"))
+        if (attempts > 2) return fetch(url, options)
+        return Promise.resolve(new Response("<h1>Bad Gateway</h1>", {
+          status: 502, headers: { "Content-Type": "text/html" }
+        }))
+      }
+    JS
+
+    2.times do
+      select "Español", from: "Language"
+      expect(page).to have_css("#language [role='status']", text: "Couldn’t change the language. Try again.")
+      expect(page).to have_select("Language", selected: "Browser language (English)")
+      expect(page).to have_css("#settings-language-choice:focus")
+    end
+    expect(page).to have_no_text("Bad Gateway")
+
+    select "Español", from: "Language"
+    expect(page).to have_select("Idioma", selected: "Español")
+  end
+
   describe "search modal" do
     let!(:plan) { create(:plan, :published, created_by_user: user, title: "Quarterly Payments Review") }
 
@@ -35,6 +86,35 @@ RSpec.describe "Navigation chrome", type: :system do
       visit library_page_path(user)
       find(".site-nav__search").click
       expect(page).to have_css(".search-modal:popover-open")
+    end
+
+    it "announces localized loading and results as the browser types" do
+      allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
+      person = create(:coplan_user, name: "Spanish Searchable Person")
+      browser = page.driver.browser
+      browser.execute_cdp("Network.enable")
+      browser.execute_cdp("Network.setExtraHTTPHeaders", headers: { "Accept-Language" => "es-MX, en;q=0.8" })
+      visit library_page_path(user)
+      expect(page).to have_css('html[lang="es"]')
+      find_button("Buscar planes y personas", enable_aria_label: true).click
+      field = find_field("Buscar planes y personas", enable_aria_label: true)
+      expect(page).to have_css("#search-modal .search-modal__input:focus")
+
+      page.execute_script(<<~JS)
+        const announcement = document.querySelector("#search-modal [role='status']")
+        window.searchAnnouncements = []
+        new MutationObserver(() => searchAnnouncements.push(announcement.textContent))
+          .observe(announcement, { childList: true })
+      JS
+      field.fill_in with: "Spanish Searchable"
+
+      within("#search-results-listbox[aria-label='Resultados de búsqueda']") do
+        expect(page).to have_link(person.name)
+      end
+      expect(page).to have_css("#search-modal [role='status']", text: "1 resultado disponible.", visible: :all)
+      expect(page.evaluate_script("window.searchAnnouncements")).to include("Buscando…", "1 resultado disponible.")
+    ensure
+      browser&.execute_cdp("Network.setExtraHTTPHeaders", headers: {})
     end
 
     [ false, true ].each do |reduced_motion|

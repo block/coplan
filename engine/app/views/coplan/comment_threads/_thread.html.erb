@@ -16,7 +16,7 @@
         <span class="badge badge--<%= thread.status %>"><%= thread.status %></span>
       <% end %>
       <% if thread.out_of_date? %>
-        <span class="badge badge--archived">out of date</span>
+        <span class="badge badge--archived"><%= t("coplan.discussions.out_of_date") %></span>
       <% end %>
     </div>
     <% if thread.anchored? %>
@@ -38,11 +38,11 @@
     <%= render partial: "coplan/comment_threads/reply_form", locals: { thread: thread, plan: plan } %>
 
     <div class="comment-thread__actions comment-actions--owner">
-      <%= link_to "Resolve", resolve_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+      <%= link_to t("coplan.discussions.messages.resolve"), resolve_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
     </div>
   <% else %>
     <div class="comment-thread__actions comment-actions--owner">
-      <%= link_to "Reopen", reopen_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+      <%= link_to t("coplan.discussions.messages.reopen"), reopen_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
     </div>
   <% end %>
 </div>

@@ -12,20 +12,20 @@ module Coplan
       domain = reference_domain(url)
 
       case reference_type
-      when "plan" then "Coplan plan"
-      when "repository" then "GitHub repository"
-      when "pull_request" then "GitHub pull request"
+      when "plan" then I18n.t("coplan.documents.messages.coplan_plan")
+      when "repository" then I18n.t("coplan.documents.messages.github_repository")
+      when "pull_request" then I18n.t("coplan.documents.messages.github_pull_request")
       when "document"
-        return "Google Sheet" if domain == "docs.google.com" && URI.parse(url).path.start_with?("/spreadsheets/")
-        return "Google Slides" if domain == "docs.google.com" && URI.parse(url).path.start_with?("/presentation/")
-        return "Google Doc" if domain == "docs.google.com"
+        return I18n.t("coplan.documents.messages.google_sheet") if domain == "docs.google.com" && URI.parse(url).path.start_with?("/spreadsheets/")
+        return I18n.t("coplan.documents.messages.google_slides") if domain == "docs.google.com" && URI.parse(url).path.start_with?("/presentation/")
+        return I18n.t("coplan.documents.messages.google_doc") if domain == "docs.google.com"
         return "Google Drive" if domain == "drive.google.com"
         return "Notion" if domain&.end_with?("notion.so", "notion.site")
         return "Confluence" if domain&.include?("confluence")
 
-        "Document"
+        I18n.t("coplan.documents.messages.document")
       else
-        domain&.match?(/(^|\.)gov(\.|$)/) ? "Government website" : "Website"
+        domain&.match?(/(^|\.)gov(\.|$)/) ? I18n.t("coplan.documents.messages.government_website") : I18n.t("coplan.documents.messages.website")
       end
     rescue URI::InvalidURIError
       reference_type.humanize
@@ -44,6 +44,7 @@ module Coplan
       cached = Rails.cache.fetch([
         "coplan/plan-citation-back-matter",
         plan.id,
+        I18n.locale,
         *signature
       ], expires_in: 15.minutes) do
         result = build_plan_citation_back_matter(plan, references)
@@ -61,8 +62,8 @@ module Coplan
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
       doc.css("section[data-footnotes] > ol > li[id]").each do |entry|
         label = entry["id"].delete_prefix("fn-")
-        button = tag.button("Edit", type: "button", class: "citation-edit-control",
-          aria: { label: "Edit reference #{label}" },
+        button = tag.button(I18n.t("coplan.common.edit"), type: "button", class: "citation-edit-control",
+          aria: { label: I18n.t("coplan.documents.messages.edit_reference_label", label: label) },
           data: { citation_label: label, action: "coplan--inline-editor#editCitation" })
         entry.add_child(Nokogiri::HTML::DocumentFragment.parse(button))
       end
@@ -114,7 +115,7 @@ module Coplan
       metadata = [ reference_type_label(type, anchor["href"]), domain ].compact.join(" · ")
 
       anchor.add_class("citation-source")
-      anchor["aria-label"] = "Open source: #{title} in a new tab (#{metadata})"
+      anchor["aria-label"] = I18n.t("coplan.documents.messages.open_source_title_in_a", title: title, metadata: metadata)
       unless terminal_citation_source?(anchor)
         anchor.add_class("citation-source--inline")
         anchor["title"] = metadata

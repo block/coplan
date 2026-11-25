@@ -1,0 +1,13 @@
+---
+en:
+  coplan:
+    client:
+      workspace:
+        change_visibility_failed: Couldn't change visibility. Please try again.
+        folder_moved: Folder moved.
+        move_failed: Move failed
+        plan_moved: Plan moved.
+        remove_from_library: Remove from library
+        remove_tag: Remove tag %{tag}
+        save_to_library: Save to library
+        saved: Saved.

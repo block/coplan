@@ -19,7 +19,7 @@
     <%= turbo_frame_tag "plans-#{group_key}-page-#{page + 1}",
           src: workspace_path(**next_page),
           loading: :lazy do %>
-      <div class="plans-list__loading text-muted text-sm">Loading more plans…</div>
+      <div class="plans-list__loading text-muted text-sm"><%= t("coplan.library.loading_more_plans_pending") %></div>
     <% end %>
   <% end %>
 <% end %>

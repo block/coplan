@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { audioConstraints, selectedMicrophone, supportsRecognitionTrack, microphoneError } from "coplan/microphone"
 import { pageShortcutsAllowed } from "coplan/shortcuts"
@@ -29,7 +30,7 @@ import { pageShortcutsAllowed } from "coplan/shortcuts"
  *
  * It promises nothing about agents. If one happens to be attached the
  * comment wakes it through the normal event inbox, its pill flips to
- * active, and this controller speaks a short acknowledgment ("Got it.")
+ * active, and this controller speaks a short acknowledgment (t("coplan.client.discussions.voice_received"))
  * at that moment. With nobody attached it's simply a dictated comment,
  * which stays in the durable inbox for whichever agent attaches next.
  */
@@ -140,7 +141,7 @@ export default class extends Controller {
   microphoneChanged() {
     this._cancel()
     this._releaseMic()
-    this._setStatus("Audio input changed.")
+    this._setStatus(t("coplan.client.discussions.input_changed"))
   }
 
   // The mic names its own key, on hover and to a screen reader. The
@@ -150,7 +151,7 @@ export default class extends Controller {
   // than no shortcut at all.
   _describeButton() {
     const label = this._hotkeyLabel()
-    const description = label ? `Comment by voice — or hold ${label} to talk` : "Comment by voice"
+    const description = label ? t("coplan.client.discussions.hold_to_talk", { shortcut: label }) : t("coplan.client.discussions.comment_by_voice")
     this.buttonTarget.dataset.tooltip = description
     this.buttonTarget.setAttribute("aria-label", description)
   }
@@ -309,8 +310,8 @@ export default class extends Controller {
     try {
       if (selectedMicrophone()) {
         if (!supportsRecognitionTrack()) {
-          this._onRecognitionError({ name: "Selected input unsupported" })
-          this._setStatus("This browser cannot use the selected microphone for speech recognition. Choose System default or try desktop Chrome.", true)
+          this._onRecognitionError({ name: t("coplan.client.discussions.input_unsupported") })
+          this._setStatus(t("coplan.client.discussions.voice_input_unusable"), true)
           return
         }
         const stream = await navigator.mediaDevices.getUserMedia(audioConstraints())
@@ -378,12 +379,12 @@ export default class extends Controller {
   // the "yes, it can hear you" signal.
   _startTicking() {
     if (this.mode !== "record") {
-      this._setStatus("Listening…")
+      this._setStatus(t("coplan.client.discussions.listening"))
       return
     }
 
     let seconds = 0
-    this._setStatus("Listening…")
+    this._setStatus(t("coplan.client.discussions.listening"))
     clearInterval(this.tickTimer)
     this.tickTimer = setInterval(() => {
       seconds += 1
@@ -507,7 +508,7 @@ export default class extends Controller {
       // answers it by repeating the context we gave it, which arrives
       // looking like a real remark. Catch it here, before the round trip.
       if (blob.size === 0 || !heardSomething) {
-        this._reportMiss("Hmm — didn't hear anything")
+        this._reportMiss(t("coplan.client.discussions.voice_not_heard"))
         return
       }
       this._submit({ audio: blob, durationMs })
@@ -618,11 +619,11 @@ export default class extends Controller {
   // ── Posting ────────────────────────────────────────────────────────
 
   async _submit({ transcript, audio, durationMs }) {
-    this._setStatus(audio ? "Transcribing…" : "Tidying up…")
+    this._setStatus(audio ? t("coplan.client.discussions.transcribing") : t("coplan.client.discussions.tidying"))
     const editorForm = document.querySelector('[data-editing="true"] .inline-editor form.document-editor')
     if (editorForm) {
       const editor = window.Stimulus?.getControllerForElementAndIdentifier(editorForm, "coplan--editor")
-      if (!editor || !await editor.flush(true)) { this._setStatus("Save the document before commenting by voice", true); return }
+      if (!editor || !await editor.flush(true)) { this._setStatus(t("coplan.client.discussions.save_first_voice"), true); return }
     }
     // Sampled before the round trip: the viewport at the moment of
     // release is the best evidence of what the remark was about.
@@ -641,7 +642,7 @@ export default class extends Controller {
         // Audio with nothing to show for it — there is no comment to post.
         // The server distinguishes "heard nothing" from "couldn't reach
         // the transcriber", and which one it was changes what you'd do next.
-        this._reportMiss(interpreted?.error || "Couldn't make that out")
+        this._reportMiss(interpreted?.error || t("coplan.client.discussions.voice_not_understood"))
         return
       }
       comments = [{ body: this._stripFillers(transcript), anchor: null }]
@@ -691,8 +692,8 @@ export default class extends Controller {
     // observer below speaks the acknowledgment.
     this.awaitingAck = true
     this._setStatus(posted.length > 1
-      ? `${posted.length} comments added`
-      : (posted[0].anchor ? `Comment added to “${this._truncate(posted[0].anchor.text)}”` : "Comment added to document"))
+      ? t("coplan.client.discussions.voice_comments_added", { count: posted.length })
+      : (posted[0].anchor ? t("coplan.client.discussions.voice_anchor_added", { quote: this._truncate(posted[0].anchor.text) }) : t("coplan.client.discussions.voice_comment_added")))
     setTimeout(() => {
       this.awaitingAck = false
       this._setStatus("")
@@ -758,8 +759,8 @@ export default class extends Controller {
       return { comments, transcript: data.transcript }
     } catch (error) {
       return { comments: [], error: error.name === "AbortError"
-        ? "Transcription timed out. Please try again."
-        : "Couldn't reach the transcriber. Check your connection and try again." }
+        ? t("coplan.client.discussions.voice_transcription_timed_out")
+        : t("coplan.client.discussions.voice_transcriber_unreachable") }
     } finally {
       clearTimeout(timer)
     }
@@ -962,8 +963,8 @@ export default class extends Controller {
   }
 
   // The agent session pill is broadcast-replaced whole; watch it and turn
-  // its state changes into speech. active → "Got it." (once per request),
-  // pill gone/complete → "Done — take a look."
+  // its state changes into speech. active → t("coplan.client.discussions.voice_received") (once per request),
+  // pill gone/complete → t("coplan.client.discussions.voice_done")
   _watchAgentPill() {
     const pillHost = document.getElementById("plan-agent-sessions")?.parentNode
     if (!pillHost) return
@@ -973,11 +974,11 @@ export default class extends Controller {
       if (this.awaitingAck && active) {
         this.awaitingAck = false
         this.spokeAck = true
-        this._speak("Got it.")
-        this._setStatus("Agent picked it up…")
+        this._speak(t("coplan.client.discussions.voice_received"))
+        this._setStatus(t("coplan.client.discussions.voice_agent_started"))
       } else if (this.spokeAck && !active) {
         this.spokeAck = false
-        this._speak("Done — take a look.")
+        this._speak(t("coplan.client.discussions.voice_done"))
         this._setStatus("")
       }
     })

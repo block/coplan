@@ -1,22 +1,22 @@
 <div class="card access-sessions">
-  <nav class="access-tabs" aria-label="Session access">
-    <%= link_to "Valid access (#{@valid_count})", settings_agent_sessions_path(q: @query), aria: { current: ("page" if @filter == "valid") } %>
-    <%= link_to "History (#{@history_count})", settings_agent_sessions_path(filter: "history", q: @query), aria: { current: ("page" if @filter == "history") } %>
+  <nav class="access-tabs" aria-label="<%= t("coplan.access.session_access") %>">
+    <%= link_to t("coplan.access.messages.valid_access_valid_count", valid_count: @valid_count), settings_agent_sessions_path(q: @query), aria: { current: ("page" if @filter == "valid") } %>
+    <%= link_to t("coplan.access.messages.history_history_count", history_count: @history_count), settings_agent_sessions_path(filter: "history", q: @query), aria: { current: ("page" if @filter == "history") } %>
   </nav>
   <%= form_with url: settings_agent_sessions_path, method: :get, class: "form-inline access-search" do |f| %>
     <%= f.hidden_field :filter, value: @filter %>
     <div class="form-group">
-      <%= f.label :q, "Search sessions" %>
-      <%= f.search_field :q, value: @query, placeholder: "Agent, harness, model, or purpose", class: "form-control", maxlength: 200 %>
+      <%= f.label :q, t("coplan.access.messages.search_sessions") %>
+      <%= f.search_field :q, value: @query, placeholder: t("coplan.access.messages.agent_harness_model_or_purpose"), class: "form-control", maxlength: 200 %>
     </div>
-    <%= f.submit "Search", class: "btn btn--secondary", data: { turbo_submits_with: "Searching…" } %>
+    <%= f.submit t("coplan.search.title"), class: "btn btn--secondary", data: { turbo_submits_with: t("coplan.search.searching") } %>
   <% end %>
   <% if @api_tokens.empty? %>
-    <p class="access-empty"><%= @query.present? ? "No sessions match your search." : (@filter == "history" ? "No past sessions." : "No agent sessions have valid access. New sessions will appear here automatically.") %></p>
+    <p class="access-empty"><%= @query.present? ? t("coplan.access.messages.no_sessions_match_your_search") : (@filter == "history" ? t("coplan.access.messages.no_past_sessions") : t("coplan.access.messages.no_agent_sessions_have_valid")) %></p>
   <% else %>
-    <div class="data-table-scroll access-table-scroll" role="region" aria-label="Agent sessions" tabindex="0">
+    <div class="data-table-scroll access-table-scroll" role="region" aria-label="<%= t("coplan.access.agent_sessions") %>" tabindex="0">
       <table class="data-table access-table">
-        <thead><tr><th scope="col">Agent / purpose</th><th scope="col">Access</th><th scope="col">Last used</th><th scope="col">Actions</th></tr></thead>
+        <thead><tr><th scope="col"><%= t("coplan.access.agent_purpose") %></th><th scope="col"><%= t("coplan.access.access") %></th><th scope="col"><%= t("coplan.access.last_used") %></th><th scope="col"><%= t("coplan.common.actions") %></th></tr></thead>
         <tbody id="sessions-list"><%= render partial: "session_row", collection: @api_tokens, as: :token %></tbody>
       </table>
     </div>

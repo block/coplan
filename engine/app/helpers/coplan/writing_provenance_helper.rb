@@ -6,19 +6,19 @@ module Coplan
     end
 
     def writing_provenance_label(summary)
-      return "Writing origin unknown" unless summary && summary["total"].positive?
+      return I18n.t("coplan.documents.messages.writing_origin_unknown") unless summary && summary["total"].positive?
       total, counts = summary.values_at("total", "counts")
-      return "Entirely human written" if counts["human"] == total
-      return "Entirely AI written" if counts["ai"] == total
-      return "Writing origin unknown" if counts["unknown"] == total
-      return "Mostly human written" if counts["human"] > total / 2.0
+      return I18n.t("coplan.documents.messages.entirely_human_written") if counts["human"] == total
+      return I18n.t("coplan.documents.messages.entirely_ai_written") if counts["ai"] == total
+      return I18n.t("coplan.documents.messages.writing_origin_unknown") if counts["unknown"] == total
+      return I18n.t("coplan.documents.messages.mostly_human_written") if counts["human"] > total / 2.0
       if counts["ai"] > total / 2.0
         harnesses = summary.fetch("contributors").select { |source| source["kind"] == "ai" && source["harness"].present? }.group_by { |source| source["harness"] }
         dominant = harnesses.values.find { |sources| sources.sum { |source| source["characters"] } > total / 2.0 }
-        return "Mostly #{dominant.first.fetch('harness_name')} written" if dominant
-        return "Mostly AI written"
+        return I18n.t("coplan.documents.messages.mostly_harness_name_written", harness_name: dominant.first.fetch('harness_name')) if dominant
+        return I18n.t("coplan.documents.messages.mostly_ai_written")
       end
-      counts["unknown"] > total / 2.0 ? "Writing origin mostly unknown" : "Mixed writing origins"
+      counts["unknown"] > total / 2.0 ? I18n.t("coplan.documents.messages.writing_origin_mostly_unknown") : I18n.t("coplan.documents.messages.mixed_writing_origins")
     end
 
     def writing_provenance_icon(summary)
@@ -46,9 +46,9 @@ module Coplan
         kind, count = source.values_at("kind", "characters")
         next unless %w[human ai].include?(kind) && count.positive?
         label = if kind == "human"
-          source["user_name"].presence || names[source["user_id"]].presence || "Human written"
+          source["user_name"].presence || names[source["user_id"]].presence || I18n.t("coplan.documents.messages.human_written")
         else
-          source["agent_name"].presence || source["harness_name"].presence || "AI written"
+          source["agent_name"].presence || source["harness_name"].presence || I18n.t("coplan.documents.messages.ai_written")
         end
         identity = kind == "human" ? source["user_id"].presence || label : [ source["harness"], label ]
         row = (rows[[ kind, identity ]] ||= { kind: kind, label: label, characters: 0, details: [] })
@@ -57,12 +57,12 @@ module Coplan
         accounted[kind] += count
       end
       result = rows.values.sort_by { |row| [ row[:kind] == "human" ? 0 : 1, -row[:characters], row[:label] ] }
-      { "human" => "Human written", "ai" => "AI written" }.each do |kind, label|
+      { "human" => I18n.t("coplan.documents.messages.human_written"), "ai" => I18n.t("coplan.documents.messages.ai_written") }.each do |kind, label|
         remaining = summary.fetch("counts").fetch(kind) - accounted[kind]
         result << { kind: kind, label: label, characters: remaining, details: [] } if remaining.positive?
       end
       unknown = summary.fetch("counts").fetch("unknown")
-      result << { kind: "unknown", label: "Unknown", characters: unknown, details: [] } if unknown.positive?
+      result << { kind: "unknown", label: I18n.t("coplan.common.messages.unknown"), characters: unknown, details: [] } if unknown.positive?
       result
     end
 

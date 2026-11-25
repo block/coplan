@@ -1,0 +1,13 @@
+---
+es:
+  coplan:
+    feed:
+      messages:
+        clear_tag_filter: 'Quitar el filtro #%{tag}'
+        feed_coplan: Actividad — Coplan
+        see_everything: Ver todo →
+      new: nuevo
+      no_published_activity_in_the: No hay actividad publicada en las últimas dos semanas.
+      today: Hoy
+      when_someone_publishes_edits_or: Cuando alguien publique, edite o comente un plan, aparecerá aquí.
+      yesterday: Ayer

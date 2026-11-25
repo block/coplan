@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { commandFor } from "coplan/shortcuts"
 import { openExpander, attachExpandAffordance, nearestHeading, ICONS } from "coplan/expander"
@@ -33,8 +34,8 @@ export default class extends Controller {
     this.observer.observe(this.table)
 
     this.affordance = attachExpandAffordance(this.element, {
-      label: "Expand table",
-      hint: "Expand table",
+      label: t("coplan.client.reader.expand_table"),
+      hint: t("coplan.client.reader.expand_table"),
       className: "data-grid__expand",
       onExpand: () => this.expand()
     })
@@ -82,8 +83,8 @@ export default class extends Controller {
     if (this.expanded) return
 
     const expander = openExpander({
-      title: nearestHeading(this.element) || "Table",
-      label: "Expanded table",
+      title: nearestHeading(this.element) || t("coplan.client.reader.table"),
+      label: t("coplan.client.reader.expanded_table"),
       variant: "grid",
       container: this.element.closest('[data-controller~="coplan--source-comments"]') || document.body,
       status: true,
@@ -141,7 +142,7 @@ class Sheet {
       const sortButton = node("button", "data-sheet__sort")
       sortButton.type = "button"
       sortButton.textContent = "↕"
-      sortButton.setAttribute("aria-label", `Sort by ${cellText(cell) || index + 1}`)
+      sortButton.setAttribute("aria-label", t("coplan.client.reader.sort_by", { column: cellText(cell) || index + 1 }))
       sortButton.addEventListener("click", event => {
         event.stopPropagation()
         this.applySort(this.nextSortFor(index))
@@ -167,16 +168,16 @@ class Sheet {
     this.expander.body.append(sheet)
 
     this.wrapButton = this.expander.addTool({
-      label: "Wrap cell text",
-      hint: "Wrap cell text",
+      label: t("coplan.client.reader.wrap_cells"),
+      hint: t("coplan.client.reader.wrap_cells"),
       icon: ICONS.wrap,
       onClick: () => this.toggleWrap()
     })
     this.wrapButton.classList.toggle("is-active", this.prose)
     this.wrapButton.setAttribute("aria-pressed", String(this.prose))
     this.resetButton = this.expander.addTool({
-      label: "Reset sort order",
-      hint: "Back to the document's order",
+      label: t("coplan.client.reader.reset_sort"),
+      hint: t("coplan.client.reader.document_sort"),
       icon: ICONS.unsort,
       className: "expander__tool expander__tool--hidden",
       onClick: () => this.applySort(null)
@@ -186,12 +187,16 @@ class Sheet {
     this.column = node("span", "data-sheet__column")
     this.dimensions = node("span", "data-sheet__dimensions")
     this.dimensions.textContent =
-      `${count(this.bodyRows.length, "row")} × ${count(this.columnCount, "column")}`
+      `${t("coplan.client.reader.table_rows", { count: this.bodyRows.length })} × ${t("coplan.client.reader.table_columns", { count: this.columnCount })}`
     const hint = node("span", "expander__hint data-sheet__hint")
-    hint.innerHTML = '<kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> Move <span>·</span> <kbd>⌘/Ctrl C</kbd> Copy'
+    hint.append(
+      node("kbd", "", "←"), node("kbd", "", "↑"), node("kbd", "", "↓"), node("kbd", "", "→"),
+      " " + t("coplan.client.reader.move_in_table")+ " ", node("span", "", "·"),
+      " ", node("kbd", "", "⌘/Ctrl C"), " " + t("coplan.client.reader.copy_cell")
+    )
     this.commentButton = node("button", "btn btn--secondary btn--sm data-sheet__comment")
     this.commentButton.type = "button"
-    this.commentButton.innerHTML = '<kbd>C</kbd> Comment'
+    this.commentButton.append(node("kbd", "", "C"), " " + t("coplan.client.reader.comment_on_item"))
     this.commentButton.dataset.action = "coplan--source-comments#commentOnCell"
     this.commentButton.hidden = !this.table.querySelector("[data-source-target]")
     this.rowButton = node("button", "btn btn--secondary btn--sm data-sheet__row-toggle")
@@ -388,7 +393,7 @@ class Sheet {
     this.rowButton.disabled = !this.cursor || this.position.row === -1
     const expanded = this.cursor?.parentElement.classList.contains("is-expanded") || false
     this.rowButton.setAttribute("aria-expanded", String(expanded))
-    this.rowButton.innerHTML = `<kbd>R</kbd> ${expanded ? "Collapse" : "Expand"} row`
+    this.rowButton.replaceChildren(node("kbd", "", "R"), " " + (expanded ? t("coplan.client.reader.collapse_row") : t("coplan.client.reader.expand_row")))
   }
 
   flashCopied() {
@@ -397,18 +402,15 @@ class Sheet {
   }
 }
 
-function node(name, className) {
+function node(name, className, text) {
   const element = document.createElement(name)
   element.className = className
+  if (text) element.textContent = text
   return element
 }
 
 function clamp(value, low, high) {
   return Math.min(high, Math.max(low, value))
-}
-
-function count(n, noun) {
-  return `${n} ${noun}${n === 1 ? "" : "s"}`
 }
 
 // Spreadsheet column names: A, B, … Z, AA, AB.

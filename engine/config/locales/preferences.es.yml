@@ -1,0 +1,17 @@
+---
+es:
+  coplan:
+    preferences:
+      browser_notifications: Notificaciones del navegador
+      dark: Oscuro
+      devices_receiving_notifications: Dispositivos que reciben notificaciones
+      disable_on_this_device: Desactivar en este dispositivo
+      enable_on_this_device: Activar en este dispositivo
+      get_a_desktop_notification_when: Recibe una notificación de escritorio cuando alguien responda a tus comentarios o te mencione. Actívala en cada navegador donde quieras recibir notificaciones.
+      hold_this_key_on_a: Mantén pulsada esta tecla en un plan para dictar un comentario y suéltala para publicarlo. El botón del micrófono funciona con cualquier opción.
+      hold_to_talk: Mantén pulsado para hablar
+      light: Claro
+      macos_uses_ctrl_space_to: macOS usa Ctrl+Espacio para cambiar la fuente de entrada. Si no ocurre nada al mantener la tecla pulsada, desactiva ese atajo en Ajustes del Sistema o elige otra tecla aquí.
+      no_notifications_yet: "· aún sin notificaciones"
+      system: Sistema
+      to_remove_a_device_sign: Para eliminar un dispositivo, inicia sesión en Coplan desde ese navegador y haz clic en «Desactivar en este dispositivo».

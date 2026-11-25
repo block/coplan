@@ -1,0 +1,34 @@
+---
+es:
+  coplan:
+    client:
+      review:
+        already_reviewer: Ya participa en la revisión
+        approval_already_recorded: Tu decisión anterior ya se registró. Revisa de nuevo la solicitud actual.
+        approval_recorded: Se registró tu aprobación de la v%{revision}.
+        approve_version: Aprobar v%{revision}
+        approve_version_question: "¿Aprobar v%{revision}?"
+        changes_already_recorded: Tu solicitud de cambios anterior ya se registró. Revisa de nuevo la solicitud actual.
+        changes_requested: Se solicitaron cambios. Tus observaciones están en los comentarios del plan.
+        choose_reviewer: Elige primero a una persona de los resultados.
+        confirm_setting_failed: No se pudo confirmar la configuración. Vuelve a intentarlo.
+        load_diff_failed: No se pudo cargar la comparación. Vuelve a intentarlo.
+        loading_diff: Cargando cambios…
+        no_people: No se encontraron personas.
+        offline_review: No se pudo contactar con Coplan. Tu borrador sigue aquí. Comprueba que el servidor esté disponible y vuelve a intentarlo.
+        posting: Publicando…
+        recording: Registrando…
+        refresh_comment: " Actualiza la página para ver tu comentario."
+        request_inactive: Tu solicitud de revisión ya no está activa.
+        request_inactive_with_draft: La solicitud de revisión ya no está activa. Tus observaciones sin enviar siguen aquí.
+        requesting_review: Solicitando…
+        review_save_failed: No se pudo guardar tu respuesta. Tu borrador sigue aquí. Vuelve a intentarlo.
+        reviewer_search_error: La búsqueda no está disponible. Vuelve a intentarlo.
+        save_failed: No se pudo guardar. Vuelve a intentarlo.
+        save_still_running: " Es posible que aún se esté guardando un cambio anterior. Vuelve a cambiar la opción para reintentarlo."
+        search_unavailable: Búsqueda no disponible
+        searching: Buscando…
+        sign_in_other_tab: Iniciar sesión en otra pestaña
+        stale_approval: La solicitud de revisión cambió. Cierra este cuadro y abre de nuevo la aprobación de la solicitud actual. Se conservó tu nota.
+        suggestions_unavailable: Sugerencias no disponibles
+        updating: Actualizando…

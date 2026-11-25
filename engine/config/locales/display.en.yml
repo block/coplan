@@ -1,0 +1,52 @@
+---
+en:
+  coplan:
+    display:
+      agent_sessions:
+        one: "%{count} agent session with valid access. Sessions expire automatically."
+        other: "%{count} agent sessions with valid access. Sessions expire automatically."
+      changes:
+        one: "%{count} change"
+        other: "%{count} changes"
+      date_feed: "%A, %B %-d"
+      date_review: "%b %-d, %Y"
+      date_review_full: "%B %-d, %Y at %H:%M %Z"
+      date_token: "%b %d, %Y"
+      device_added: Added %{when}
+      device_last_notified: last notified %{when}
+      empty: empty
+      entries:
+        one: "%{count} entry"
+        other: "%{count} entries"
+      history_overview: History — every version and change
+      items:
+        one: "%{count} item"
+        other: "%{count} items"
+      libraries:
+        one: "%{count} library you can browse"
+        other: "%{count} libraries you can browse"
+      more_unread:
+        one: "+ %{count} more plan with unread comments —"
+        other: "+ %{count} more plans with unread comments —"
+      notifications:
+        one: "%{count} notification"
+        other: "%{count} notifications"
+      personal_tokens:
+        one: "%{count} personal token with valid access. Set one up for a local machine when automatic authentication is unavailable."
+        other: "%{count} personal tokens with valid access. Set one up for a local machine when automatic authentication is unavailable."
+      plans:
+        one: "%{count} plan"
+        other: "%{count} plans"
+      relative_time: "%{duration} ago"
+      replies:
+        one: "%{count} reply"
+        other: "%{count} replies"
+      reviewers:
+        one: "%{count} reviewer"
+        other: "%{count} reviewers"
+      save_changes: Save changes
+      sign_in_required: Please sign in.
+      token_created: Created %{date}
+      unread:
+        one: "%{count} unread comment"
+        other: "%{count} unread comments"

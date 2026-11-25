@@ -1,0 +1,17 @@
+---
+en:
+  coplan:
+    preferences:
+      browser_notifications: Browser notifications
+      dark: Dark
+      devices_receiving_notifications: Devices receiving notifications
+      disable_on_this_device: Disable on this device
+      enable_on_this_device: Enable on this device
+      get_a_desktop_notification_when: Get a desktop notification when someone replies to your comments or mentions you. Enable this once per browser you want notifications on.
+      hold_this_key_on_a: Hold this key on a plan to dictate a comment, and release to post it. The mic button works whichever you pick.
+      hold_to_talk: Hold to talk
+      light: Light
+      macos_uses_ctrl_space_to: macOS uses Ctrl+Space to switch input sources — if nothing happens when you hold it, turn that off in System Settings or choose another key here.
+      no_notifications_yet: "· no notifications yet"
+      system: System
+      to_remove_a_device_sign: To remove a device, sign in to Coplan from that browser and click "Disable on this device".

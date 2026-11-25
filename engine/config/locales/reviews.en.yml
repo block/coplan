@@ -1,0 +1,75 @@
+---
+en:
+  coplan:
+    reviews:
+      add_reviewer: Add reviewer
+      anything_you_d_like_to: Anything you’d like to add?
+      applies_to_future_edits_for: Applies to future edits for all reviewers. When off, completed reviews stay on the version reviewed. New approvals always require the latest version.
+      approve: Approve
+      approve_this_version: Approve this version?
+      approve_version: Approve version
+      attachments_linked_or_embedded_content: Attachments, linked or embedded content, tags, and child plans are outside this approval.
+      change_decision: Change decision
+      changes_since_approval: Changes since approval
+      close_approval: Close approval
+      close_comparison: Close comparison
+      close_review_activity: Close review activity
+      close_reviews: Close reviews
+      collapse_feedback: Collapse feedback
+      compare: Compare
+      decision: Decision
+      find_a_reviewer: Find a reviewer
+      i_ve_reviewed_and_approve: I’ve reviewed and approve the Markdown source of this version.
+      messages:
+        a_review_response_was_recorded: A review response was recorded
+        agent: " (agent)"
+        agent_name_via_name: "%{agent_name} (via %{name})"
+        agent_name_via_you: "%{agent_name} (via you)"
+        content_changed_review_again: Content changed; review again
+        content_changed_review_v_current: " · Content changed; review v%{current_revision} again"
+        count_awaiting_review: " · %{count} awaiting review"
+        decision_actor_approved: "%{decision_actor} approved"
+        decision_actor_requested_changes_to: "%{decision_actor} requested changes to"
+        describe_the_adjustments_questions_or_pending: Describe the adjustments, questions, or wording you want addressed…
+        earlier_decisions_are_history_please: " · Earlier decisions are history; please review again"
+        historical_decision: " · Historical decision"
+        pending: Pending
+        public_review_comment: Public review comment
+        ready_for_another_look: Ready for another look
+        request_another_review: Request another review
+        requested_changes_on: requested changes on
+        review_settings_changed_please_try: Review settings changed. Please try again.
+        v_revision_markdown_snapshot: v%{revision} · Markdown snapshot
+        you: You
+        your_review_was_requested: Your review was requested
+      no_document_text_changed_since: No document text changed since this approval.
+      no_review_activity_yet: No review activity yet.
+      no_reviewers_yet: No reviewers yet
+      not_reviewed_yet: Not reviewed yet
+      optional: "(optional)"
+      public_anyone_who_can_read: Public · Anyone who can read this plan can join the discussion.
+      public_note: Public note
+      remove_reviewer: Remove reviewer
+      request_changes: Request changes
+      required: Required
+      review: Review
+      review_activity: Review activity
+      review_pending: Review pending
+      review_requested: Review requested
+      reviewer: Reviewer
+      reviewer_decisions: Reviewer decisions
+      reviewers: Reviewers
+      reviews_cover_the_markdown_source: Reviews cover the Markdown source only. Decisions record the version reviewed; earlier decisions remain in activity.
+      reviews_requested: Reviews requested
+      saved: Saved
+      search_by_name_or_username_pending: Search by name or username…
+      suggested: Suggested
+      the_earlier_approval_remains_recorded: The earlier approval remains recorded. Changes do not reset it automatically.
+      unread: 'Unread:'
+      version: Version
+      view_activity: View activity
+      view_feedback: View feedback
+      what_would_you_like_changed: What would you like changed?
+      your_review: Your review
+      your_review_is_requested: Your review is requested
+      your_review_tasks: Your review tasks

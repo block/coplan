@@ -1,0 +1,71 @@
+---
+en:
+  coplan:
+    access:
+      access: Access
+      acting_for: Acting for
+      advanced: "· Advanced"
+      agent_access: Agent access
+      agent_purpose: Agent / purpose
+      agent_sessions: Agent sessions
+      approve_this_computer_in_your: Approve this computer in your browser. Your agent saves its credential locally and mints its own sessions.
+      authenticated_through: Authenticated through
+      connect_your_local_agent: Connect your local agent
+      copy_this_token_now_it: Copy this token now. It will not be shown again.
+      create_a_personal_token: Create a personal token
+      create_one_token_for_your: Create one token for your local machine and store it securely. Agents use it to mint their own short-lived sessions. Revoking it also revokes the sessions minted from it.
+      created: Created
+      details: Details
+      each_agent_run_gets_its: Each agent run gets its own short-lived access. Sessions expire automatically; you can revoke access sooner. Valid access does not mean an agent is online.
+      expired: Expired
+      harness_version: Harness version
+      last_used: Last used
+      messages:
+        access_revoked: Access revoked.
+        agent_harness_model_or_purpose: Agent, harness, model, or purpose
+        agent_not_reported: Agent not reported
+        agent_sessions_coplan: Agent sessions · Coplan
+        create_token: Create Token
+        creating_pending: Creating…
+        e_g_work_laptop: e.g. Work laptop
+        expired_expires_at_ago: Expired %{expires_at} ago
+        expires_in_expires_at: Expires in %{expires_at}
+        harness_not_reported: Harness not reported
+        history_history_count: History (%{history_count})
+        host_authentication: Host authentication
+        manage_agent_sessions: Manage agent sessions
+        manage_personal_tokens: Manage personal tokens
+        model_not_reported: Model not reported
+        next: Next →
+        no_agent_sessions_have_valid: No agent sessions have valid access. New sessions will appear here automatically.
+        no_more_personal_tokens: No more personal tokens.
+        no_past_sessions: No past sessions.
+        no_personal_tokens_if_your: No personal tokens. If your host authenticates agents automatically, you do not need one.
+        no_sessions_match_your_search: No sessions match your search.
+        not_reported: Not reported
+        personal_api_tokens_coplan: Personal API tokens · Coplan
+        personal_token_and_its_sessions: Personal token and its sessions revoked.
+        personal_token_name: 'Personal token: %{name}'
+        previous: "← Previous"
+        revoke: Revoke
+        revoke_name: Revoke %{name}
+        revoking_pending: Revoking…
+        search_sessions: Search sessions
+        session_access_revoked: Session access revoked.
+        settings: "← Settings"
+        token_created_copy_it_now: Token created. Copy it now — it won't be shown again.
+        token_name: Token Name
+        valid_access_valid_count: Valid access (%{valid_count})
+      name: Name
+      name_the_machine_or_integration: Name the machine or integration that will store it, such as “Work laptop”. You usually only need one per machine.
+      never: Never
+      page: Page
+      pagination: Pagination
+      parent_access_ended: Parent access ended
+      personal_api_tokens: Personal API tokens
+      revoked: Revoked
+      session_access: Session access
+      session_id: Session ID
+      valid: Valid
+      your_new_api_token: Your new API token
+      your_personal_tokens: Your personal tokens

@@ -148,6 +148,62 @@
   color: var(--color-text-muted);
 }
 
+.settings-language__action {
+  flex: 0 1 18rem;
+  min-width: 0;
+}
+
+.settings-language__action [role="status"]:empty {
+  margin: 0;
+}
+
+.settings-language__select {
+  position: relative;
+}
+
+.settings-language__select select {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  padding-block: var(--space-sm);
+  padding-inline: var(--space-md) 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.settings-language__select::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline-end: var(--space-md);
+  width: 0.45rem;
+  height: 0.45rem;
+  border: solid var(--color-text-muted);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.settings-language__select select:hover:not(:disabled) {
+  background: var(--color-interaction-hover-bg);
+  border-color: var(--color-border-strong);
+}
+
+.settings-language__select select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.settings-language__select select:disabled {
+  opacity: 0.65;
+  cursor: progress;
+}
+
 .settings-subsection {
   margin-top: var(--space-md);
   padding-top: var(--space-md);
@@ -276,6 +332,10 @@
   .settings-row__action {
     flex-basis: auto;
     align-items: stretch;
+  }
+
+  .settings-language__action {
+    flex-basis: auto;
   }
 
   .segmented {

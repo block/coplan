@@ -1,0 +1,57 @@
+---
+en:
+  coplan:
+    discussions:
+      add_reaction: Add reaction
+      cancel_link: Cancel link
+      close_element_comments: Close element comments
+      comment_deleted: Comment deleted
+      commenting_on: 'Commenting on:'
+      copy_link: Copy link
+      dictate: Dictate
+      dictate_a_comment: Dictate a comment
+      drag_to_move_arrow_keys: Drag to move · Arrow keys to reposition
+      drag_to_resize_arrow_keys: Drag to resize · Arrow keys to adjust
+      edited: "· edited"
+      element_comments: Element comments
+      enter_a_uri_such_as: Enter a URI such as https://… or codex://… without spaces.
+      insert_link: Insert link
+      messages:
+        agent: Agent
+        ai_agent: AI agent
+        comment_added: Comment added.
+        comment_deleted: Comment deleted.
+        comment_updated: Comment updated.
+        couldn_t_make_out_the: Couldn't make out the recording
+        delete: Delete
+        delete_this_comment: Delete this comment?
+        didn_t_catch_that_try: Didn't catch that — try saying it again
+        didn_t_hear_anything: Didn't hear anything
+        discussion: Discussion
+        edit_comment: Edit comment
+        name_reacted_with_kind: "%{name} reacted with %{kind}"
+        name_s_agent: "%{name}'s agent"
+        new_comment: New comment
+        not_authorized_to_delete_this: Not authorized to delete this comment.
+        posting_pending: Posting…
+        press_r_to_reply: Press r to reply
+        reopen: Reopen
+        reply: Reply
+        reply_added: Reply added.
+        resolve: Resolve
+        resolve_discussion_e: Resolve discussion (E)
+        saving_pending: Saving…
+        thread_reopened: Thread reopened.
+        thread_resolved: Thread resolved.
+        unknown_reaction: Unknown reaction.
+        user: User
+        write_a_comment: Write a comment...
+        you_can_t_react_to: You can't react to a deleted comment.
+        your_reply: Your reply
+      move_comment_window: Move comment window
+      out_of_date: out of date
+      outdated_element_comments: Outdated element comments
+      reactions: Reactions
+      resize_comment_window: Resize comment window
+      search_coplan_or_paste_a_pending: Search Coplan or paste a URI…
+      search_or_paste_a_link: Search or paste a link

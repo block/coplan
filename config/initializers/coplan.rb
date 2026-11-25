@@ -1,6 +1,8 @@
 Coplan.configure do |config|
   config.sign_in_path = "/sign_in"
 
+  config.ui_locales = %i[en es] unless Rails.env.test?
+
   config.authenticate = ->(request) {
     user_id = request.session[:user_id]
     return nil unless user_id

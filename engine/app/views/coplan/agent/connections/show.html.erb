@@ -1,9 +1,9 @@
-<% content_for :title, "Connect your computer · Coplan" %>
+<% content_for :title, t("coplan.agent_access.messages.connect_your_computer_coplan") %>
 <% content_for :head do %><meta name="turbo-cache-control" content="no-cache"><% end %>
 <div class="agent-setup">
   <header class="agent-setup__header">
-    <p class="agent-setup__eyebrow">Local agent setup</p>
-    <h1 class="agent-setup__title">Connect your computer</h1>
+    <p class="agent-setup__eyebrow"><%= t("coplan.agent_access.local_agent_setup") %></p>
+    <h1 class="agent-setup__title"><%= t("coplan.agent_access.connect_your_computer") %></h1>
   </header>
   <%= turbo_frame_tag "connection-approval" do %>
     <%= render "approval" %>

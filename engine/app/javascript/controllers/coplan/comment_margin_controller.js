@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { hidingSection } from "coplan/collapsed_sections"
 
@@ -113,7 +114,7 @@ export default class extends Controller {
       }
       badge.dataset.threadId = ids[0]
       badge.dataset.count = ids.length
-      badge.setAttribute("aria-label", `${ids.length} ${ids.length === 1 ? "discussion" : "discussions"} in this section, open the first`)
+      badge.setAttribute("aria-label", t("coplan.client.discussions.discussions_in_section", { count: ids.length }))
     }
   }
 
@@ -151,7 +152,7 @@ export default class extends Controller {
     } else {
       card.innerHTML = COMMENT_ICON
     }
-    const label = [author ? `Discussion started by ${author}` : "Discussion"]
+    const label = [author ? t("coplan.client.discussions.discussion_started_by", { name: author }) : "Discussion"]
     if (replies > 0) label.push(`${replies} ${replies === 1 ? "reply" : "replies"}`)
     card.setAttribute("aria-label", label.join(", "))
   }

@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { commentWindowTop } from "coplan/comment_window"
 import { revealSections } from "coplan/collapsed_sections"
@@ -479,19 +480,19 @@ export default class extends Controller {
     try {
       await navigator.clipboard.writeText(link.href)
       link.dataset.copied = "true"
-      link.setAttribute("aria-label", "Link copied")
-      feedback.textContent = "Copied"
+      link.setAttribute("aria-label", t("coplan.client.discussions.link_copied"))
+      feedback.textContent = t("coplan.client.discussions.copied")
     } catch {
-      link.setAttribute("aria-label", "Could not copy link — try again")
-      feedback.textContent = "Couldn’t copy"
+      link.setAttribute("aria-label", t("coplan.client.discussions.copy_link_failed"))
+      feedback.textContent = t("coplan.client.discussions.copy_failed")
       link.dataset.copyFailed = "true"
     }
     clearTimeout(link._copyFeedbackTimer)
     link._copyFeedbackTimer = setTimeout(() => {
       delete link.dataset.copied
       delete link.dataset.copyFailed
-      link.setAttribute("aria-label", "Copy link")
-      feedback.textContent = "Copy link"
+      link.setAttribute("aria-label", t("coplan.client.discussions.copy_link"))
+      feedback.textContent = t("coplan.client.discussions.copy_link")
     }, 2000)
   }
 

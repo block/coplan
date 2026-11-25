@@ -39,7 +39,7 @@ module Coplan
           html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [ :html ])
           render turbo_stream: [ turbo_stream.append(target, html), *previews ]
         end
-        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Reply added." }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: I18n.t("coplan.discussions.messages.reply_added") }
       end
     end
 
@@ -66,7 +66,7 @@ module Coplan
 
       respond_to do |format|
         format.turbo_stream { render turbo_stream: streams }
-        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Comment updated." }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: I18n.t("coplan.discussions.messages.comment_updated") }
       end
     end
 
@@ -74,7 +74,7 @@ module Coplan
       comment = @thread.comments.find(params[:id])
       policy = CommentPolicy.new(current_user, comment)
       unless policy.delete?
-        redirect_to helpers.plan_browse_path(@plan), alert: "Not authorized to delete this comment." and return
+        redirect_to helpers.plan_browse_path(@plan), alert: I18n.t("coplan.discussions.messages.not_authorized_to_delete_this") and return
       end
 
       Comments::SoftDelete.call(comment: comment, actor: current_user)
@@ -98,7 +98,7 @@ module Coplan
       # other viewers (remove/replace are idempotent on echo).
       respond_to do |format|
         format.turbo_stream { render turbo_stream: inline_stream }
-        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Comment deleted." }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: I18n.t("coplan.discussions.messages.comment_deleted") }
       end
     end
 

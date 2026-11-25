@@ -1,0 +1,42 @@
+---
+es:
+  coplan:
+    welcome:
+      a_plan_is_a_markdown: Un plan es un documento de diseño en Markdown. Escríbelo tú o pídele a un agente que lo redacte mediante la API. Los planes aparecen en las listas de toda la organización desde el principio. Si quieres, puedes mantener un plan privado y accesible solo por enlace hasta que quieras compartirlo.
+      a_semantic_agent_api: API semántica para agentes
+      agents_apply_the_edits: Los agentes aplican los cambios
+      agents_can_mint_their_own: Los agentes pueden crear su propio token de sesión con tu sesión actual.
+      applied_edit_version_4: aplicó el cambio → versión 4
+      built_for_any_ai_agent: Compatible con cualquier agente de IA
+      comments_edits_status_changes_and: Todos los lectores del plan ven al instante los comentarios, las ediciones, los cambios de estado y las versiones nuevas sin recargar la página.
+      coplan_gives_your_plans_a: Coplan reúne tus planes en un lugar donde tu equipo y los agentes de IA pueden mejorarlos juntos. Los expertos dejan comentarios en el texto, como en Google Docs. Los agentes responden a los comentarios y aplican los cambios. Cada cambio crea una versión inmutable que registra quién cambió qué, por qué y qué comentario motivó el cambio.
+      design_doc: documento de diseño
+      design_docs_built_for_ai: Documentos de diseño pensados para planificar con IA.
+      done_capped_at_5_attempts: Listo. He limitado los reintentos a 5, con una espera exponencial y una variación aleatoria.
+      every_edit_produces_a_new: Cada cambio crea una versión que registra quién o qué lo hizo, el modelo de IA y la instrucción usados, y los comentarios que lo motivaron. Siempre puedes consultar el historial, que nunca se reescribe.
+      failure_handling: Gestión de fallos
+      get_inline_feedback: Recibe comentarios en el texto
+      how_it_works: Cómo funciona
+      humans_comment_agents_edit: Las personas comentan y los agentes editan
+      humans_comment_ai_agents_edit: Las personas comentan. Los agentes de IA editan.
+      immutable_versions_with_provenance: Versiones inmutables con trazabilidad
+      inline_anchored_comments: Comentarios anclados al texto
+      messages:
+        connect_your_agent: Conecta tu agente
+        go_to_your_library: Ir a tu biblioteca
+        open_source: de código abierto
+        see_what_s_happening: Ver la actividad →
+        sign_in_to_get_started: Inicia sesión para empezar
+        welcome_to_coplan: Te damos la bienvenida a Coplan
+      payment_retry_pipeline: Flujo de reintentos de pago
+      priya_reviewer: Priya — revisora
+      realtime_collaboration: Colaboración en tiempo real
+      select_text_in_the_rendered: Selecciona texto del plan para iniciar una conversación, como en Google Docs. Los comentarios permanecen ligados al texto al que se refieren hasta que los resuelves.
+      settings_api_tokens: Configuración → Tokens de API
+      the_editing_model_is_intentionally: 'El modelo de edición asigna tareas distintas: las personas revisan y deciden, los agentes escriben. El historial queda claro y se puede auditar el motivo de cada cambio.'
+      tight_loop_retries_will_hammer: Los reintentos seguidos sobrecargarán el procesador. ¿Podemos usar una espera exponencial con un límite?
+      webhooks_notify_the_billing_service: Los webhooks avisan al servicio de facturación después del último intento y se alerta a la persona responsable del plan si la tasa de fallos supera el umbral.
+      what_you_get: Qué incluye
+      works_with_any_agent: Compatible con cualquier agente
+      write_a_plan: Escribe un plan
+      you_triage_the_feedback_agents: Tú decides qué hacer con los comentarios y los agentes escriben. El agente lee los comentarios aceptados, aplica cambios concretos y resuelve las conversaciones. Cada cambio crea una versión inmutable que registra el autor, el modelo y los comentarios que lo motivaron.

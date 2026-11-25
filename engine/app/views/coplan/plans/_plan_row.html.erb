@@ -46,7 +46,7 @@
         <%# Ided so clearing a plan's notifications can drop the badge in
             place — a row still claiming "3" after the strip cleared reads
             as a stale page. %>
-        <span id="<%= plan_unread_badge_id(plan) %>" class="inbox-badge" title="<%= pluralize(unread, "unread comment") %>"><%= unread %></span>
+        <span id="<%= plan_unread_badge_id(plan) %>" class="inbox-badge" title="<%= t("coplan.display.unread", count: unread) %>"><%= unread %></span>
       <% end %>
     </div>
     <% if summary.present? %>
@@ -54,7 +54,7 @@
     <% end %>
   </div>
   <div class="plan-row__meta">
-    <span class="plan-row__time text-muted" title="<%= plan.updated_at %>"><%= time_ago_in_words(plan.updated_at) %> ago</span>
+    <span class="plan-row__time text-muted" title="<%= plan.updated_at %>"><%= relative_ui_time(plan.updated_at) %></span>
     <span class="plan-row__avatar"><%= link_to user_avatar(plan.created_by_user), profile_path_for(plan.created_by_user), title: plan.created_by_user.name, draggable: false, data: { turbo_frame: "_top" } %></span>
   </div>
 </article>

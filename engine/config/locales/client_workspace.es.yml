@@ -1,0 +1,13 @@
+---
+es:
+  coplan:
+    client:
+      workspace:
+        change_visibility_failed: No se pudo cambiar la visibilidad. Vuelve a intentarlo.
+        folder_moved: Carpeta movida.
+        move_failed: No se pudo mover
+        plan_moved: Plan movido.
+        remove_from_library: Quitar de la biblioteca
+        remove_tag: Quitar etiqueta %{tag}
+        save_to_library: Guardar en la biblioteca
+        saved: Guardado.

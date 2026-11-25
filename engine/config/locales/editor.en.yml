@@ -1,0 +1,55 @@
+---
+en:
+  coplan:
+    editor:
+      an_older_draft_is_available: An older draft is available on this device. Its author could not be verified.
+      citation: Citation
+      citation_text_and_source_links: Citation text and source links
+      close_citation_editor: Close citation editor
+      close_editor: Close editor
+      code_block: Code block
+      code_languages: Code languages
+      discard_my_unsaved_changes: Discard my unsaved changes
+      discard_recovered_draft: Discard recovered draft
+      dismiss: Dismiss
+      dismiss_upload_errors: Dismiss upload errors
+      dual: Dual
+      editing_mode: Editing mode
+      editor: Editor
+      embed: Embed
+      heading_1: Heading 1
+      heading_2: Heading 2
+      heading_3: Heading 3
+      insert: Insert
+      insert_code_block: Insert code block
+      insert_content: Insert content
+      messages:
+        block_quote: Block quote
+        bold: Bold
+        bullet_list: Bullet list
+        document_markdown: Document Markdown
+        inline_code: Inline code
+        italic: Italic
+        link: Link
+        numbered_list: Numbered list
+        plain_text: Plain text
+        redo: Redo
+        undo: Undo
+      more_formatting_tools: More formatting tools
+      new_code_language: New code language
+      normal_text: Normal text
+      opening_document: Opening document
+      opening_document_pending: Opening document…
+      paragraph_style: Paragraph style
+      presentation: Presentation
+      raw: Raw
+      recovered_an_unsaved_draft: Recovered an unsaved draft.
+      replace_reviewed_version_with_my: Replace reviewed version with my draft
+      retry_sync: Retry sync
+      review_older_draft: Review older draft
+      review_the_saved_version: Review the saved version
+      save_citation: Save citation
+      search_languages_pending: Search languages…
+      text_formatting: Text formatting
+      toggle_table_of_contents: Toggle table of contents
+      toggle_table_of_contents_t: Toggle table of contents (t)

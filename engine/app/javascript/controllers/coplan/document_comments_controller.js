@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
@@ -57,7 +58,7 @@ export default class extends Controller {
     }))
     const visible = comments.filter(comment => !comment.hidden).length
     this.countTarget.textContent = visible || ""
-    this.emptyTarget.textContent = filter === "all" ? "No comments yet." : `No ${filter} discussions.`
+    this.emptyTarget.textContent = filter === "all" ? t("coplan.client.discussions.no_comments") : (filter === "resolved" ? t("coplan.client.discussions.no_resolved_discussions") : t("coplan.client.discussions.no_open_discussions"))
     this.emptyTarget.hidden = visible > 0 || filter === "open"
   }
 

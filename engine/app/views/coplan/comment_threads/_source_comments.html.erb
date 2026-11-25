@@ -1,4 +1,4 @@
-<aside class="source-comments comment-form comment-window" popover="manual" role="dialog" aria-label="Element comments"
+<aside class="source-comments comment-form comment-window" popover="manual" role="dialog" aria-label="<%= t("coplan.discussions.element_comments") %>"
        data-controller="coplan--composer"
        data-coplan--source-comments-target="panel"
        data-action="input->coplan--composer#fitDraft focusin->coplan--composer#fitDraft resize@window->coplan--composer#constrain scroll@window->coplan--composer#constrain coplan:editor-ready@document->coplan--composer#constrain coplan:editor-closed@document->coplan--composer#constrain toggle->coplan--composer#toggled coplan:composer-close->coplan--composer#closed toggle->coplan--source-comments#panelToggled focusin@document->coplan--source-comments#browseFocus pointerdown@document->coplan--source-comments#dismissFromOutside:capture keydown@document->coplan--source-comments#discussionKey:capture turbo:submit-end->coplan--source-comments#submitted resize@window->coplan--source-comments#positionPanel scroll@document->coplan--source-comments#positionPanel:capture">
@@ -8,7 +8,7 @@
   <%= form_with url: plan_comment_threads_path(plan), method: :post, data: { controller: "coplan--comment-submit", action: "turbo:submit-start->coplan--comment-submit#started turbo:before-fetch-response->coplan--comment-submit#response turbo:fetch-request-error->coplan--comment-submit#failed turbo:submit-end->coplan--comment-submit#finished", "coplan--source-comments-target": "composer" } do %>
     <input type="hidden" name="comment_thread[source_token]" data-coplan--source-comments-target="token">
     <div class="comment-form__anchor">
-      <span class="text-sm text-muted">Commenting on:</span>
+      <span class="text-sm text-muted"><%= t("coplan.discussions.commenting_on") %></span>
       <blockquote class="comment-form__quote" data-coplan--source-comments-target="quote"></blockquote>
     </div>
     <%= render "coplan/comment_threads/composer_fields",
@@ -19,4 +19,4 @@
 
 <button type="button" hidden class="btn btn--secondary source-comments-outdated"
         data-coplan--source-comments-target="outdated"
-        data-action="coplan--source-comments#showOutdated">Outdated element comments</button>
+        data-action="coplan--source-comments#showOutdated"><%= t("coplan.discussions.outdated_element_comments") %></button>

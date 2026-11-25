@@ -1,0 +1,63 @@
+---
+es:
+  coplan:
+    library:
+      add_plan_or_folder: Añadir plan o carpeta
+      archiving_a_plan_hides_it: Al archivar un plan, se oculta de las listas y de la búsqueda sin borrarlo. Puedes encontrarlo aquí.
+      browse_library: Explorar biblioteca
+      changed_since_you_last_looked: Cambios desde tu última visita
+      drag_a_plan_here_from: Arrastra un plan desde otra carpeta o muévelo desde su propia página.
+      filters: Filtros
+      folder: Carpeta
+      folder_location: Ubicación de la carpeta
+      folders: Carpetas
+      hidden: Ocultos
+      libraries: Bibliotecas
+      library_navigation: Navegación de la biblioteca
+      loading_more_plans_pending: Cargando más planes…
+      messages:
+        active: " · Activo"
+        choose_a_plan_type: Elige un tipo de plan
+        clear: Quitar
+        clear_all: Quitar todos
+        clear_label_filter: Quitar el filtro %{label}
+        clear_unread_comments_for_title: Quitar los comentarios sin leer de %{title}
+        couldn_t_create_folder_errors: 'No se pudo crear la carpeta: %{errors}'
+        couldn_t_create_folder_the: No se pudo crear la carpeta porque la carpeta superior ya no existe.
+        couldn_t_delete_folder_errors: 'No se pudo eliminar la carpeta: %{errors}'
+        couldn_t_move_folder_errors: 'No se pudo mover la carpeta: %{errors}'
+        create_folder: Crear carpeta
+        delete_folder: Eliminar carpeta
+        delete_the_folder_name: "¿Eliminar la carpeta «%{name}»?"
+        directory: Directorio ↗
+        e_g_payments: P. ej., Pagos
+        folder_name_created: Se creó la carpeta «%{name}».
+        folder_name_deleted: Se eliminó la carpeta «%{name}».
+        inside: Dentro de
+        last_30_days: Últimos 30 días
+        last_7_days: Últimos 7 días
+        new_folder: Nueva carpeta
+        published: Publicado
+        see_notifications: ver notificaciones
+        show_archived: Mostrar planes archivados
+        show_my_private_plans: Mostrar mis planes privados
+        showing_archived: Mostrando planes archivados
+        showing_private: Mostrando planes privados
+        tag_tag: 'Etiqueta: %{tag}'
+        type: Tipo
+        type_type_name: 'Tipo: %{type_name}'
+        undo_archive: Deshacer archivado
+        unknown_destination_folder: Carpeta de destino desconocida
+        updated_last_d_days: 'Actualizado: últimos %{d} días'
+        view_archived: Ver archivados
+        workspace_root_label_top_level: "%{workspace_root_label} (nivel superior)"
+      no_plans_match_the_current: Ningún plan coincide con los filtros actuales
+      nothing_in_the_archive: No hay planes archivados
+      plan: Plan
+      plans_that_need_your_attention: Planes que requieren tu atención
+      read_only: Solo lectura
+      since_you_last_looked: Desde tu última visita
+      tags: Etiquetas
+      types: Tipos
+      updated: Fecha de actualización
+      you_haven_t_created_any: Todavía no has creado ningún plan. Usa + para añadir uno.

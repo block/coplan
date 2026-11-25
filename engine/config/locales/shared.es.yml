@@ -1,0 +1,27 @@
+---
+es:
+  coplan:
+    shared:
+      changes_weren_t_saved: Los cambios no se guardaron
+      close_keyboard_shortcuts: Cerrar atajos de teclado
+      copy_url: Copiar URL
+      grouped_by_where_they_work: Se agrupan según dónde funcionan. Los atajos de página se pausan mientras escribes.
+      hold_to_comment_by_voice: Mantén pulsado para dejar un comentario por voz en un plan
+      keyboard_shortcuts: Atajos de teclado
+      messages:
+        page_down: Av Pág
+        page_up: Re Pág
+        return_to_document: Volver al documento
+        space: Espacio
+      no_folders_yet_create_one: Todavía no hay carpetas. Crea una desde tu espacio de trabajo para empezar a organizarte.
+      not_now: Ahora no
+      or: o
+      remove_from_library: Quitar de la biblioteca
+      save_to_library: Guardar en la biblioteca
+      tags: 'Etiquetas:'
+      title: 'Título:'
+      voice_comments: Comentarios por voz
+      want_to_know_when_someone: "¿Quieres saber cuándo alguien responde?"
+      yes_notify_me: Sí, avísame
+      your_folders: Tus carpetas
+      your_unsaved_draft: Tu borrador sin guardar

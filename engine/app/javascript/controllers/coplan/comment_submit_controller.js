@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 // Keep failures in the writing window, with the draft available for retry.
@@ -35,7 +36,7 @@ export default class extends Controller {
   response(event) {
     const response = event.detail.fetchResponse
     if (response.succeeded) return
-    this.error.textContent = "Couldn't post your comment. Your draft is still here. Try again."
+    this.error.textContent = t("coplan.client.discussions.post_failed")
     // Validation streams can provide a more specific message. HTML error
     // pages must not replace the document and take the draft with them.
     if (!response.contentType?.includes("text/vnd.turbo-stream.html")) event.preventDefault()
@@ -43,7 +44,7 @@ export default class extends Controller {
 
   failed() {
     this.followReply = false
-    this.error.textContent = "Couldn't reach the server. Your draft is still here. Try again when the connection is back."
+    this.error.textContent = t("coplan.client.discussions.post_offline")
   }
 
   finished(event) {
@@ -52,7 +53,7 @@ export default class extends Controller {
       this.error.textContent = ""
       this.button.innerHTML = this.buttonLabel
     } else if (this.error.textContent) {
-      this.button.textContent = "Try again"
+      this.button.textContent = t("coplan.client.discussions.retry")
     }
   }
 }

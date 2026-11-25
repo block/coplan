@@ -5,12 +5,12 @@
   <div class="plan-viewers__avatars">
     <% viewers.first(8).each do |viewer| %>
       <% is_you = defined?(current_user) && current_user&.id == viewer.id %>
-      <% tooltip = is_you ? "#{viewer.name} (you)" : viewer.name %>
+      <% tooltip = is_you ? t("coplan.documents.messages.name_you", name: viewer.name) : viewer.name %>
       <%# Each viewer is a person — their avatar links to their profile
           (and library). The tooltip lives on the link: ::after can't
           render on a replaced element like <img>. %>
       <%= link_to profile_path_for(viewer), class: "plan-viewers__avatar-link",
-            data: { tooltip: tooltip }, aria: { label: "#{viewer.name}’s profile" } do %>
+            data: { tooltip: tooltip }, aria: { label: t("coplan.documents.messages.name_s_profile", name: viewer.name) } do %>
         <%= user_avatar(viewer, css_class: class_names("plan-viewers__avatar", "plan-viewers__avatar--you": is_you)) %>
       <% end %>
     <% end %>
@@ -21,5 +21,5 @@
       <span class="plan-viewers__overflow plan-viewers__overflow--full">+<%= viewers.size - 8 %></span>
     <% end %>
   </div>
-  <span class="plan-viewers__label"><%= viewers.size %> viewing</span>
+  <span class="plan-viewers__label"><%= t("coplan.interface.viewing", count: viewers.size) %></span>
 <% end %>

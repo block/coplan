@@ -51,6 +51,17 @@ RSpec.describe "Missing pages", type: :request do
       expect(response.body).to include("Make a way back.")
     end
 
+    it "keeps the negotiated language when Rails rescues a missing record" do
+      allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
+      get "/plans/does-not-exist", headers: { "Accept-Language" => "es-MX" }
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.headers["Content-Language"]).to eq("es")
+      expect(response.headers["Vary"]).to include("Accept-Language")
+      expect(response.parsed_body.at_css("html")["lang"]).to eq("es")
+      expect(response.parsed_body.at_css(".site-nav__search")["aria-label"]).to eq("Buscar planes y personas")
+    end
+
     it "keeps missing record Turbo Stream responses empty" do
       get "/plans/does-not-exist", headers: { "Accept" => "text/vnd.turbo-stream.html" }
       expect(response).to have_http_status(:not_found)

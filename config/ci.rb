@@ -11,6 +11,7 @@ directory = ENV.fetch("COPLAN_CI_DIRECTORY")
 results = {}
 checks = {
   "rubocop" => [ "bin/rubocop", "--no-parallel" ],
+  "i18n-lint" => [ "bin/i18n-lint" ],
   "gem-audit" => [ "bin/bundler-audit" ],
   "importmap-audit" => [ "bin/importmap", "audit" ],
   "brakeman" => [ "bin/brakeman", "--quiet", "--no-pager", "--exit-on-warn", "--exit-on-error" ]

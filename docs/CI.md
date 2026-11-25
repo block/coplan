@@ -9,7 +9,7 @@ bin/ci
 ```
 
 This runs every RSpec file, including real-browser system specs, plus RuboCop,
-the gem and importmap audits, Brakeman, and the demo seeds twice. It does not
+translation linting, the gem and importmap audits, Brakeman, and the demo seeds twice. It does not
 run `bin/setup`, alter the development database, or replant your usual test
 database. Dependencies must already be installed. Chrome for Testing is
 provisioned by Selenium using the same local configuration as ordinary system specs.
@@ -69,7 +69,7 @@ The workflow in `.github/workflows/ci.yml` runs these jobs independently:
 
 | Job | Database | Runner | Coverage |
 | --- | --- | --- | --- |
-| Lint | None | `ubuntu-latest` | RuboCop |
+| Lint | None | `ubuntu-latest` | RuboCop, [translation catalogs](INTERNATIONALIZATION.md#check-a-change) |
 | MySQL non-browser | MySQL | `ubuntu-x86-runners` | Every spec outside `spec/system/` |
 | PostgreSQL non-browser | PostgreSQL | `ubuntu-x86-runners` | Every spec outside `spec/system/`, migration replay, reference seed idempotency |
 | MySQL browser (four shards) | MySQL | `ubuntu-x86-runners` | Every spec in `spec/system/`, exactly once |

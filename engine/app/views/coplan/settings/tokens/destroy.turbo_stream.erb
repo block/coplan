@@ -2,4 +2,4 @@
   <%= render(@sessions_view ? "session_list" : "personal_list") %>
 <% end %>
 <%= turbo_stream.update "token-reveal", "" %>
-<%= turbo_stream.update "access-feedback", (@sessions_view ? "Session access revoked." : "Personal token and its sessions revoked.") %>
+<%= turbo_stream.update "access-feedback", (@sessions_view ? t("coplan.access.messages.session_access_revoked") : t("coplan.access.messages.personal_token_and_its_sessions")) %>

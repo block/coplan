@@ -12,5 +12,5 @@
   <% if version.change_summary.present? %>
     <div class="history-split__summary"><%= version.change_summary %></div>
   <% end %>
-  <div class="history-split__time"><%= time_ago_in_words(version.created_at) %> ago</div>
+  <div class="history-split__time"><%= relative_ui_time(version.created_at) %></div>
 <% end %>

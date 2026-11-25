@@ -23,7 +23,7 @@ module Coplan
               referrerpolicy: "strict-origin-when-cross-origin", allow: "camera 'none'; microphone 'none'; geolocation 'none'")
           end
         else
-          tag.div("Embedded page unavailable. Check its URL, size, and administrator-approved domain.",
+          tag.div(I18n.t("coplan.documents.messages.embedded_page_unavailable_check_its"),
             class: "iframe-content-block__unavailable", role: "status")
         end
         paragraph.replace(Nokogiri::HTML::DocumentFragment.parse(markup))

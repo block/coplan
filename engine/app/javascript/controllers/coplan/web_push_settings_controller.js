@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import * as WebPush from "coplan/web_push"
 
@@ -8,15 +9,15 @@ export default class extends Controller {
   static values  = { devicesUrl: { type: String, default: "" } }
 
   async connect() {
-    this._setStatus("Checking notifications…")
+    this._setStatus(t("coplan.client.settings.checking_notifications"))
     await this._refresh()
   }
 
   async enable() {
-    this._setStatus("Requesting permission…")
+    this._setStatus(t("coplan.client.settings.requesting_notification_permission"))
     try {
       await WebPush.subscribe()
-      this._setStatus("Notifications enabled on this device.")
+      this._setStatus(t("coplan.client.settings.notifications_enabled"))
       this._reloadDevices()
     } catch (err) {
       this._setStatus(this._friendlyError(err))
@@ -25,10 +26,10 @@ export default class extends Controller {
   }
 
   async disable() {
-    this._setStatus("Disabling…")
+    this._setStatus(t("coplan.client.settings.disabling_notifications"))
     try {
       await WebPush.unsubscribe()
-      this._setStatus("Notifications disabled on this device.")
+      this._setStatus(t("coplan.client.settings.notifications_disabled"))
       this._reloadDevices()
     } catch (err) {
       this._setStatus(this._friendlyError(err))
@@ -50,7 +51,7 @@ export default class extends Controller {
 
   async _refresh() {
     if (!WebPush.isSupported()) {
-      this._setStatus("This browser doesn't support web push notifications.")
+      this._setStatus(t("coplan.client.settings.notifications_unsupported"))
       this._show(this.enableButtonTarget, false)
       this._show(this.disableButtonTarget, false)
       return
@@ -58,7 +59,7 @@ export default class extends Controller {
 
     const perm = WebPush.permission()
     if (perm === "denied") {
-      this._setStatus("Notifications are blocked. Allow them in your browser settings to enable.")
+      this._setStatus(t("coplan.client.settings.notifications_blocked"))
       this._show(this.enableButtonTarget, false)
       this._show(this.disableButtonTarget, false)
       return
@@ -68,15 +69,15 @@ export default class extends Controller {
     try {
       subscribed = await WebPush.isSubscribed()
     } catch {
-      this._setStatus("Couldn’t check notifications. Check your connection and try again.")
+      this._setStatus(t("coplan.client.settings.check_notifications_failed"))
       this._show(this.enableButtonTarget, true)
       this._show(this.disableButtonTarget, false)
       return
     }
     this._show(this.enableButtonTarget, !subscribed)
     this._show(this.disableButtonTarget, subscribed)
-    if (!this.statusTarget.textContent || this.statusTarget.textContent === "Checking notifications…") {
-      this._setStatus(subscribed ? "Enabled on this device." : "Not enabled on this device.")
+    if (!this.statusTarget.textContent || this.statusTarget.textContent === t("coplan.client.settings.checking_notifications")) {
+      this._setStatus(subscribed ? t("coplan.client.settings.notifications_active") : t("coplan.client.settings.notifications_inactive"))
     }
   }
 
@@ -91,7 +92,7 @@ export default class extends Controller {
 
   _friendlyError(err) {
     const msg = err?.message || String(err)
-    if (/permission/i.test(msg)) return "Permission was not granted."
-    return "Couldn’t update notifications. Check your connection and try again."
+    if (/permission/i.test(msg)) return t("coplan.client.settings.notification_permission_denied")
+    return t("coplan.client.settings.update_notifications_failed")
   }
 }

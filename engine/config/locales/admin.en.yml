@@ -1,0 +1,13 @@
+---
+en:
+  coplan:
+    admin:
+      comment_permanently_deleted: Comment permanently deleted.
+      delete_failed: Permanent deletion failed. Try again.
+      deleting: Permanently deleting…
+      messages:
+        back_to_comments: Back to comments
+        permanently_delete_comment: Permanently delete comment
+        type_delete_to_confirm_permanent: Type DELETE to confirm permanent deletion
+      permanent_deletion_removes_the_comment: Permanent deletion removes the comment, reactions, notification records, queued agent events, and retained deletion-history previews. This cannot be undone.
+      this_comment_is_soft_deleted: This comment is soft-deleted. Its original text is retained above for admins.

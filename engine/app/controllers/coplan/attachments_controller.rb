@@ -10,9 +10,9 @@ module Coplan
       files = Array(params[:files]).reject(&:blank?)
       if files.empty?
         return respond_to do |format|
-          format.json { render json: { attachments: [], errors: [ "Choose at least one file to upload." ] }, status: :unprocessable_content }
-          format.turbo_stream { render turbo_stream: toast_stream("Choose at least one file to upload.", "alert") }
-          format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-attachments"), alert: "Choose at least one file to upload." }
+          format.json { render json: { attachments: [], errors: [ I18n.t("coplan.documents.messages.choose_at_least_one_file") ] }, status: :unprocessable_content }
+          format.turbo_stream { render turbo_stream: toast_stream(I18n.t("coplan.documents.messages.choose_at_least_one_file"), "alert") }
+          format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-attachments"), alert: I18n.t("coplan.documents.messages.choose_at_least_one_file") }
         end
       end
 
@@ -73,9 +73,9 @@ module Coplan
       )
 
       respond_to do |format|
-        format.turbo_stream { render_attachments_update(notice: "Attachment removed.") }
+        format.turbo_stream { render_attachments_update(notice: I18n.t("coplan.documents.messages.attachment_removed")) }
         format.html do
-          redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-attachments"), notice: "Attachment removed."
+          redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-attachments"), notice: I18n.t("coplan.documents.messages.attachment_removed")
         end
       end
     end

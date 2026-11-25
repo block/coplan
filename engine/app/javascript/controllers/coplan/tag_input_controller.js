@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 // Chip-style tag editor: tags render as removable pills; typing Enter,
@@ -41,7 +42,7 @@ export default class extends Controller {
 
   remove(event) {
     event.stopPropagation()
-    this.tags = this.tags.filter((t) => t !== event.currentTarget.dataset.tag)
+    this.tags = this.tags.filter((tag) => tag !== event.currentTarget.dataset.tag)
     this.sync()
     this.inputTarget.focus()
   }
@@ -63,7 +64,7 @@ export default class extends Controller {
       remove.className = "tag-input__remove"
       remove.dataset.tag = tag
       remove.dataset.action = "coplan--tag-input#remove"
-      remove.setAttribute("aria-label", `Remove tag ${tag}`)
+      remove.setAttribute("aria-label", t("coplan.client.workspace.remove_tag", { tag }))
       remove.textContent = "×"
       chip.append(remove)
 

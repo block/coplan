@@ -1,0 +1,76 @@
+---
+es:
+  coplan:
+    interface:
+      add_to_folder: Añadir a esta carpeta
+      agent_first_use_html: Al usarlo por primera vez, se abre una página de aprobación en el navegador. Comprueba que el código coincida y elige %{action}. La credencial se guarda en el equipo. No hace falta copiar un token.
+      agent_instructions_html: La configuración del agente empieza en %{setup}. Luego, la habilidad consulta la referencia actualizada de la API en %{reference} cuando la necesita.
+      agent_token_html: Los agentes se autentican con un token de portador de %{settings}.
+      alt: Opción / Alt
+      approved_review: Aprobado
+      approved_verb: aprobó
+      approved_version: Se aprobó la v%{revision}
+      archived_plan: Se archivó «%{title}»
+      attachment_limit: Imágenes, PDF, texto, Markdown, CSV, JSON, ZIP · hasta %{size} MB por archivo
+      attention_count: Requiere atención (%{count})
+      by_author_html: de %{author}
+      changes_requested_review: Cambios solicitados
+      changes_since_version: Cambios desde la v%{revision}
+      changes_version: Se solicitaron cambios en la v%{revision}
+      classic_description: Lexend, paneles translúcidos y tarjeta de documento.
+      classic_name: Clásico
+      ctrl_space: Ctrl+Espacio
+      current_version: 'Actual: v%{revision}'
+      default_theme: Tema predeterminado (%{theme})
+      diff_counts: "%{added} líneas añadidas / %{removed} eliminadas"
+      draft_preserved: El plan se actualizó a la v%{revision}. Se conservó tu borrador.
+      edit_locked_retry: "%{message}. Vuelve a intentarlo cuando termine el bloqueo de edición."
+      empty_folder_html: Aún no hay nada en %{folder}.
+      empty_location: Aún no hay nada aquí.
+      empty_tagged_feed: 'No hay actividad publicada con la etiqueta #%{tag} en las últimas dos semanas.'
+      feed_comments:
+        one: "%{count} comentario"
+        other: "%{count} comentarios"
+      feed_edits:
+        one: "%{count} edición"
+        other: "%{count} ediciones"
+      feed_new: nuevo
+      feedback_and_mentions_html: Quienes revisan pueden seleccionar cualquier frase y dejar un comentario anclado al texto exacto para conservar el contexto. Menciona a otras personas con %{username} para incluirlas en la conversación. Todos los lectores ven los comentarios nuevos en tiempo real.
+      follow_theme: Usar el tema predeterminado del sitio, %{theme}
+      hidden_from_folder: El plan está oculto en esta carpeta.
+      hidden_from_library: El plan está oculto en esta biblioteca.
+      hotkey_off: Desactivado
+      make_optional: Hacer opcional
+      make_required: Hacer obligatoria
+      neutral_description: Grises cálidos, fuente del sistema y una página de lectura sin relieve.
+      neutral_name: Neutro
+      no_archived_plans_for_filter: No hay planes archivados que coincidan con los filtros actuales.
+      no_new_review: 'Versión actual: v%{revision}. No se requiere otra revisión.'
+      no_plans_in_folder: No hay planes que coincidan con los filtros actuales en %{folder}.
+      notification_agent_response: Respuesta del agente
+      notification_by: "· de %{name}"
+      notification_mention: Mención
+      notification_new_comment: Nuevo comentario
+      notification_reply: Respuesta
+      notification_settings_html: Recibe una notificación de escritorio en este dispositivo. Puedes cambiar esta opción cuando quieras en %{settings}.
+      notification_status_change: Cambio de estado
+      open_source_license_html: Coplan es %{source} y se distribuye bajo la licencia Apache 2.0.
+      optional_review: Opcional
+      path_tile: Casilla del camino, fila %{row}, columna %{column}
+      plan_actions: Menú de acciones del plan
+      removed_reviewer: quitó de la revisión a
+      requested_review: solicitó una revisión a
+      requested_your_review: "%{name} solicitó tu revisión"
+      required_review: Obligatoria
+      review_actions: Acciones de revisión para %{name}
+      review_on_date_html: el %{date}
+      reviewer_actions: Acciones para %{name}
+      semantic_api_html: Los agentes editan con operaciones como %{replace} e %{insert}, sin depender de números de línea que puedan cambiar. El bloqueo de edición permite que escriba un solo agente a la vez y rechaza los cambios basados en revisiones anteriores.
+      setup_api_html: Coplan ofrece una API REST que se describe a sí misma. Comparte %{setup} con cualquier agente de IA, como Amp, Claude Code, Cursor o tu propio agente, para que pueda crear planes, aplicar cambios y dejar comentarios de revisión en tu nombre.
+      shift: Mayús
+      show_provenance: "%{label}. Mostrar el origen de la redacción"
+      thread_open: abierta
+      thread_resolved: resuelta
+      uploaded_by: subido por %{name}
+      viewing: "%{count} viendo el plan"
+      withdrew_review: retiró la solicitud de revisión para

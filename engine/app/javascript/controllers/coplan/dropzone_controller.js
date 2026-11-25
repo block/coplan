@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 // Styled replacement for a native file input, attached to the upload form:
@@ -46,9 +47,8 @@ export default class extends Controller {
 
   submit() {
     const count = this.inputTarget.files.length
-    const noun = count === 1 ? "file" : "files"
     this.originalLabel ??= this.hasLabelTarget ? this.labelTarget.textContent : null
-    if (this.hasLabelTarget) this.labelTarget.textContent = `Uploading ${count} ${noun}… 0%`
+    if (this.hasLabelTarget) this.labelTarget.textContent = t("coplan.client.reader.uploading", { count, percent: 0 })
     this.zoneTarget.classList.add("dropzone--busy")
     this.#setProgress(0)
 
@@ -64,8 +64,8 @@ export default class extends Controller {
       this.#setProgress(percent)
       if (this.hasLabelTarget) {
         this.labelTarget.textContent = percent < 100
-          ? `Uploading ${count} ${noun}… ${percent}%`
-          : "Processing…"
+          ? t("coplan.client.reader.uploading", { count, percent })
+          : t("coplan.client.reader.processing_upload")
       }
     })
 
@@ -81,13 +81,13 @@ export default class extends Controller {
         // proper visit of wherever we landed.
         window.Turbo.visit(xhr.responseURL || window.location.href)
       } else {
-        this.#fail(`Upload failed (${xhr.status}). Try again.`)
+        this.#fail(t("coplan.client.reader.upload_status_failed", { status: xhr.status }))
       }
     })
 
     xhr.addEventListener("error", () => {
       this.xhr = null
-      this.#fail("Upload failed — check your connection and try again.")
+      this.#fail(t("coplan.client.reader.upload_connection_failed"))
     })
 
     this.xhr = xhr

@@ -1,0 +1,16 @@
+---
+es:
+  coplan:
+    client:
+      lost:
+        connected_tile: 'Fila %{row}, columna %{column}: %{ends}, conectada al inicio. Gira en sentido horario.'
+        down: abajo
+        instructions: Conecta la ENTRADA con la SALIDA. La línea azul indica tu progreso.
+        left: izquierda
+        right: derecha
+        turns:
+          one: "%{count} giro"
+          other: "%{count} giros"
+        unconnected_tile: 'Fila %{row}, columna %{column}: %{ends}. Gira en sentido horario.'
+        up: arriba
+        won: "¡Ruta encontrada! Ojalá fuera así de fácil arreglar todos los enlaces rotos."

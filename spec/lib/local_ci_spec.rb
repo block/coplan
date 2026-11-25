@@ -17,7 +17,7 @@ RSpec.describe "Local CI with parallel_tests" do
       File.write(File.join(directory, "config/boot.rb"), "require 'bundler/setup'\n")
       File.write(File.join(directory, "config/database.yml"), "test:\n  adapter: mysql2\n")
       File.write(File.join(directory, "db/schema.rb"), "# fake schema\n")
-      %w[rubocop bundler-audit importmap brakeman].each { |name| executable("bin/#{name}", "exit(ENV['FAIL_AUDIT'] && #{name.dump} == 'bundler-audit' ? 7 : 0)") }
+      %w[rubocop i18n-lint bundler-audit importmap brakeman].each { |name| executable("bin/#{name}", "exit(ENV['FAIL_AUDIT'] && #{name.dump} == 'bundler-audit' ? 7 : 0)") }
       executable("bin/rails", <<~'RUBY')
         require 'json'
         name = "#{ENV.fetch('COPLAN_CI_GROUP')}-#{ENV.fetch('TEST_ENV_NUMBER')}"

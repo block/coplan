@@ -1,0 +1,13 @@
+---
+es:
+  coplan:
+    settings:
+      language:
+        apply: Aplicar idioma
+        browser: Idioma del navegador (%{language})
+        hint: El cambio se aplica de inmediato durante esta sesión del navegador.
+        label: Idioma
+        native_name: Español
+        save_failed: No se pudo cambiar el idioma. Inténtalo de nuevo.
+        unavailable: Ese idioma ya no está disponible.
+      title: Configuración

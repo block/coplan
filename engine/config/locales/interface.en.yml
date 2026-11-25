@@ -1,0 +1,76 @@
+---
+en:
+  coplan:
+    interface:
+      add_to_folder: Add to this folder
+      agent_first_use_html: On first use, it opens a browser approval page. Check the matching code and choose %{action}. The credential is saved locally; you do not need to copy a token.
+      agent_instructions_html: Agent setup starts at %{setup}. The skill then fetches the live API reference at %{reference} whenever it needs it.
+      agent_token_html: Agents authenticate with a bearer token from %{settings}.
+      alt: Option / Alt
+      approved_review: Approved
+      approved_verb: approved
+      approved_version: Approved v%{revision}
+      archived_plan: Archived “%{title}”
+      attachment_limit: Images, PDF, text, markdown, CSV, JSON, ZIP · up to %{size} MB each
+      attention_count: Needs attention (%{count})
+      by_author_html: by %{author}
+      changes_requested_review: Changes requested
+      changes_since_version: Changes from v%{revision}
+      changes_version: Changes requested on v%{revision}
+      classic_description: Lexend, glass panels and the document card.
+      classic_name: Classic
+      ctrl_space: Ctrl+Space
+      current_version: 'Current: v%{revision}'
+      default_theme: Default (%{theme})
+      diff_counts: "%{added} added / %{removed} removed lines"
+      draft_preserved: This plan was updated to v%{revision}. Your draft is preserved.
+      edit_locked_retry: "%{message}. Try again when the edit lock is released."
+      empty_folder_html: Nothing in %{folder} yet.
+      empty_location: Nothing here yet.
+      empty_tagged_feed: 'No published activity tagged #%{tag} in the last two weeks.'
+      feed_comments:
+        one: "%{count} comment"
+        other: "%{count} comments"
+      feed_edits:
+        one: "%{count} edit"
+        other: "%{count} edits"
+      feed_new: new
+      feedback_and_mentions_html: Reviewers highlight any sentence and leave a threaded comment anchored to that exact text, so context never gets lost. Mention people with %{username} to pull them in. New comments appear for every viewer in realtime.
+      follow_theme: Follow this site's default, %{theme}
+      hidden_from_folder: It’s hidden from this folder.
+      hidden_from_library: It’s hidden from this library.
+      hotkey_off: 'Off'
+      make_optional: Make optional
+      make_required: Make required
+      neutral_description: Warm grays, the system font and a flat page for reading.
+      neutral_name: Neutral
+      no_archived_plans_for_filter: Nothing in the archive matches the current filters.
+      no_new_review: 'Current version: v%{revision}. No new review required.'
+      no_plans_in_folder: No plans match the current filters in %{folder}.
+      notification_agent_response: Agent response
+      notification_by: "· by %{name}"
+      notification_mention: Mention
+      notification_new_comment: New comment
+      notification_reply: Reply
+      notification_settings_html: Get a desktop notification on this device. You can change this anytime in %{settings}.
+      notification_status_change: Status change
+      open_source_license_html: Coplan is %{source}, released under the Apache 2.0 license.
+      optional_review: Optional
+      path_tile: Path tile, row %{row}, column %{column}
+      plan_actions: Plan actions menu
+      removed_reviewer: removed reviewer
+      requested_review: requested a review from
+      requested_your_review: "%{name} requested your review"
+      required_review: Required
+      review_actions: Review actions for %{name}
+      review_on_date_html: on %{date}
+      reviewer_actions: Actions for %{name}
+      semantic_api_html: Agents edit through operations like %{replace} and %{insert} — not brittle line numbers. An edit lease keeps one agent writing at a time, and stale revisions are rejected cleanly.
+      setup_api_html: Coplan exposes a self-describing REST API. Point any AI agent — Amp, Claude Code, Cursor, your own — at %{setup} and it can create plans, apply edits, and leave review comments on your behalf.
+      shift: Shift
+      show_provenance: "%{label}. Show writing provenance"
+      thread_open: open
+      thread_resolved: resolved
+      uploaded_by: uploaded by %{name}
+      viewing: "%{count} viewing"
+      withdrew_review: withdrew the review request for

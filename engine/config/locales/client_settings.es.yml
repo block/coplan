@@ -1,0 +1,18 @@
+---
+es:
+  coplan:
+    client:
+      settings:
+        check_notifications_failed: No se pudieron comprobar las notificaciones. Revisa la conexión y vuelve a intentarlo.
+        checking_notifications: Comprobando las notificaciones…
+        disabling_notifications: Desactivando…
+        notification_permission_denied: No se concedió el permiso.
+        notifications_active: Activadas en este dispositivo.
+        notifications_blocked: Las notificaciones están bloqueadas. Permítelas en la configuración del navegador para activarlas.
+        notifications_disabled: Se desactivaron las notificaciones en este dispositivo.
+        notifications_enabled: Se activaron las notificaciones en este dispositivo.
+        notifications_inactive: Desactivadas en este dispositivo.
+        notifications_unsupported: Este navegador no admite notificaciones web.
+        requesting_notification_permission: Solicitando permiso…
+        save_hotkey_failed: No se pudo guardar el atajo. Vuelve a intentarlo.
+        update_notifications_failed: No se pudieron actualizar las notificaciones. Revisa la conexión y vuelve a intentarlo.

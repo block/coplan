@@ -34,7 +34,7 @@ module Coplan
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-references"), notice: "Reference added." }
+        format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-references"), notice: I18n.t("coplan.documents.messages.reference_added") }
       end
     rescue ActiveRecord::RecordInvalid => e
       respond_to do |format|
@@ -62,7 +62,7 @@ module Coplan
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-references"), notice: "Reference removed." }
+        format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-references"), notice: I18n.t("coplan.documents.messages.reference_removed") }
       end
     end
 

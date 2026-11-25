@@ -1,40 +1,40 @@
-<% content_for :title, "Connect your AI agent — Coplan" %>
+<% content_for :title, t("coplan.agent_access.messages.connect_your_ai_agent_coplan") %>
 
 <div class="agent-setup">
   <header class="agent-setup__header">
-    <p class="agent-setup__eyebrow">Agent setup</p>
-    <h1 class="agent-setup__title">Connect your AI agent</h1>
-    <p class="agent-setup__lede">Give this URL to your agent and let it set up the Coplan skill.</p>
+    <p class="agent-setup__eyebrow"><%= t("coplan.agent_access.agent_setup") %></p>
+    <h1 class="agent-setup__title"><%= t("coplan.agent_access.connect_your_ai_agent") %></h1>
+    <p class="agent-setup__lede"><%= t("coplan.agent_access.give_this_url_to_your") %></p>
   </header>
 
-  <ol class="agent-setup__steps" aria-label="Connect your agent in three steps">
+  <ol class="agent-setup__steps" aria-label="<%= t("coplan.agent_access.connect_your_agent_in_three") %>">
     <li class="agent-setup__step">
       <span class="agent-setup__number" aria-hidden="true">1</span>
       <div class="agent-setup__step-body">
-        <h2>Copy the setup URL</h2>
-        <p>This link goes straight to the guide for your agent.</p>
+        <h2><%= t("coplan.agent_access.copy_the_setup_url") %></h2>
+        <p><%= t("coplan.agent_access.this_link_goes_straight_to") %></p>
         <%= render "coplan/shared/copy_url", url: @setup_url, button_class: "btn btn--primary" %>
       </div>
     </li>
     <li class="agent-setup__step">
       <span class="agent-setup__number" aria-hidden="true">2</span>
       <div class="agent-setup__step-body">
-        <h2>Give it to your agent</h2>
-        <p>Paste the URL into your agent’s chat.</p>
+        <h2><%= t("coplan.agent_access.give_it_to_your_agent") %></h2>
+        <p><%= t("coplan.agent_access.paste_the_url_into_your") %></p>
       </div>
     </li>
     <li class="agent-setup__step">
       <span class="agent-setup__number" aria-hidden="true">3</span>
       <div class="agent-setup__step-body">
-        <h2>Let it set up the skill</h2>
-        <p>Your agent saves the Coplan skill and fetches current instructions when it needs them.</p>
-        <% if @connection_enabled %><p>On first use, it opens a browser approval page. Check the matching code and choose <strong>Connect this computer</strong>. The credential is saved locally; you do not need to copy a token.</p><% end %>
+        <h2><%= t("coplan.agent_access.let_it_set_up_the") %></h2>
+        <p><%= t("coplan.agent_access.your_agent_saves_the_coplan") %></p>
+        <% if @connection_enabled %><p><%= t("coplan.interface.agent_first_use_html", action: tag.strong(t("coplan.agent_access.connect_this_computer"))) %></p><% end %>
       </div>
     </li>
   </ol>
 
   <p class="agent-setup__more">
-    Curious about what your agent will read?
-    <%= link_to "View the agent instructions", agent_instructions_reference_path %>.
+    <%= t("coplan.agent_access.curious_about_what_your_agent") %>
+    <%= link_to t("coplan.agent_access.messages.view_the_agent_instructions"), agent_instructions_reference_path %>.
   </p>
 </div>

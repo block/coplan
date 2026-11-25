@@ -5,10 +5,9 @@
      data-coplan--web-push-settings-devices-url-value="<%= coplan.web_push_devices_path %>">
   <div class="settings-row">
     <div class="settings-row__main">
-      <div class="settings-row__label">Browser notifications</div>
+      <div class="settings-row__label"><%= t("coplan.preferences.browser_notifications") %></div>
       <div class="settings-row__hint">
-        Get a desktop notification when someone replies to your comments or mentions you.
-        Enable this once per browser you want notifications on.
+        <%= t("coplan.preferences.get_a_desktop_notification_when") %>
       </div>
     </div>
     <div class="settings-row__action">
@@ -17,14 +16,14 @@
               data-action="coplan--web-push-settings#enable"
               class="btn btn--primary btn--sm"
               hidden>
-        Enable on this device
+        <%= t("coplan.preferences.enable_on_this_device") %>
       </button>
       <button type="button"
               data-coplan--web-push-settings-target="disableButton"
               data-action="coplan--web-push-settings#disable"
               class="btn btn--secondary btn--sm"
               hidden>
-        Disable on this device
+        <%= t("coplan.preferences.disable_on_this_device") %>
       </button>
       <span data-coplan--web-push-settings-target="status" class="settings-row__status" role="status"></span>
     </div>

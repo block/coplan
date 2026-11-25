@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
@@ -152,8 +153,8 @@ export default class extends Controller {
     this.approvalInvalidated = false
     this.approveButtonTarget.disabled = false
     this.approvalErrorTarget.textContent = ""
-    this.approveButtonTarget.textContent = `Approve v${this.approvalRevision}`
-    this.approvalTitleTarget.textContent = `Approve v${this.approvalRevision}?`
+    this.approveButtonTarget.textContent = t("coplan.client.review.approve_version", { revision: this.approvalRevision })
+    this.approvalTitleTarget.textContent = t("coplan.client.review.approve_version_question", { revision: this.approvalRevision })
     this.approvalTarget.showModal()
   }
 
@@ -164,7 +165,7 @@ export default class extends Controller {
   invalidateApproval() {
     this.approvalInvalidated = true
     this.approveButtonTarget.disabled = true
-    this.approvalErrorTarget.textContent = "This review request changed. Close this dialog and reopen approval for the current request. Your note is preserved."
+    this.approvalErrorTarget.textContent = t("coplan.client.review.stale_approval")
   }
 
   responseIntent(url, revision, decision, note, generation) {
@@ -204,12 +205,12 @@ export default class extends Controller {
       this.approvalTarget.close()
       this.approvalNoteTarget.value = ""
       if (this.hasNoticeTarget) this.noticeTarget.textContent = result.effective === false
-        ? "Your earlier decision was already recorded. Review the current request again."
-        : `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
+        ? t("coplan.client.review.approval_already_recorded")
+        : t("coplan.client.review.approval_recorded", { revision: this.approvalRevision }) + (synced ? "" : t("coplan.client.review.refresh_comment"))
       const tray = this.element.querySelector(".review-tray")
       if (tray) delete tray.dataset.reconsidering
       await this.refresh()
-    }, "Recording…")
+    }, t("coplan.client.review.recording"))
     // A refresh can invalidate this dialog while the original POST is in
     // flight. Keep it invalid after the busy-state cleanup restores buttons.
     if (this.approvalInvalidated && this.approvalTarget.open) this.invalidateApproval()
@@ -232,12 +233,12 @@ export default class extends Controller {
       const synced = await this.refreshThreads(result.comment_thread_id, current)
       if (!current()) return
       this.noticeTarget.textContent = result.effective === false
-        ? "Your earlier change request was already recorded. Review the current request again."
-        : "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")
+        ? t("coplan.client.review.changes_already_recorded")
+        : t("coplan.client.review.changes_requested") + (synced ? "" : t("coplan.client.review.refresh_comment"))
       input.value = ""
       this.collapse()
       await this.refresh()
-    }, "Posting…")
+    }, t("coplan.client.review.posting"))
   }
 
   async refreshThreads(threadId, current = () => true) {
@@ -315,10 +316,10 @@ export default class extends Controller {
           existingTray.remove()
           document.body.classList.remove("has-review-tray")
         } else {
-          existingTray.querySelector("[data-review-status]").textContent = "Your review request is no longer active."
+          existingTray.querySelector("[data-review-status]").textContent = t("coplan.client.review.request_inactive")
           existingTray.querySelector("[data-review-decision-actions]").replaceChildren()
           this.commentFormTarget.querySelector('[type="submit"]').disabled = true
-          this.commentFormTarget.querySelector('[role="alert"]').textContent = "This review request is no longer active. Your unsent feedback is still here."
+          this.commentFormTarget.querySelector('[role="alert"]').textContent = t("coplan.client.review.request_inactive_with_draft")
         }
       }
       if (tray && existingTray) existingTray.dataset.completed = tray.dataset.completed
@@ -446,7 +447,7 @@ export default class extends Controller {
         this.policyUnresolved = false
       } else if (this.policyUnresolved) input.setAttribute("aria-invalid", "true")
       this.managementErrorTarget.textContent = confirmed ? "" : error.message
-      if (this.policyUnresolved) this.managementErrorTarget.textContent += " A previous save may still be running. Toggle again to retry."
+      if (this.policyUnresolved) this.managementErrorTarget.textContent += t("coplan.client.review.save_still_running")
     } finally {
       if (connection !== this.policyConnection) return
       this.policySaving = false
@@ -487,7 +488,7 @@ export default class extends Controller {
       return await Promise.race([action(controller.signal), new Promise((_, reject) => {
         timer = setTimeout(() => {
           controller.abort()
-          reject(new Error("Couldn't confirm the setting. Please try again."))
+          reject(new Error(t("coplan.client.review.confirm_setting_failed")))
         }, 10000)
       })])
     } finally { clearTimeout(timer) }
@@ -495,7 +496,7 @@ export default class extends Controller {
 
   async assign(event) {
     event.preventDefault()
-    if (!this.reviewerIdTarget.value) { this.assignmentErrorTarget.textContent = "Choose a person from the results first."; return }
+    if (!this.reviewerIdTarget.value) { this.assignmentErrorTarget.textContent = t("coplan.client.review.choose_reviewer"); return }
     await this.withBusy(event.target, this.assignmentErrorTarget, async () => {
       await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional", replace_withdrawn: true } })
       this.searchTarget.value = ""; this.reviewerIdTarget.value = ""; this.resultsTarget.replaceChildren()
@@ -504,7 +505,7 @@ export default class extends Controller {
       this.addReviewerButtonTarget.focus({ preventScroll: true })
       await this.refresh()
       await this.refreshThreads(null)
-    }, "Requesting…")
+    }, t("coplan.client.review.requesting_review"))
     this.assignButtonTarget.disabled = !this.reviewerIdTarget.value
   }
 
@@ -518,19 +519,19 @@ export default class extends Controller {
     if (!query) { this.hideResults(); return }
     this.resultsTarget.hidden = false
     this.searchTarget.setAttribute("aria-expanded", "true")
-    this.resultsTarget.textContent = "Searching…"
+    this.resultsTarget.textContent = t("coplan.client.review.searching")
     this.searchTimer = setTimeout(async () => {
       try {
         const response = await fetch(`${this.searchUrlValue}?q=${encodeURIComponent(query)}`, { headers: { Accept: "application/json" }, credentials: "same-origin" })
-        if (!response.ok) throw new Error("Search unavailable")
+        if (!response.ok) throw new Error(t("coplan.client.review.search_unavailable"))
         const users = await response.json()
         if (sequence !== this.searchSequence || !this.element.isConnected) return
         this.resultsTarget.replaceChildren()
         for (const user of users) {
           this.resultsTarget.append(this.personButton(user, [user.username && `@${user.username}`, user.team].filter(Boolean).join(" · ")))
         }
-        if (!users.length) this.resultsTarget.textContent = "No people found."
-      } catch { if (sequence === this.searchSequence) this.resultsTarget.textContent = "Search unavailable. Please try again." }
+        if (!users.length) this.resultsTarget.textContent = t("coplan.client.review.no_people")
+      } catch { if (sequence === this.searchSequence) this.resultsTarget.textContent = t("coplan.client.review.reviewer_search_error") }
     }, 150)
   }
 
@@ -544,7 +545,7 @@ export default class extends Controller {
     const info = document.createElement("span"), name = document.createElement("strong"), detail = document.createElement("small")
     name.textContent = user.name
     const assigned = [...this.element.querySelectorAll('[data-reviewer-id]')].some(row => row.dataset.reviewerId === user.id)
-    detail.textContent = assigned ? "Already a reviewer" : detailText
+    detail.textContent = assigned ? t("coplan.client.review.already_reviewer") : detailText
     button.disabled = assigned
     info.append(name, detail); button.append(avatar, info)
     button.dataset.action = "coplan--review-tray#chooseReviewer"
@@ -557,7 +558,7 @@ export default class extends Controller {
     const list = this.suggestionsTarget.querySelector("[data-review-suggestion-list]"), sequence = ++this.suggestionSequence
     try {
       const response = await fetch(this.suggestionsUrlValue, { headers: { Accept: "application/json" }, credentials: "same-origin" })
-      if (!response.ok) throw new Error("Suggestions unavailable")
+      if (!response.ok) throw new Error(t("coplan.client.review.suggestions_unavailable"))
       const suggestions = await response.json()
       if (sequence !== this.suggestionSequence || !this.element.isConnected) return
       list.replaceChildren(...suggestions.map(({ reviewer, reason, requirement }) => {
@@ -596,7 +597,7 @@ export default class extends Controller {
     const wasDisabled = add?.disabled
     this.managing = true
     this.reviewsTarget.setAttribute("data-managing", "")
-    this.managementStatusTarget.textContent = "Updating…"
+    this.managementStatusTarget.textContent = t("coplan.client.review.updating")
     roster.inert = true
     roster.setAttribute("aria-busy", "true")
     if (add) add.disabled = true
@@ -606,7 +607,7 @@ export default class extends Controller {
         const removedId = method === "DELETE" && body?.review_request?.remove ? new URL(button.dataset.url, document.baseURI).pathname.split("/").at(-1) : null
         await this.refresh(removedId ? { detail: { removedRequestId: removedId } } : undefined)
         if (removedId) await this.refreshThreads(null)
-      }, "Updating…")
+      }, t("coplan.client.review.updating"))
     } finally {
       this.managing = false
       this.reviewsTarget.removeAttribute("data-managing")
@@ -622,11 +623,11 @@ export default class extends Controller {
   }
 
   async compare(event) {
-    this.diffTarget.textContent = "Loading changes…"
+    this.diffTarget.textContent = t("coplan.client.review.loading_diff")
     this.comparisonTarget.showModal()
     try {
       const response = await fetch(event.currentTarget.dataset.url, { credentials: "same-origin", headers: { Accept: "text/html" } })
-      if (!response.ok) throw new Error("Couldn't load the comparison. Please try again.")
+      if (!response.ok) throw new Error(t("coplan.client.review.load_diff_failed"))
       this.diffTarget.innerHTML = await response.text()
     } catch (error) { this.diffTarget.textContent = error.message }
   }
@@ -658,11 +659,11 @@ export default class extends Controller {
     try {
       response = await fetch(url, { method, headers: { "X-CSRF-Token": this.csrfToken(), "Content-Type": "application/json", Accept: "application/json" }, credentials: "same-origin", body: body ? JSON.stringify(body) : undefined, signal })
     } catch {
-      throw new Error("Couldn't reach Coplan. Your draft is still here. Check that the server is running and try again.")
+      throw new Error(t("coplan.client.review.offline_review"))
     }
     if (response.status === 204) return {}
     let result
-    try { result = await response.json() } catch { throw new Error("Couldn't save your response. Your draft is still here. Please try again.") }
+    try { result = await response.json() } catch { throw new Error(t("coplan.client.review.review_save_failed")) }
     if (!response.ok) {
       // A definite rejection did not record this intent. Refresh the cycle
       // so closing and deliberately reopening the dialog can start a new one.
@@ -671,7 +672,7 @@ export default class extends Controller {
         this.responseIntents = {}
         this.refresh()
       }
-      const error = new Error(result.error || "Couldn't save. Please try again.")
+      const error = new Error(result.error || t("coplan.client.review.save_failed"))
       error.status = response.status
       if (result.code === "authentication_required") error.signInPath = result.sign_in_path
       throw error
@@ -691,7 +692,7 @@ export default class extends Controller {
       if (error.signInPath) {
         const link = document.createElement("a")
         link.href = error.signInPath; link.target = "_blank"; link.rel = "noopener"
-        link.textContent = "Sign in in a new tab"
+        link.textContent = t("coplan.client.review.sign_in_other_tab")
         errorTarget.append(" ", link)
       }
     }

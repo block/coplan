@@ -1,8 +1,8 @@
-<% content_for(:title, @tag ? "##{@tag} — Feed — Coplan" : "Feed — Coplan") %>
+<% content_for(:title, @tag ? "##{@tag} — Feed — Coplan" : t("coplan.feed.messages.feed_coplan")) %>
 
 <div class="home">
   <header class="home__header">
-    <h1 class="home__title">Feed</h1>
+    <h1 class="home__title"><%= t("coplan.common.feed") %></h1>
     <%# A tag chip narrows the feed rather than opening a list of its own —
         same clearable-state treatment the workspace filters get. %>
     <% if @tag %>
@@ -10,7 +10,7 @@
         <span class="workspace__filter-chip">
           #<%= @tag %>
           <%= link_to "✕", home_path, class: "workspace__filter-clear",
-                aria: { label: "Clear ##{@tag} filter" } %>
+                aria: { label: t("coplan.feed.messages.clear_tag_filter", tag: @tag) } %>
         </span>
       </div>
     <% end %>
@@ -19,20 +19,20 @@
   <% if @items.empty? %>
     <div class="home__empty">
       <% if @tag %>
-        <p>No published activity tagged #<%= @tag %> in the last two weeks.</p>
-        <p class="text-muted text-sm"><%= link_to "See everything →", home_path, class: "landing__inline-link" %></p>
+        <p><%= t("coplan.interface.empty_tagged_feed", tag: @tag) %></p>
+        <p class="text-muted text-sm"><%= link_to t("coplan.feed.messages.see_everything"), home_path, class: "landing__inline-link" %></p>
       <% else %>
-        <p>No published activity in the last two weeks.</p>
-        <p class="text-muted text-sm">When someone publishes, edits, or discusses a plan, it shows up here.</p>
+        <p><%= t("coplan.feed.no_published_activity_in_the") %></p>
+        <p class="text-muted text-sm"><%= t("coplan.feed.when_someone_publishes_edits_or") %></p>
       <% end %>
     </div>
   <% else %>
     <% @items_by_date.each do |date, items| %>
       <section class="home__day">
         <h2 class="home__day-heading">
-          <% if date == Date.current %>Today
-          <% elsif date == Date.current - 1 %>Yesterday
-          <% else %><%= date.strftime("%A, %B %-d") %><% end %>
+          <% if date == Date.current %><%= t("coplan.feed.today") %>
+          <% elsif date == Date.current - 1 %><%= t("coplan.feed.yesterday") %>
+          <% else %><%= l(date, format: t("coplan.display.date_feed")) %><% end %>
         </h2>
         <ul class="home__feed">
           <% items.each do |item| %>
@@ -45,25 +45,26 @@
                 <div class="home__item-line">
                   <%= plan_type_icon(plan, size: :sm) %>
                   <%= link_to plan.title, plan_browse_path(plan), class: "home__item-title" %>
-                  <% if item.summary_parts.any? %>
+                  <% summary_parts = item.summary_parts %>
+                  <% if summary_parts.any? %>
                     <span class="home__item-activity">
                       <% if item.published %>
-                        <span class="home__item-activity--new">new</span><%= " · #{item.summary_parts.drop(1).join(" · ")}" if item.summary_parts.size > 1 %>
+                        <span class="home__item-activity--new"><%= t("coplan.feed.new") %></span><%= " · #{summary_parts.drop(1).join(" · ")}" if summary_parts.size > 1 %>
                       <% else %>
-                        <%= item.summary_parts.join(" · ") %>
+                        <%= summary_parts.join(" · ") %>
                       <% end %>
                     </span>
                   <% end %>
                 </div>
                 <div class="home__item-meta text-muted">
-                  by <%= profile_link(plan.created_by_user) %>
+                  <%= t("coplan.interface.by_author_html", author: profile_link(plan.created_by_user)) %>
                   <% plan.tags.first(3).each do |tag| %>
                     <%= link_to "##{tag.name}", home_path(tag: tag.name), class: "home__item-tag" %>
                   <% end %>
                 </div>
               </div>
               <span class="home__item-time text-muted" title="<%= item.last_activity_at %>">
-                <%= time_ago_in_words(item.last_activity_at) %> ago
+                <%= relative_ui_time(item.last_activity_at) %>
               </span>
             </li>
           <% end %>

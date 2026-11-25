@@ -12,7 +12,8 @@ export default class extends Controller {
     if (this.buttonTarget.disabled) return
 
     this.buttonTarget.disabled = true
-    this.buttonTarget.textContent = "Permanently deleting…"
+    this.buttonLabel = this.buttonTarget.textContent
+    this.buttonTarget.textContent = this.formTarget.dataset.deleting
     this.errorTarget.textContent = ""
     this.element.setAttribute("aria-busy", "true")
 
@@ -25,13 +26,13 @@ export default class extends Controller {
         }
       })
       const result = await response.json()
-      if (!response.ok) throw new Error(result.error || "Permanent deletion failed. Try again.")
+      if (!response.ok) throw new Error(result.error || this.formTarget.dataset.deleteFailed)
 
       this.element.innerHTML = result.html
     } catch (error) {
       this.errorTarget.textContent = error.message
       this.buttonTarget.disabled = false
-      this.buttonTarget.textContent = "Permanently delete comment"
+      this.buttonTarget.textContent = this.buttonLabel
     } finally {
       this.element.removeAttribute("aria-busy")
     }

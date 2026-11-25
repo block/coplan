@@ -11,10 +11,11 @@
 <div id="search-modal"
      popover="auto"
      role="dialog"
-     aria-label="Search plans and people"
+     aria-label="<%= t("coplan.search.label") %>"
      class="search-modal"
      data-controller="coplan--search"
      data-coplan--search-url-value="<%= coplan.search_path %>"
+     data-coplan--search-searching-value="<%= t("coplan.search.searching") %>"
      data-coplan--search-debounce-value="150"
      data-action="toggle->coplan--search#onToggle">
   <%# Wrapped in a <form> so that hitting Enter before the JS debounce/Turbo
@@ -26,16 +27,16 @@
     <input type="search"
            name="q"
            role="combobox"
-           aria-label="Search plans and people"
+           aria-label="<%= t("coplan.search.label") %>"
            aria-autocomplete="list"
            aria-controls="search-results-listbox"
            aria-expanded="false"
            class="search-modal__input"
-           placeholder="Search plans and people…"
+           placeholder="<%= t("coplan.search.placeholder") %>"
            autocomplete="off"
            data-coplan--search-target="input"
            data-action="input->coplan--search#onInput keydown->coplan--search#onKeydown">
-    <kbd class="search-modal__hint">Esc</kbd>
+    <kbd class="search-modal__hint"><%= t("coplan.navigation.esc") %></kbd>
   </form>
   <div class="search-modal__body" data-coplan--search-target="body"
        data-action="turbo:frame-load->coplan--search#resultsLoaded">

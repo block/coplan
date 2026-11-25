@@ -101,6 +101,53 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("Type to search")
       end
+
+      it "uses English by default even when the browser asks for a preview locale" do
+        get search_path, headers: { "Accept-Language" => "es" }
+        expect(response.headers["Content-Language"]).to eq("en")
+        expect(response.headers["Vary"].to_s).not_to include("Accept-Language")
+        expect(response.body).to include("Type to search")
+      end
+
+      context "when the host enables Spanish" do
+        before do
+          allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
+        end
+
+        it "localizes the page and frame without changing authored plan titles or leaking the locale" do
+          headers = { "Accept-Language" => "es-MX, en;q=0.8" }
+          get search_path, headers: headers
+          expect(response.headers["Content-Language"]).to eq("es")
+          expect(response.headers["Vary"]).to include("Accept-Language")
+          expect(response.body).to include('<html lang="es"', "Buscar planes y personas", "Buscando…")
+
+          get search_path, params: { q: "roadmap", frame: "results" },
+            headers: headers.merge("Turbo-Frame" => "search-results")
+          expect(response.headers["Content-Language"]).to eq("es")
+          expect(response.body).to include("1 resultado disponible.", alice_published.title)
+          expect(I18n.locale).to eq(:en)
+
+          get search_path
+          expect(response.headers["Vary"]).to include("Accept-Language")
+          expect(response.body).to include('<html lang="en"', "Search plans and people")
+        end
+
+        it "escapes the query interpolated into an empty result and page title" do
+          query = '<img src=x onerror=alert(1)>'
+          get search_path, params: { q: query }, headers: { "Accept-Language" => "es" }
+
+          document = Nokogiri::HTML(response.body)
+          expect(document.at_css("title").text).to eq("Buscar: #{query}")
+          expect(document.at_css("#search-page-results [data-search-summary]").text).to eq("No hay coincidencias para «#{query}».")
+          expect(document.at_css("img[onerror]")).to be_nil
+        end
+
+        it "uses the configured default when no browser language matches" do
+          allow(Coplan.configuration).to receive(:ui_default_locale).and_return(:es)
+          get search_path, headers: { "Accept-Language" => "fr" }
+          expect(response.headers["Content-Language"]).to eq("es")
+        end
+      end
     end
 
     context "signed-out" do
@@ -137,19 +184,29 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
       expect(response.body.scan('id="keyboard-shortcuts-modal"').size).to eq(1)
     end
 
-    it "renders the same shortcut catalog into the help and the dispatcher payload" do
+    it "renders localized help for the same shortcuts sent to the dispatcher" do
+      allow(Coplan.configuration).to receive(:ui_locales).and_return(%i[en es])
       sign_in_as(alice)
-      get search_path
-      document = Nokogiri::HTML(response.body)
       catalog = JSON.parse(Coplan::Engine.root.join("config/keyboard_shortcuts.json").read)
-      expect(JSON.parse(document.at_css("#coplan-shortcut-catalog").text)).to eq(catalog)
-      help = document.at_css("#keyboard-shortcuts-modal")
-      catalog.each_value do |scope|
-        scope.fetch("bindings").each do |binding|
-          expect(help.text).to include(binding.fetch("description"))
+
+      %i[en es].each do |locale|
+        get search_path, headers: { "Accept-Language" => locale.to_s }
+
+        expect(response).to have_http_status(:ok)
+        expect(response.headers["Content-Language"]).to eq(locale.to_s)
+        document = response.parsed_body
+        expect(JSON.parse(document.at_css("#coplan-shortcut-catalog").text)).to eq(catalog)
+        help = document.at_css("#keyboard-shortcuts-modal")
+        catalog.each do |id, scope|
+          group = I18n.t("coplan.keyboard_shortcuts.groups.#{scope.fetch("group")}", locale: locale, raise: true)
+          expect(help.text).to include(group)
+          scope.fetch("bindings").each do |binding|
+            description = I18n.t("coplan.keyboard_shortcuts.bindings.#{id}.#{binding.fetch("id")}", locale: locale, raise: true)
+            expect(help.text).to include(description)
+          end
         end
+        expect(help.at_css('[aria-labelledby="shortcut-voice"]').text).to include(locale == :en ? "Ctrl+Space" : "Ctrl+Espacio")
       end
-      expect(help.text).to include(Coplan::User::VOICE_HOTKEY_LABELS.fetch(alice.voice_hotkey))
     end
 
     it "does not advertise a disabled voice shortcut" do

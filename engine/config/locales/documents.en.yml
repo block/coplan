@@ -1,0 +1,132 @@
+---
+en:
+  coplan:
+    documents:
+      about_writing_sources: About writing sources
+      add_a_reference: Add a reference
+      add_comment: Add comment
+      add_files: Add files
+      ai: AI
+      all_comments: All comments
+      allow_refresh_microphones: Allow / refresh microphones
+      archive_plan: Archive plan
+      attachments: Attachments
+      audio_input: Audio input
+      choose_audio_input: Choose audio input
+      close_reference_preview: Close reference preview
+      comment_on_selected_text_c: Comment on selected text (C)
+      comments: Comments
+      comments_on_earlier_text: Comments on earlier text
+      copy_markdown: Copy markdown
+      copy_markdown_to_embed_this: Copy markdown to embed this file in the plan
+      discussions: Discussions
+      document_comments: Document comments
+      done: Done
+      done_inspecting: Done inspecting
+      drop_files_here_or_click: Drop files here, or click to browse
+      earlier_comments: Earlier comments
+      earlier_text: Earlier text
+      history: History
+      human: Human
+      inspect_writing: Inspect writing
+      loading_writing_provenance_pending: Loading writing provenance…
+      make_private: Make private
+      messages:
+        add_reference: Add reference
+        ai_written: AI written
+        attachment_removed: Attachment removed.
+        back_to_the_document_backspace: Back to the document (Backspace)
+        back_to_title: Back to %{title}
+        choose_a_valid_plan_type: Choose a valid plan type.
+        choose_at_least_one_file: Choose at least one file to upload.
+        comment_by_voice: Comment by voice
+        comment_by_voice_or_hold: Comment by voice — or hold %{hotkey} to talk
+        conflict: Conflict
+        coplan_plan: Coplan plan
+        delete_attachment: Delete attachment
+        delete_filename: Delete %{filename}?
+        document: Document
+        edit_reference_label: Edit reference %{label}
+        edit_this_document: Edit this document
+        embedded_page_unavailable_check_its: Embedded page unavailable. Check its URL, size, and administrator-approved domain.
+        entirely_ai_written: Entirely AI written
+        entirely_human_written: Entirely human written
+        github_pull_request: GitHub pull request
+        github_repository: GitHub repository
+        google_doc: Google Doc
+        google_sheet: Google Sheet
+        google_slides: Google Slides
+        government_website: Government website
+        hidden_from_lists_unless_filtered: Hidden from lists unless filtered for
+        history_title_coplan: History — %{title} — Coplan
+        human_written: Human written
+        key: Key
+        listed_for_everyone_in_the: Listed for everyone in the organization.
+        mixed_writing_origins: Mixed writing origins
+        mostly_ai_written: Mostly AI written
+        mostly_harness_name_written: Mostly %{harness_name} written
+        mostly_human_written: Mostly human written
+        my_plans: My Plans
+        name_document: "%{name} document"
+        name_s_plans: "%{name}’s plans"
+        name_s_profile: "%{name}’s profile"
+        name_you: "%{name} (you)"
+        new_name_coplan: New %{name} — Coplan
+        new_to_you: new to you
+        next_slide: Next slide
+        no_changes_to_save: No changes to save.
+        not_shared_hidden_from_lists: Not shared — hidden from lists and search; anyone with the link can still read it
+        open_source_title_in_a: 'Open source: %{title} in a new tab (%{metadata})'
+        optional: Optional
+        optional_e_g_auth_repo: Optional — e.g. auth-repo
+        past_review: Past review
+        plan_is_private_again_hidden: Plan is private again — hidden from lists and search.
+        plan_published_everyone_can_see: Plan published — everyone can see it now.
+        plan_restored: Plan restored.
+        plan_updated: Plan updated.
+        present_deck: Present deck
+        previous_slide: Previous slide
+        private_again_hidden_from_lists: Private again — hidden from lists and search.
+        reference_added: Reference added.
+        reference_removed: Reference removed.
+        remove_reference: Remove reference
+        remove_this_reference: Remove this reference?
+        removed_title_from_its_folder: Removed “%{title}” from its folder.
+        restore: Restore
+        shared: Shared
+        shared_with_everyone_in_the: Shared with everyone in the org.
+        task: Task
+        task_text: 'Task: %{text}'
+        title: Title
+        title_coplan: "%{title} — Coplan"
+        unknown_folder: Unknown folder.
+        unlisted_anyone_with_the_link: Unlisted. Anyone with the link can read.
+        up_to_containing_folder_path: Up to containing folder — %{path}
+        up_to_name: Up to %{name}
+        updating_pending: Updating…
+        url: URL
+        website: Website
+        writing_origin_mostly_unknown: Writing origin mostly unknown
+        writing_origin_unknown: Writing origin unknown
+      microphone: Microphone
+      microphone_settings: Microphone settings
+      more_actions: More actions
+      move_to_folder_pending: Move to folder…
+      not_saved: Not saved
+      open: Open
+      plan_actions: Plan actions
+      plan_comment: Plan comment
+      plan_visibility: Plan visibility
+      references: References
+      resolved: Resolved
+      share_with_everyone: Share with everyone
+      shares_count_the_non_whitespace: Shares count the non-whitespace Markdown characters still in this document. New paste and unrecorded input are Unknown. History before August 18, 2026 is Unknown unless an agent identity was recorded. Later editor changes from before writing sources launched are assumed human-written. Reported agent identities are separate from human review. Inspect text to see who added it and when; diagrams and images keep their appearance.
+      show: Show
+      show_outline: Show outline
+      system_default: System default
+      text_comment: Text comment
+      this_plan_has_no_content: This plan has no content yet.
+      this_plan_is_archived_it: This plan is archived — it stays readable at this URL but is hidden from lists and search results.
+      unknown: Unknown
+      visibility: Visibility
+      writing_sources: Writing sources

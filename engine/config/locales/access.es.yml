@@ -1,0 +1,71 @@
+---
+es:
+  coplan:
+    access:
+      access: Acceso
+      acting_for: Actúa en nombre de
+      advanced: "· Opciones avanzadas"
+      agent_access: Acceso de agentes
+      agent_purpose: Agente / propósito
+      agent_sessions: Sesiones de agentes
+      approve_this_computer_in_your: Aprueba este equipo en el navegador. Tu agente guarda la credencial en el equipo y crea sus propias sesiones.
+      authenticated_through: Autenticación mediante
+      connect_your_local_agent: Conecta tu agente local
+      copy_this_token_now_it: Copia este token ahora. Solo se muestra una vez.
+      create_a_personal_token: Crear un token personal
+      create_one_token_for_your: Crea un token para tu equipo y guárdalo en un lugar seguro. Los agentes lo usan para crear sus propias sesiones de corta duración. Si lo revocas, también se revocan las sesiones que se crearon con él.
+      created: Creado
+      details: Detalles
+      each_agent_run_gets_its: Cada ejecución tiene su propio acceso de corta duración. Las sesiones caducan automáticamente, pero puedes revocarlas antes. Tener acceso válido no significa que un agente esté conectado.
+      expired: Caducado
+      harness_version: Versión del entorno
+      last_used: Último uso
+      messages:
+        access_revoked: Acceso revocado.
+        agent_harness_model_or_purpose: Agente, entorno, modelo o propósito
+        agent_not_reported: Agente sin identificar
+        agent_sessions_coplan: Sesiones de agentes · Coplan
+        create_token: Crear token
+        creating_pending: Creando…
+        e_g_work_laptop: P. ej., Portátil de trabajo
+        expired_expires_at_ago: Caducó hace %{expires_at}
+        expires_in_expires_at: Caduca en %{expires_at}
+        harness_not_reported: Entorno sin identificar
+        history_history_count: Historial (%{history_count})
+        host_authentication: Autenticación del sitio
+        manage_agent_sessions: Gestionar sesiones de agentes
+        manage_personal_tokens: Gestionar tokens personales
+        model_not_reported: Modelo sin identificar
+        next: Siguiente →
+        no_agent_sessions_have_valid: Ninguna sesión de agente tiene acceso válido. Las nuevas sesiones aparecerán aquí automáticamente.
+        no_more_personal_tokens: No hay más tokens personales.
+        no_past_sessions: No hay sesiones anteriores.
+        no_personal_tokens_if_your: No hay tokens personales. Si tu sitio autentica a los agentes automáticamente, no necesitas uno.
+        no_sessions_match_your_search: Ninguna sesión coincide con tu búsqueda.
+        not_reported: No informado
+        personal_api_tokens_coplan: Tokens personales de API · Coplan
+        personal_token_and_its_sessions: Se revocaron el token personal y sus sesiones.
+        personal_token_name: 'Token personal: %{name}'
+        previous: "← Anterior"
+        revoke: Revocar
+        revoke_name: Revocar %{name}
+        revoking_pending: Revocando…
+        search_sessions: Buscar sesiones
+        session_access_revoked: Se revocó el acceso de la sesión.
+        settings: "← Configuración"
+        token_created_copy_it_now: Token creado. Cópialo ahora. Solo se muestra una vez.
+        token_name: Nombre del token
+        valid_access_valid_count: Acceso válido (%{valid_count})
+      name: Nombre
+      name_the_machine_or_integration: Ponle el nombre del equipo o de la integración que lo guardará, como «Portátil de trabajo». Por lo general, basta con uno por equipo.
+      never: Nunca
+      page: Página
+      pagination: Paginación
+      parent_access_ended: Se terminó el acceso del token de origen
+      personal_api_tokens: Tokens personales de API
+      revoked: Revocado
+      session_access: Acceso de sesión
+      session_id: ID de sesión
+      valid: Válido
+      your_new_api_token: Tu nuevo token de API
+      your_personal_tokens: Tus tokens personales

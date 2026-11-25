@@ -1,0 +1,31 @@
+---
+es:
+  coplan:
+    versions:
+      contents: Contenido
+      exact_markdown_source_sha_256: Código fuente Markdown exacto · SHA-256
+      initial_version_no_previous_version: Versión inicial. No hay una versión anterior con la que comparar.
+      messages:
+        added_attachment: 'Se añadió el archivo '
+        added_reference: 'Se añadió la referencia '
+        added_tag: 'Se añadió la etiqueta '
+        back_to_history: "← Volver al historial"
+        created_at_ago: hace %{created_at}
+        deleted_comment: Comentario eliminado
+        moved_to_folder: 'Se movió a la carpeta '
+        past_decisions_preserved: " · Se conservaron las decisiones anteriores"
+        permanently_deleted_comment: Comentario eliminado definitivamente
+        plan_type: 'Tipo de plan: '
+        published_listed_for_everyone: Publicado y visible para toda la organización
+        removed_attachment: 'Se quitó el archivo '
+        removed_from_folder: 'Se quitó de la carpeta '
+        removed_reference: 'Se quitó la referencia '
+        removed_reviewer: 'Se quitó al revisor '
+        removed_tag: 'Se quitó la etiqueta '
+        renamed: 'Título cambiado: '
+        requested_a_review_from: 'Se solicitó una revisión a '
+        restored_from_archive: Restaurado del archivo
+        status: 'Estado: '
+        view_full_version: Ver la versión completa →
+        withdrew_the_review_request_for: 'Se retiró la solicitud de revisión para '
+      this_snapshot_records_markdown_source: Esta copia solo incluye el código fuente Markdown. El título de arriba es el actual. Los archivos adjuntos, el contenido enlazado o incrustado y los planes secundarios quedan fuera de esta aprobación.

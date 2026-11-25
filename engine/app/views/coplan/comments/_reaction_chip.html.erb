@@ -4,7 +4,7 @@
 <% kind = local_assigns[:kind] %>
 <% users = local_assigns.fetch(:users, []) %>
 <%= tag.button type: "button", class: "comment-reaction",
-      aria: { pressed: "false", label: (kind && "#{users.map(&:name).join(", ")} reacted with #{Coplan::CommentReaction.label_for(kind)}") },
+      aria: { pressed: "false", label: (kind && t("coplan.discussions.messages.name_reacted_with_kind", name: users.map(&:name).join(", "), kind: Coplan::CommentReaction.label_for(kind))) },
       data: {
         kind: kind,
         reactors: users.map { |user| { id: user.id, name: user.name } },

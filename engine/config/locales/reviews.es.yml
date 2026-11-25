@@ -1,0 +1,75 @@
+---
+es:
+  coplan:
+    reviews:
+      add_reviewer: Añadir revisor
+      anything_you_d_like_to: "¿Quieres añadir algo?"
+      applies_to_future_edits_for: Se aplica a los cambios futuros para todos los revisores. Si está desactivada, las revisiones completadas permanecen en la versión revisada. Las nuevas aprobaciones siempre requieren la última versión.
+      approve: Aprobar
+      approve_this_version: "¿Aprobar esta versión?"
+      approve_version: Aprobar versión
+      attachments_linked_or_embedded_content: Esta aprobación no incluye los archivos adjuntos, el contenido enlazado o incrustado, las etiquetas ni los planes secundarios.
+      change_decision: Cambiar decisión
+      changes_since_approval: Cambios desde la aprobación
+      close_approval: Cerrar aprobación
+      close_comparison: Cerrar comparación
+      close_review_activity: Cerrar actividad de revisión
+      close_reviews: Cerrar revisiones
+      collapse_feedback: Contraer comentarios
+      compare: Comparar
+      decision: Decisión
+      find_a_reviewer: Buscar un revisor
+      i_ve_reviewed_and_approve: He revisado y apruebo el código fuente Markdown de esta versión.
+      messages:
+        a_review_response_was_recorded: Se registró una respuesta a la revisión
+        agent: " (agente)"
+        agent_name_via_name: "%{agent_name} (en nombre de %{name})"
+        agent_name_via_you: "%{agent_name} (en tu nombre)"
+        content_changed_review_again: El contenido cambió. Vuelve a revisarlo
+        content_changed_review_v_current: " · El contenido cambió. Vuelve a revisar la v%{current_revision}"
+        count_awaiting_review: " · %{count} pendientes de revisión"
+        decision_actor_approved: "%{decision_actor} aprobó"
+        decision_actor_requested_changes_to: "%{decision_actor} solicitó cambios en"
+        describe_the_adjustments_questions_or_pending: Describe los ajustes, las dudas o el texto que quieres que se revise…
+        earlier_decisions_are_history_please: " · Las decisiones anteriores están en el historial. Vuelve a revisar el plan"
+        historical_decision: " · Decisión anterior"
+        pending: Pendiente
+        public_review_comment: Comentario público de revisión
+        ready_for_another_look: Listo para otra revisión
+        request_another_review: Solicitar otra revisión
+        requested_changes_on: solicitó cambios en
+        review_settings_changed_please_try: La configuración de revisión cambió. Inténtalo de nuevo.
+        v_revision_markdown_snapshot: v%{revision} · Copia del código Markdown
+        you: Tú
+        your_review_was_requested: Han solicitado tu revisión
+      no_document_text_changed_since: El texto del documento no ha cambiado desde esta aprobación.
+      no_review_activity_yet: Todavía no hay actividad de revisión.
+      no_reviewers_yet: Todavía no hay revisores
+      not_reviewed_yet: Pendiente de revisión
+      optional: "(opcional)"
+      public_anyone_who_can_read: Público · Quien pueda leer este plan puede participar en la conversación.
+      public_note: Nota pública
+      remove_reviewer: Quitar revisor
+      request_changes: Solicitar cambios
+      required: Obligatorio
+      review: Revisión
+      review_activity: Actividad de revisión
+      review_pending: Revisión pendiente
+      review_requested: Revisión solicitada
+      reviewer: Revisor
+      reviewer_decisions: Decisiones de revisión
+      reviewers: Revisores
+      reviews_cover_the_markdown_source: Las revisiones solo cubren el código fuente Markdown. Cada decisión registra la versión revisada. Las decisiones anteriores permanecen en la actividad.
+      reviews_requested: Revisiones solicitadas
+      saved: Guardado
+      search_by_name_or_username_pending: Buscar por nombre o usuario…
+      suggested: Sugeridos
+      the_earlier_approval_remains_recorded: La aprobación anterior queda registrada. Los cambios no la anulan automáticamente.
+      unread: 'Sin leer:'
+      version: Versión
+      view_activity: Ver actividad
+      view_feedback: Ver comentarios
+      what_would_you_like_changed: "¿Qué te gustaría que cambiara?"
+      your_review: Tu revisión
+      your_review_is_requested: Te han pedido que revises el plan
+      your_review_tasks: Tus tareas de revisión

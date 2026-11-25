@@ -1,3 +1,4 @@
+import { t } from "coplan/ui_messages"
 import { Controller } from "@hotwired/stimulus"
 import { captureReactionFocus } from "coplan/reaction_focus"
 
@@ -212,7 +213,7 @@ export default class extends Controller {
     }).catch(async error => {
       await waitForInteractions([commentId])
       settle()
-      this.toast(error.message || "Couldn't save your reaction. Please try again.")
+      this.toast(error.message || t("coplan.client.discussions.reaction_failed"))
     })
   }
 
@@ -335,7 +336,7 @@ export default class extends Controller {
     const shown = names.slice(0, NAME_LIMIT).join(", ")
     const others = names.length - NAME_LIMIT
     const who = others > 0 ? `${shown} and ${others} ${others === 1 ? "other" : "others"}` : shown
-    return `${who} reacted with ${reaction}`
+    return t("coplan.client.discussions.reacted_with", { who, reaction })
   }
 
   place(popover, anchor, { above }) {

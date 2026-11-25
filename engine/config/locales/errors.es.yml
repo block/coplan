@@ -1,0 +1,18 @@
+---
+es:
+  coplan:
+    errors:
+      connect_in_to_out_the: Conecta la entrada con la salida. La línea azul muestra tu avance.
+      in: ENTRADA
+      make_a_way_back: Encuentra el camino de vuelta.
+      messages:
+        page_not_found_coplan: Página no encontrada — Coplan
+      out: SALIDA
+      page_not_found: Página no encontrada
+      path_puzzle_connect_the_left: Rompecabezas de caminos. Conecta el borde izquierdo de la fila 1, columna 1, con el borde derecho de la fila 4, columna 4.
+      rotate_the_tiles_to_connect: Gira las piezas para conectar la entrada con la salida.
+      start_over: Volver a empezar
+      take_a_puzzle_break: Tómate un descanso con un rompecabezas
+      tap_to_turn_keyboard_arrows: 'Toca para girar · Teclado: flechas y Enter'
+      the_puzzle_needs_javascript_use: El rompecabezas necesita JavaScript. Usa el logotipo de Coplan para volver al inicio.
+      this_page_may_have_moved: Es posible que la página se haya movido o eliminado.

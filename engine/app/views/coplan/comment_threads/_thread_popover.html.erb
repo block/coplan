@@ -23,7 +23,7 @@
         <span class="badge badge--<%= thread.status %>"><%= thread.status %></span>
       <% end %>
       <% if thread.out_of_date? %>
-        <span class="badge badge--archived">out of date</span>
+        <span class="badge badge--archived"><%= t("coplan.discussions.out_of_date") %></span>
       <% end %>
     </div>
     <% end %>

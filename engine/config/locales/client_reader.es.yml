@@ -1,0 +1,100 @@
+---
+es:
+  coplan:
+    client:
+      reader:
+        actual_size: Tamaño real
+        actual_size_hint: Tamaño real (1)
+        added_by: Añadido por %{name}
+        added_in_version: Añadido en v%{revision}
+        ai_agent: Agente de IA
+        calculating_origin: Calculando el origen de la redacción…
+        citation_preview: Vista previa de la cita
+        close_editor: Cierra el editor para resaltar la procedencia
+        close_expander: Cerrar
+        close_expander_hint: Cerrar (Esc)
+        collapse_row: Contraer fila
+        comment_on_item: Comentar
+        comment_whole_diagram: Comentar sobre todo el diagrama
+        copied: "¡Copiado!"
+        coplan_plan: Plan de Coplan
+        copy_cell: Copiar
+        copy_failed: No se pudo copiar
+        copy_section_link: Copiar enlace a esta sección
+        copy_section_link_named: Copiar enlace a «%{title}»
+        diagram_controls: Diagrama. Pulsa C para comentar o Intro para ampliar.
+        diagram_element_comment: "%{label}. Pulsa Intro para comentar."
+        diagram_failed: No se pudo mostrar el diagrama.
+        diagram_hover: Pasa el puntero sobre un elemento para comentar · Esc para explorar
+        diagram_whole_hint: Puedes comentar sobre el diagrama completo · Esc para explorar
+        document_sort: Volver al orden del documento
+        expand_diagram: Ampliar diagrama
+        expand_image: Ampliar imagen
+        expand_row: Ampliar fila
+        expand_table: Ampliar tabla
+        expanded_image: Imagen ampliada
+        expanded_mermaid: Diagrama de Mermaid ampliado
+        expanded_table: Tabla ampliada
+        expanded_view: Vista ampliada
+        finish_editing: Termina de editar para inspeccionar
+        fit: Ajustar a la pantalla
+        fit_hint: Ajustar a la pantalla (0)
+        github_pull_request: Pull request de GitHub
+        github_repository: Repositorio de GitHub
+        google_doc: Documento de Google
+        google_sheet: Hoja de cálculo de Google
+        google_slides: Presentaciones de Google
+        government_website: Sitio web gubernamental
+        inspect_writing: Inspeccionar redacción
+        load_origin_failed: No se pudo cargar el origen de la redacción.
+        loading_sources: Cargando la procedencia…
+        mermaid_diagram: Diagrama de Mermaid
+        move_in_table: Moverse
+        no_preview_text: Esta sección no tiene texto para la vista previa.
+        no_source_matches: No hay texto ni código coincidente que resaltar.
+        open_discussions:
+          one: "%{count} discusión abierta, incluidas las subsecciones contraídas"
+          other: "%{count} discusiones abiertas, incluidas las subsecciones contraídas"
+        open_source: Abrir la fuente «%{title}» en otra pestaña (%{type}, %{domain})
+        origin_unrecorded: Origen sin registrar
+        pan_mouse: Arrastra para desplazar · usa la rueda o pellizca para ampliar · haz doble clic para ajustar · 0 ajusta · 1 muestra el tamaño real
+        pan_touch: Arrastra para desplazar · pellizca para ampliar · toca dos veces para ajustar
+        plan_updated: El plan se actualizó. Tu borrador sigue aquí. Recarga para ver la última versión.
+        plan_updated_revision: El plan se actualizó a la revisión %{revision}. Tu borrador sigue aquí. Recarga para ver la última versión.
+        processing_upload: Procesando…
+        reload: Recargar
+        reset_sort: Restablecer el orden
+        retry: Volver a intentar
+        section_link_copied: Se copió el enlace a la sección
+        section_preview: 'Vista previa de la sección: %{title}'
+        slide_count: Diapositiva %{position} de %{total}
+        sort_by: Ordenar por %{column}
+        source_document_changed: El documento cambió. Vuelve a abrir el origen de la redacción.
+        source_highlights_unavailable: Este navegador no puede resaltar la procedencia
+        sources_unavailable: La procedencia no está disponible. Vuelve a intentarlo.
+        still_calculating: El cálculo sigue en curso. Vuelve a intentarlo en un momento.
+        subsections: Subsecciones de «%{title}»
+        table: Tabla
+        table_columns:
+          one: "%{count} columna"
+          other: "%{count} columnas"
+        table_rows:
+          one: "%{count} fila"
+          other: "%{count} filas"
+        too_large_to_inspect: Este documento es demasiado grande para inspeccionarlo. Aún puedes consultar los porcentajes de redacción.
+        unknown_author: Autor desconocido
+        updated_by: |-
+          Actualizado por %{name}
+          %{ago} · %{when}
+        updated_since_visit: Se actualizó desde tu última visita. Abre el historial para ver los detalles.
+        upload_connection_failed: No se pudo subir el archivo. Revisa la conexión y vuelve a intentarlo.
+        upload_status_failed: No se pudo subir el archivo (%{status}). Vuelve a intentarlo.
+        uploading:
+          one: Subiendo %{count} archivo… %{percent}%
+          other: Subiendo %{count} archivos… %{percent}%
+        website: Sitio web
+        wrap_cells: Ajustar texto de las celdas
+        zoom_in: Acercar
+        zoom_in_hint: Acercar (+)
+        zoom_out: Alejar
+        zoom_out_hint: Alejar (−)

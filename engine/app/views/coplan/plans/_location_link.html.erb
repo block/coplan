@@ -3,7 +3,7 @@
 <% unless plan.archived? %>
   <% library = plan.library %>
   <% folder = placement&.folder %>
-  <% label = folder ? "Up to containing folder — #{folder.path}" : "Up to #{library.name}" %>
+  <% label = folder ? t("coplan.documents.messages.up_to_containing_folder_path", path: folder.path) : t("coplan.documents.messages.up_to_name", name: library.name) %>
   <%= link_to(folder ? folder_browse_path(folder) : library_browse_path(library),
         class: "plan-location-link plan-location-link--#{location}",
         title: label,

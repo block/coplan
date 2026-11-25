@@ -20,6 +20,6 @@
   </span>
   <span class="folder-row__name"><%= folder.name %></span>
   <span class="folder-row__count text-muted">
-    <%= count.zero? ? "empty" : pluralize(count, "item") %>
+    <%= count.zero? ? t("coplan.display.empty") : t("coplan.display.items", count: count) %>
   </span>
 <% end %>
