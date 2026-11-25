@@ -32,6 +32,17 @@ RSpec.describe Coplan::ContentRegions::Split do
     expect(result.canonical_source).not_to include("root.textContent")
   end
 
+  it "preserves each line ending when masking components and presentation markers" do
+    component = "::: {.component}\r\n\r\n'π'\n\n:::\r\n"
+    presentation = "::: {.presentation}\n\n# Slide\r\n\r\n:::\r\n"
+    result = described_class.call(component + "\r\n" + presentation)
+    blank_component = component.gsub(/[^\r\n]/, " ")
+    blank_markers = presentation.gsub(/^:::[^\r\n]*/) { |marker| " " * marker.length }
+
+    expect(result.component_mask).to eq(blank_component + "\r\n" + presentation)
+    expect(result.canonical_source).to eq(blank_component + "\r\n" + blank_markers)
+  end
+
   it "treats the body as JavaScript when Markdown-looking strings swallow the closing marker" do
     source = "::: {.component}\n\nroot.textContent = `\n~~~js\nhello\n`;\n\n:::\n\n::: {.component}\n\nroot.textContent = 'second';\n\n:::\n"
     expect(described_class.call(source).regions.map(&:kind)).to eq(%i[component component])

@@ -91,6 +91,20 @@ RSpec.describe Coplan::CommentThread, "anchor tracking" do
   end
 
   describe "resolve_anchor_position on create" do
+    context "with mixed line endings around component and presentation regions" do
+      let(:content) do
+        "Résumé\r\n\r\n::: {.component}\r\n\r\nroot.textContent = 'café';\n\n:::\r\n\r\n" \
+          "::: {.presentation}\n\n# Slide\r\n\r\n:::\r\n\r\nThe **payment** succeeded."
+      end
+
+      it "anchors a browser selection at its original character offsets" do
+        thread = create(:comment_thread, plan:, created_by_user: user,
+          anchor_from_rendered_text: true, anchor_text: "payment succeeded")
+        thread.reload
+        expect(content[thread.anchor_start...thread.anchor_end]).to eq("payment** succeeded")
+      end
+    end
+
     it "resolves anchor_text to character positions" do
       thread = plan.comment_threads.create!(
         plan_version: plan.current_plan_version,

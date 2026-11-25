@@ -30,7 +30,7 @@ module Coplan
       def call
         reset_marker_scan(0)
         regions = []
-        canonical = @lines.dup
+        canonical = @original_lines.dup
         masked = @original_lines.dup
         cursor = 0
         index = 0
@@ -46,13 +46,11 @@ module Coplan
             region.end_line = closing + 1
             region.source = @lines[index + 1...closing].join("\n")
             regions << region
-            canonical[index] = " " * @lines[index].length
-            canonical[closing] = " " * @lines[closing].length
             if region.kind == :component
-              (index..closing).each do |i|
-                canonical[i] = " " * @lines[i].length
-                masked[i] = canonical[i] + (@original_lines[i].end_with?("\r") ? "\r" : "")
-              end
+              (index..closing).each { |i| canonical[i] = masked[i] = blank_line(i) }
+            else
+              canonical[index] = blank_line(index)
+              canonical[closing] = blank_line(closing)
             end
             cursor = closing + 1
             reset_marker_scan(cursor)
@@ -66,6 +64,12 @@ module Coplan
       end
 
       private
+
+      def blank_line(index)
+        blank = " " * @lines[index].length
+        blank << "\r" if @original_lines[index].end_with?("\r")
+        blank
+      end
 
       def reset_marker_scan(offset)
         @scan_start = @scan_end = offset
