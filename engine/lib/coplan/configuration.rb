@@ -16,6 +16,9 @@ module Coplan
     attr_accessor :error_reporter
     attr_accessor :notification_handler
     attr_reader :notification_delivery_handlers
+    # Initial external delivery jobs per person in a fixed time window.
+    # nil disables the budget. Overflow remains in the inbox only.
+    attr_reader :notification_fanout_limit, :notification_fanout_window
 
     # Lambda invoked for every analytics event tracked via
     # `Coplan::Analytics.track`. Receives (event_name, payload_hash).
@@ -185,6 +188,8 @@ module Coplan
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
       @notification_delivery_handlers = []
+      @notification_fanout_limit = 300
+      @notification_fanout_window = 10.minutes.to_i
       @track_event = nil
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
@@ -210,6 +215,21 @@ module Coplan
         - If minting returns `401`, reconnect using the helper with `--replace`. Your principal must approve again.
         - Keep the token only in the credentials file. Do not put it in commands, other files, or comments. Use the variable.
       MARKDOWN
+    end
+
+    def notification_fanout_limit=(value)
+      unless value.nil? || (value.is_a?(Integer) && value.positive?)
+        raise ArgumentError, "notification_fanout_limit must be a positive integer or nil"
+      end
+      @notification_fanout_limit = value
+    end
+
+    def notification_fanout_window=(value)
+      unless ((value.is_a?(Numeric) && value.real?) || value.is_a?(ActiveSupport::Duration)) &&
+          value.to_f.finite? && value.to_f >= 1 && value.to_f == value.to_i
+        raise ArgumentError, "notification_fanout_window must be a positive whole number of seconds"
+      end
+      @notification_fanout_window = value.to_i
     end
 
     def show_api_tokens?

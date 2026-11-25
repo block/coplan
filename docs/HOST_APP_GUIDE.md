@@ -359,6 +359,8 @@ Coplan.configure do |config|
 
   # Notifications (optional)
   config.notification_handler = ->(event, payload) { ... }
+  config.notification_fanout_limit = 300           # nil disables the budget
+  config.notification_fanout_window = 10.minutes   # positive whole seconds or duration
 
   # Analytics (optional)
   #
@@ -391,6 +393,36 @@ Both new summary jobs and legacy jobs use this setting. Jobs already scheduled
 are not moved earlier when the delay shrinks; jobs that wake before the current
 quiet period ends reschedule for its end. Configure the same value in web and
 worker processes.
+
+## Notification delivery budget
+
+By default, one person's comments can enqueue 300 external delivery jobs per
+fixed ten-minute window. Each recipient costs one job per push subscription,
+plus one dispatch job if delivery adapters are installed. Agents share their
+person's budget across tokens and plans. Review notifications and events
+without a Coplan user bypass this budget.
+
+Set `notification_fanout_limit` to a positive integer, or `nil` to disable it.
+Set `notification_fanout_window` to a positive whole number of seconds or a
+duration such as `5.minutes`. Use the same settings in web and worker processes.
+Changing the window starts a separate counter. The window is based on when
+notifications are processed, not when a comment was posted.
+
+When a recipient's delivery jobs do not fit, their inbox entry is still saved,
+but their push and adapter delivery are skipped permanently. A warning names
+the person and the budget. Rejected work does not consume the remaining budget.
+The next window admits new work; it does not replay skipped deliveries. Jobs
+already queued, their retries, and the host's `notification_handler` hook are
+not limited. Multiple delivery adapters still count as one dispatch job.
+
+The budget uses ordinary `Rails.cache` reads and writes, serialized with a lock
+on the person's existing database row. It does not require cache counter support.
+Use a shared, consistently readable cache such as Solid Cache or Redis across
+processes. MemoryStore budgets are process-local. NullStore bypasses the budget.
+Cache eviction, outages, and lock failures can relax this best-effort limit;
+reported failures log a warning and allow delivery rather than interrupt inbox
+creation. This is not a durable delivery quota or a replacement for queue capacity
+planning. No additional tables or migrations are required.
 
 ## Suggested reviewers
 
