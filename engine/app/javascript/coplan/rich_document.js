@@ -1,3 +1,4 @@
+import { componentNodeView } from "coplan/component_editor"
 import { diffArrays } from "diff"
 import { codeHighlight } from "coplan/code_highlight"
 import { richUploads } from "coplan/rich_uploads"
@@ -377,19 +378,55 @@ const defaultMarkdownSerializer = new MarkdownSerializer({
   math: { open: "", close: "", escape: false } })
 
 const presentationOpen = /^::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme="(coplan|graphite)")?\}$/
-function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false) {
-  const ranges = tokens.filter(t => t.level === 0 && t.map && t.nesting !== -1)
-  const specials = []
-  let opener = null
+const componentOpen = /^::: \{\.component(?: #[a-zA-Z][\w-]*)?(?: (?:title|type|uses|text-comments)="[^"]*")*\}$/
+
+// Match the reader's top-level region grammar. Verify candidate markers in
+// growing Markdown windows, then resume after each confirmed closing marker.
+function regionRanges(lines, offsets, markdown) {
+  const ranges = []
+  let start = 0, end = 0, markers = new Set()
+  function standalone(line) {
+    if (line >= end) {
+      const budget = 2 * (offsets[end] - offsets[start])
+      end = line + 1
+      while (end < lines.length && offsets[end + 1] - offsets[start] <= budget) end++
+      const window = markdown.slice(offsets[start], offsets[end + 1] ?? markdown.length)
+      markers = new Set(tokenizer.parse(window, {}).filter(t => t.level === 0 && t.type === "paragraph_open" && t.map[1] === t.map[0] + 1)
+        .map(t => start + t.map[0]))
+    }
+    return markers.has(line)
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].replace(/\r$/, "")
+    const component = componentOpen.test(line)
+    if ((!component && !presentationOpen.test(line)) || !standalone(i)) continue
+    const keys = Array.from(line.matchAll(/ (title|type|uses|text-comments)="[^"]*"/g), match => match[1])
+    if (new Set(keys).size !== keys.length) continue
+    let closing = i + 1
+    while (closing < lines.length && !(lines[closing].replace(/\r$/, "") === ":::" && (component || standalone(closing)))) closing++
+    if (closing === lines.length) break
+    ranges.push({from: offsets[i], to: Math.min(offsets[closing + 1], markdown.length), kind: component ? "component" : "presentation"})
+    start = end = closing + 1
+    i = closing
+  }
+  return ranges
+}
+
+function contentRanges(lines, offsets, markdown, definitionsOnly = false) {
+  const specials = regionRanges(lines, offsets, markdown)
+  const components = specials.filter(range => range.kind === "component")
+  const parts = []
+  let cursor = 0
+  for (const {from, to} of components) {
+    parts.push(markdown.slice(cursor, from), markdown.slice(from, to).replace(/[^\r\n]/g, " "))
+    cursor = to
+  }
+  const visible = parts.length ? parts.join("") + markdown.slice(cursor) : markdown
+  const ranges = tokenizer.parse(visible, {}).filter(t => t.level === 0 && t.map && t.nesting !== -1)
   for (const token of ranges) {
     const [from, to] = token.map
     if (token.type !== "paragraph_open" || to !== from + 1) continue
     const line = lines[from].replace(/\r$/, "")
-    if (opener !== null) {
-      if (line !== ":::") continue
-      specials.push({ from: offsets[opener], to: Math.min(offsets[to], markdown.length), kind: "presentation" })
-      opener = null
-    } else if (presentationOpen.test(line)) opener = from
     if (line.startsWith("::: {.iframe ") && line.endsWith(" /}"))
       specials.push({ from: offsets[from], to: Math.min(offsets[to], markdown.length), kind: "iframe" })
   }
@@ -399,7 +436,7 @@ function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false
   // Standalone HTML comments are editable guidance, hidden in reading view.
   // Scan complete comments so blank lines and Markdown-looking note text stay
   // together. Code, lists, quotes and presentation wrappers keep their source.
-  const noteStarts = new Set(definitionsOnly ? [] : htmlBlockTokenizer.parse(markdown, {})
+  const noteStarts = new Set(definitionsOnly ? [] : htmlBlockTokenizer.parse(visible, {})
     .filter(token => token.type === "html_block" && token.level === 0 && /^ {0,3}<!--/.test(token.content))
     .map(token => token.map[0]))
   if (!definitionsOnly) for (let line = 0; line < lines.length; line++) {
@@ -413,9 +450,8 @@ function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false
     line = endLine
   }
   for (let line = 0; line < lines.length; line++) {
-    if (excluded.some(t => line >= t.map[0] && line < t.map[1])) continue
     const match = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/.exec(lines[line])
-    if (!match || !citationLabelKey(match[1]) || (!definitionsOnly && specials.some(r => offsets[line] >= r.from && offsets[line] < r.to))) continue
+    if (!match || !citationLabelKey(match[1]) || excluded.some(t => line >= t.map[0] && line < t.map[1]) || specials.some(r => (!definitionsOnly || r.kind === "component") && offsets[line] >= r.from && offsets[line] < r.to)) continue
     let end = line + 1
     while (end < lines.length) {
       if (/^(?: {4}|\t)\S?/.test(lines[end]) && lines[end].trim()) { end++; continue }
@@ -441,7 +477,7 @@ export function presentationContent(source) {
 export function citationDefinitions(source) {
   const lines = source.split("\n"), offsets = [0]
   lines.forEach(line => offsets.push(offsets.at(-1) + line.length + 1))
-  return contentRanges(tokenizer.parse(source, {}), lines, offsets, source, true).map(range => {
+  return contentRanges(lines, offsets, source, true).map(range => {
     const text = source.slice(range.from, range.to)
     const match = /^ {0,3}\[\^[^\]]+\]:[ \t]*(.*?)(?:\r?\n|$)/.exec(text)
     const body = (match?.[1] || "") + "\n" + text.slice(match?.[0].length || 0).replace(/^ {4}|^\t/gm, "")
@@ -557,8 +593,7 @@ export function parseDocument(markdown) {
   const lines = markdown.split("\n")
   const offsets = [0]
   lines.forEach(line => offsets.push(offsets.at(-1) + line.length + 1))
-  const tokens = defaultMarkdownParser.tokenizer.parse(markdown, {})
-  const specials = contentRanges(tokens, lines, offsets, markdown)
+  const specials = contentRanges(lines, offsets, markdown)
   const blocks = []
   const segments = []
   let cursor = 0
@@ -611,7 +646,10 @@ export function serializeDocument(doc, recordRange = null) {
   let output = "", previousChanged = false
   doc.forEach((node, position) => {
     const unchanged = node.type.name === "preserved" ? !node.attrs.inserted : (node.attrs.source !== null && node.attrs.snapshot === signature(node))
-    const source = unchanged ? node.attrs.source : node.type.name === "template_note" ?
+    // Even a newly inserted component owns its exact JavaScript and marker
+    // spacing. The Markdown serializer can collapse blank lines inside atoms.
+    const component = node.type === schema.nodes.preserved && node.attrs.kind === "component"
+    const source = unchanged || component ? node.attrs.source : node.type.name === "template_note" ?
       node.attrs.opening + node.textContent + node.attrs.closing : serializeBlock(node)
     // New/changed blocks need a block separator, including after an original
     // final paragraph with no trailing newline. Untouched boundaries stay exact.
@@ -873,7 +911,7 @@ function documentTitlePlugin() {
   })
 }
 
-export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false, uploadFiles = null, uploadError = () => {} } = {}) {
+export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false, componentCatalog = {}, uploadFiles = null, uploadError = () => {} } = {}) {
   const uploads = uploadFiles ? richUploads(schema, uploadFiles, uploadError, documentTitle) : null
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
@@ -938,7 +976,9 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   const view = new EditorView(element, {
     state, nodeViews: {
       list_item: taskItemNodeView,
-      preserved: (node, view, getPos) => sourceNodeView(node, view, getPos, preview, sourceRangeAt),
+      preserved: (node, view, getPos) => node.attrs.kind === "component" ?
+        componentNodeView(node, getPos, preview, body => previewSettled(body, view, getPos, sourceRangeAt), componentCatalog) :
+        sourceNodeView(node, view, getPos, preview, sourceRangeAt),
       image: (node, view, getPos) => imageNodeView(node, view, getPos),
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview, sourceRangeAt)
     }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
@@ -1170,8 +1210,9 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
 }
 
 // Editor-owned decorations keep comment highlights out of ProseMirror's
-// content DOM. Source cards contribute text to occurrence counting, but their
-// rendered previews have no editable positions and get no decoration here.
+// content DOM. Components are opaque to prose comments. Other source cards,
+// including presentations, count toward occurrences. Their previews have no
+// editable positions to decorate here.
 function commentPlugin(initial) {
   let comments = initial
   return new Plugin({
@@ -1252,7 +1293,7 @@ function commentDecorations(doc, comments) {
     if (node.type === schema.nodes.template_note) return false
     if (node.isTextblock && chars.length) add(" ")
     if (node.isText) add(node.text, position)
-    else if (node.type.name === "preserved") add(node.attrs.source.replace(/^\s*\|?\s*:?-{3,}.*$/gm, "").replace(/\|/g, " "))
+    else if (node.type.name === "preserved" && node.attrs.kind !== "component") add(node.attrs.source.replace(/^\s*\|?\s*:?-{3,}.*$/gm, "").replace(/\|/g, " "))
   })
   let folded = "", foldedPositions = []
   chars.forEach((char, i) => {

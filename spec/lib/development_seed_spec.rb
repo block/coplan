@@ -404,6 +404,27 @@ RSpec.describe Coplan::DevelopmentSeed do
       expect(plan.reload.current_content).to eq(resized)
     end
 
+    it "seeds and preserves the interactive components example" do
+      described_class.call
+      plan = seeded_plan("interactive-components")
+      revision = plan.current_revision
+      expect(plan.current_content).to include("<svg", "+ → Component → Base", "Quick guide", "drag across the result")
+      expect(plan.current_plan_version.component_catalog).to eq({ "types" => {}, "libraries" => {} })
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+    end
+
+    it "files the stress workloads in the demo index and preserves their revision on re-seed" do
+      described_class.call
+      plan = seeded_plan("component-stress-lab")
+      expect(plan.current_content).to include("#service-map", "#queue-saturation", "Run simulation")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+    end
+
     it "seeds the callout gallery once with every callout type and preserves a person's edits" do
       described_class.call
       plan = seeded_plan("callout-gallery")

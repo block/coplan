@@ -995,3 +995,145 @@
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   border-bottom: none;
 }
+
+/* Keep the tools outside the authored surface, including on touch screens. */
+.document-component {
+  position: relative;
+  isolation: isolate;
+  margin: 1rem 0 2.3rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: .45rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.document-component iframe { display: block; width: 100%; border: 0; border-radius: inherit; }
+/* A small perimeter and the stationary tab slot accept hover even while
+   the controls are retracted. Neither sits above the live frame. */
+.document-component::before {
+  content: "";
+  position: absolute;
+  inset: -.35rem;
+  z-index: -1;
+}
+.document-component__tab {
+  position: absolute;
+  inset: 100% .2rem auto auto;
+  z-index: 1;
+  overflow: clip;
+  padding: 0 .15rem .25rem;
+}
+.document-component__actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 .15rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0 0 .45rem .45rem;
+  background: var(--color-surface);
+  transform: translateY(calc(-100% - 1px));
+  transition: transform 150ms ease-out;
+}
+.document-component:is(:hover, .is-frame-hovered) > .document-component__tab > .document-component__actions,
+.document-component__tab:has(:focus-visible) > .document-component__actions {
+  transform: none;
+}
+.document-component__actions button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.85rem;
+  height: 1.65rem;
+  padding: 0 .25rem;
+  border: 0;
+  border-radius: .3rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.document-component__actions [hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .document-component__actions { transition: none; }
+}
+@media (hover: none) {
+  .document-component__tab::before {
+    content: "";
+    position: absolute;
+    inset: 1px .65rem auto auto;
+    width: 1.3rem;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--color-border);
+  }
+  .document-component__tab:focus-within > .document-component__actions { transform: none; }
+}
+@media (pointer: coarse) {
+  .document-component__actions button { min-width: 2.5rem; height: 2.25rem; }
+  .document-component { margin-bottom: 2.8rem; }
+}
+.document-component__actions button:is(:hover, :focus-visible, [aria-pressed="true"]) {
+  color: var(--color-primary);
+  background: var(--color-interaction-hover-bg);
+}
+.document-component__actions button:focus-visible { outline: 2px solid var(--color-primary); }
+.document-component__selection {
+  position: absolute;
+  z-index: 2; /* Continue the outline across the top edge of the tab. */
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+  outline: 2px solid var(--color-primary);
+  border-radius: inherit;
+}
+.document-component__mark {
+  display: none;
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 2px solid var(--color-primary);
+  background: transparent;
+}
+.component-snapshot { display: block; height: auto; max-width: 100%; max-height: 14rem; object-fit: contain; margin: .35rem 0; }
+.component-snapshot[hidden] { display: none; }
+.source-comments__attachment:not([hidden]) {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-height: 14rem;
+  margin-block: .35rem;
+  background: var(--color-surface-muted);
+  border-radius: .35rem;
+}
+.source-comments__attachment > * { grid-area: 1 / 1; }
+.source-comments__capture-status {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+.source-comments__capture-status:has(> span:not(:empty))::before {
+  content: "";
+  box-sizing: border-box;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--color-border);
+  border-top-color: currentColor;
+  border-radius: 50%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .source-comments__capture-status::before { animation: component-capture-spin 800ms linear infinite; }
+}
+@keyframes component-capture-spin { to { transform: rotate(1turn); } }
+.source-comments__attachment img { width: 100%; height: 100%; min-height: 0; margin: 0; }
+.document-component pre { overflow: auto; max-height: 26rem; white-space: pre; }
+.document-component:popover-open {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(72rem, calc(100vw - 2rem));
+  overflow: visible;
+  box-sizing: border-box;
+}
+.document-component:popover-open iframe {
+  min-height: min(65dvh, 50rem);
+  max-height: calc(100dvh - 6rem);
+}
+.document-component:popover-open::backdrop { background: rgb(0 0 0 / .4); }

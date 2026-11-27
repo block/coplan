@@ -1,7 +1,13 @@
 
 /* Comment popover (appears on text selection) */
 .comment-popover {
-  position: absolute;
+  position: fixed;
+  margin: 0;
+  inset: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
   z-index: 10;
   animation: popover-fade-in 0.15s ease-out;
 }

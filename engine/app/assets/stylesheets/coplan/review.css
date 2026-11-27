@@ -534,9 +534,18 @@ body:has(.review-tray[data-completed="true"]:not([data-reconsidering="true"]):no
 .document-editor__presentation-label { display: inline-flex; align-items: center; gap: 0.5rem; }
 .document-editor__presentation-label svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
-.document-editor__content-picker { width: 200px; }
-.document-editor__content-picker > button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: auto; padding: 10px; text-align: left; font-size: 14px; border-radius: 6px; color: var(--color-text); }
-.document-editor__content-picker > button:hover, .document-editor__content-picker > button:focus-visible { background: var(--color-primary-light); color: var(--color-primary); }
+.document-editor__content-picker { width: 200px; max-height: calc(100dvh - 16px); overflow-y: auto; }
+.document-editor__content-picker button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: auto; padding: 10px; text-align: left; font-size: 14px; border-radius: 6px; color: var(--color-text); }
+.document-editor__component-chevron { margin-inline-start: auto; }
+[aria-expanded="true"] > .document-editor__component-chevron { transform: rotate(90deg); }
+.document-editor__component-choices { margin-inline-start: 18px; padding-inline-start: 6px; border-inline-start: 1px solid var(--color-border); }
+.document-editor__component-choices button { padding-block: 6px; }
+.document-editor__component-choices svg { color: var(--color-text-muted); flex-shrink: 0; }
+.document-editor__component-guide p { margin: .7rem 0 0; font-size: .88rem; line-height: 1.5; }
+.document-editor__component-guide [data-guide-description] { white-space: pre-wrap; overflow-wrap: anywhere; }
+.document-editor__component-guide [data-guide-bindings] { color: var(--color-text-muted); font-size: .8rem; }
+.document-editor__component-guide pre { margin: .8rem 0 0; padding: .75rem; border-radius: 6px; background: var(--color-surface-muted); font: .8rem/1.55 var(--font-mono, monospace); white-space: pre-wrap; overflow-wrap: anywhere; }
+.document-editor__content-picker button:hover, .document-editor__content-picker button:focus-visible { background: var(--color-primary-light); color: var(--color-primary); }
 
 /* Live content and the inline editor share this reader, including empty plans. */
 .plan-reader:has(.markdown-rendered > *) > .empty-state { display: none; }

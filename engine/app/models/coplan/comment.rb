@@ -8,6 +8,7 @@ module Coplan
     # Public readers see a tombstone; the stored body remains available to admins.
     DELETED_BODY = "_This comment was deleted._".freeze
 
+    has_one_attached :component_snapshot
     belongs_to :comment_thread
     # Notifications reference the comment, so deleting one used to fail on
     # a foreign key. They're delivery records for a comment that no longer
@@ -46,6 +47,18 @@ module Coplan
 
     def deleted?
       deleted_at.present?
+    end
+
+    def component_annotation?
+      !deleted? && component_selection.present?
+    end
+
+    def selection_description
+      return unless component_annotation?
+      point = "(#{component_selection["x"]}, #{component_selection["y"]})"
+      w, h = component_selection.values_at("w", "h")
+      area = w.zero? && h.zero? ? "Point #{point}" : "#{w} × #{h} at #{point}"
+      [ component_selection["quote"].presence || component_selection["label"].presence, area ].compact.join(" · ")
     end
 
     def soft_delete!

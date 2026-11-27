@@ -1,0 +1,97 @@
+# Interactive components
+
+Use an interactive component for a diagram, animation, or small app that belongs in a document. Put JavaScript inside a top-level Markdown region. Leave blank lines around the markers. The script receives a DOM element named `root`. Append HTML, SVG, or a canvas to it.
+
+````markdown
+::: {.component}
+
+const button = document.createElement("button");
+let attempts = 0;
+button.textContent = "Try payment";
+button.onclick = () => { button.textContent = `Attempts: ${++attempts}`; };
+root.append(button);
+
+:::
+````
+
+Each reader starts with fresh state. A component can respond to input and animate inside its frame. The frame isolates the script from the surrounding document and its session. Its policy blocks fetch requests, remote scripts and images, form submissions, and parent navigation. Complete network isolation depends on the reader’s browser and the site’s frame policy. Include the data your program needs in its source and use only data intended for its readers. The appearance follows the reader's theme. Use `--coplan-text`, `--coplan-text-muted`, `--coplan-surface`, `--coplan-surface-muted`, `--coplan-border`, and `--coplan-primary` for custom colors.
+
+Select rendered HTML or SVG text and choose Comment or press C. You can start typing while the preview loads. Posting waits briefly for the image. The discussion records the selected words (up to 4,096 characters), their visible bounds, and a PNG when capture is available. The thread belongs to the component in the document. Inputs and editable text keep their own keyboard behavior. Use the corner Comment control for a picture, a canvas, or an area.
+
+Text comments are on by default. A host type can set `text_comments: false` when registered. Use `text-comments="on"` or `text-comments="off"` on a component marker to override its type for that block.
+
+## Available component types
+
+A **type** gives the script named objects and can render the result after the script finishes. Base is the built-in type. It uses plain JavaScript and omits the type attribute. Hosts can register additional types. Add an optional ID such as `#retry-path` for a deep link. In the visual editor, choose + → Component → a type. The new block opens in Edit with its starter code. Open Quick guide beside the type selector for the examples below.
+
+<%= raw Coplan::ComponentCatalog::ROOT_GUIDE.sub("<main>", "`<main>`") %> [DOM basics on MDN](<%= Coplan::ComponentCatalog::DOM_REFERENCE_URL %>)
+
+<% catalog = Coplan.configuration.component_catalog -%>
+| Type | Available in the script | Included modules |
+|---|---|---|
+| Base (omit `type`) | `root` | — |
+<% catalog.types.each do |name, entry| -%>
+| `<%= name %>` | <%= (["root"] + entry.fetch("bindings")).map { |key| "`#{key}`" }.join(", ") %> | <%= entry.fetch("uses").map { |key| "`#{key}`" }.join(", ").presence || "—" %> |
+<% end -%>
+
+<% catalog.authoring_types.each do |name, type| -%>
+### <%= type.fetch("label") %> quick guide
+
+<% fence = "`" * [ 4, (type.values_at("guide", "example").join.scan(/`+/).map(&:length).max || 0) + 1 ].max -%>
+<% if type["guide"].present? -%>
+<%= fence %>text
+<%= raw type["guide"] %>
+<%= fence %>
+
+<% end -%>
+<%= fence %>markdown
+::: {.component<%= raw %( type="#{name}") unless name.empty? %>}
+
+<%= raw type.fetch("example") %>
+
+:::
+<%= fence %>
+
+<% end -%>
+## JavaScript modules
+
+A **module** is bundled JavaScript that your script can import. Use the exact keys registered by your host in the Markdown attribute `uses`, separated by spaces. If the host registers `backoff@1`, for example, `uses="backoff@1"` makes `await import("backoff")` available. A type includes the modules listed in its table row. Each saved document version retains the module code it used.
+
+<% if catalog.libraries.any? -%>
+The editor’s Modules picker offers additional libraries.
+
+| Module key for `uses` | Name for `await import()` |
+|---|---|
+<% catalog.libraries.each_key do |key| -%>
+| `<%= key %>` | `"<%= key.split("@").first %>"` |
+<% end -%>
+
+<% else -%>
+This host has no registered component modules.
+<% end -%>
+
+<% if catalog.types.any? || catalog.libraries.any? -%>
+## Examples and implementation
+
+<% { "Type" => catalog.types, "Module" => catalog.libraries }.each do |kind, entries| -%>
+<% entries.each do |name, entry| -%>
+### <%= kind %> `<%= name %>`
+
+<% fence = "`" * [ 3, (entry.values_at("source", "example").join.scan(/`+/).map(&:length).max || 0) + 1 ].max -%>
+<% if kind == "Module" -%>
+Example
+
+<%= fence %>javascript
+<%= raw entry.fetch("example").rstrip %>
+<%= fence %>
+
+<% end -%>
+Implementation
+
+<%= fence %>javascript
+<%= raw entry.fetch("source").rstrip %>
+<%= fence %>
+
+<% end -%>
+<% end -%>
+<% end -%>

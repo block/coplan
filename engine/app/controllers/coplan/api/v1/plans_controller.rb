@@ -2,6 +2,8 @@ module Coplan
   module Api
     module V1
       class PlansController < BaseController
+        include CommentSerialization
+
         before_action :set_plan, only: [ :show, :update, :version, :versions, :comments, :snapshot, :review_evidence, :locations, :writing_provenance ]
         before_action :authorize_plan_access!, only: [ :show, :update, :version, :versions, :comments, :snapshot, :review_evidence, :locations, :writing_provenance ]
 
@@ -565,18 +567,7 @@ module Coplan
             created_by: thread.created_by_user&.name,
             created_by_user: user_json(thread.created_by_user),
             created_at: thread.created_at,
-            comments: thread.comments.sort_by(&:created_at).map { |c|
-              {
-                id: c.id,
-                author_type: c.author_type,
-                author_id: c.author_id,
-                agent_name: c.agent_name,
-                body_markdown: c.public_body_markdown,
-                deleted: c.deleted?,
-                created_at: c.created_at,
-                reactions: CommentReaction.as_api_json(c)
-              }
-            }
+            comments: thread.comments.sort_by(&:created_at).map { |comment| comment_json(comment) }
           }
         end
 

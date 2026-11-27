@@ -33,6 +33,34 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(linked).to match_array(Coplan::AgentInstructionsController::GUIDES.keys)
     end
 
+    it "only advertises interactive components when enabled" do
+      allow(Coplan.configuration).to receive(:components_enabled).and_return(false)
+      [ agent_instructions_path, agent_instructions_guide_path(guide: "markdown"),
+        agent_instructions_guide_path(guide: "comments") ].each do |path|
+        get path
+        expect(response.body).not_to include("agent-instructions/components", "component_snapshot", "Interactive JavaScript components")
+      end
+      [ :md, :html ].each do |format|
+        get agent_instructions_guide_path(guide: "components", format: format)
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
+    it "lists registered types, their bindings, and importable modules after the plain JavaScript example" do
+      catalog = Coplan::ComponentCatalog.new
+      catalog.library("plot@2", source: "export const scale = 2", example: "scale")
+      guidance = "Draw a series with plot.draw().\n# Keep ```` as text"
+      catalog.type("chart", source: "", bindings: [ "plot" ], uses: [ "plot@2" ], example: "plot.draw()", guide: guidance)
+      allow(Coplan.configuration).to receive(:component_catalog).and_return(catalog)
+      get agent_instructions_guide_path(guide: "components")
+      body = response.body
+      expect(body).to include("Chart quick guide", "`````text\n#{guidance}\n`````", Coplan::ComponentCatalog::BASE_EXAMPLE)
+      expect(body.index("::: {.component}")).to be < body.index('::: {.component type="chart"}')
+      expect(body).to include("| `chart` | `root`, `plot` | `plot@2` |", '| `plot@2` | `"plot"` |')
+      get agent_instructions_guide_path(guide: "components", format: :html)
+      expect(Nokogiri::HTML(response.body).css("pre code").map(&:text).map(&:strip)).to include(guidance)
+    end
+
     it "keeps the long-lived token when minting fails" do
       get agent_instructions_path
 

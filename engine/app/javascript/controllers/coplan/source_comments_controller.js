@@ -7,10 +7,11 @@ import { revealSections } from "coplan/collapsed_sections"
 // Only signed source ranges cross the wire; SVG ids are render-time lookup
 // keys, and never become comment identities.
 export default class extends Controller {
-  static targets = ["panel", "quote", "discussions", "token", "body", "outdated", "composer", "threadTools"]
+  static targets = ["panel", "quote", "discussions", "token", "body", "outdated", "composer", "threadTools", "preview", "imageStatus", "attachment", "region", "file", "discard"]
 
   connect() {
     this.drafts = new Map()
+    this.annotationDrafts = new Map()
     this.replyDrafts = new Map()
     this.panelHome = document.createComment("element comment panel")
     this.panelTarget.before(this.panelHome)
@@ -23,6 +24,7 @@ export default class extends Controller {
   }
 
   disconnect() {
+    this.clearAnnotation()
     this.deferredReactionRender = null
     this.observer?.disconnect()
     this.panelObserver?.disconnect()
@@ -106,7 +108,7 @@ export default class extends Controller {
     this.refresh()
   }
 
-  show(element, includeResolved = this.showResolved, focusReply = true) {
+  show(element, includeResolved = this.showResolved, focusReply = true, annotation = null) {
     // Badges are rebuilt on broadcasts; anchor to the lasting connection.
     if (element.ownerSVGElement && JSON.parse(element.dataset.sourceTarget).kind === "mermaid_edge") {
       element = Array.from(element.ownerSVGElement.querySelectorAll("path.flowchart-link[data-source-target]:not(.source-edge-hit)"))
@@ -116,7 +118,8 @@ export default class extends Controller {
     this.openThreadIds = new Set()
     this.clearBrowse()
     this.saveReplyDrafts()
-    if (this.selection) this.drafts.set(this.selection.token, this.bodyTarget.value)
+    this.saveDraft()
+    this.clearAnnotation()
     const target = JSON.parse(element.dataset.sourceTarget)
     this.selection = target
     this.showingOutdated = false
@@ -126,14 +129,19 @@ export default class extends Controller {
     this.quoteTarget.closest(".comment-form__anchor").hidden = target.kind === "table_cell"
     this.quoteTarget.textContent = target.kind === "table_cell" ? "" : target.kind === "mermaid_diagram" ? target.label :
       preview.textContent.trim() || target.label
+    if (annotation) {
+      this.annotation = annotation
+      this.discardTarget.hidden = false
+      this.renderAnnotation()
+    }
     this.tokenTarget.value = target.token
-    this.bodyTarget.value = this.drafts.get(target.token) || ""
+    this.bodyTarget.value = annotation ? annotation.body || "" : this.drafts.get(target.token) || ""
     this.element.querySelector("#source-comment-error").textContent = ""
 
     const panel = this.panelTarget
-    const dialog = element.closest("dialog.expander")
+    const expanded = element.closest("dialog.expander, .document-component:popover-open")
     try { panel.hidePopover() } catch {}
-    if (dialog) dialog.append(panel)
+    if (expanded) expanded.append(panel)
     else this.panelHome.after(panel)
     this.renderDiscussions()
     this.paintSelection()
@@ -159,6 +167,89 @@ export default class extends Controller {
     const dialog = event.currentTarget.closest("dialog")
     const cell = dialog?.contains(this.browseTarget) ? this.browseTarget : dialog?.querySelector(".is-cursor[data-source-target]")
     if (cell) this.show(cell)
+  }
+
+  saveDraft() {
+    if (!this.selection) return
+    const token = this.selection.token
+    if (!this.annotation) this.drafts.set(token, this.bodyTarget.value)
+    else if (this.bodyTarget.value.trim()) {
+      this.annotation.body = this.bodyTarget.value
+      this.annotationDrafts.set(token, this.annotation)
+    } else this.annotationDrafts.delete(token)
+  }
+
+  resumeAnnotation(event) {
+    const draft = this.annotationDrafts.get(JSON.parse(event.target.dataset.sourceTarget).token)
+    if (!draft) return
+    event.preventDefault()
+    this.show(event.target, this.showResolved, true, draft)
+  }
+
+  discardAnnotation() {
+    this.bodyTarget.value = ""
+    this.dismiss()
+  }
+
+  componentAnnotation(event) {
+    const annotation = event.detail
+    this.show(event.target, this.showResolved, true, annotation)
+    annotation.capture.then(({label, png}) => {
+      annotation.capture = null
+      if (label) annotation.region.label = label
+      annotation.png = png
+      if (this.annotation !== annotation) return
+      this.renderAnnotation()
+      if (this.postAfterCapture) {
+        this.postAfterCapture = false
+        this.composerTarget.requestSubmit(this.composerTarget.querySelector('[type="submit"]'))
+      }
+    })
+  }
+
+  waitForImage(event) {
+    if (!this.annotation?.capture) return
+    event.preventDefault()
+    this.postAfterCapture = true
+    this.imageStatusTarget.classList.remove("visually-hidden")
+    this.imageStatusTarget.textContent = "Posting when ready…"
+  }
+
+  renderAnnotation() {
+    const {region, capture, png} = this.annotation
+    this.regionTarget.value = JSON.stringify(region)
+    this.regionTarget.disabled = false
+    const area = region.w || region.h ? `${region.w} × ${region.h} at (${region.x}, ${region.y})` : `Point (${region.x}, ${region.y})`
+    this.quoteTarget.textContent = [this.selection.label, region.quote || region.label, area, !capture && !png && "Image unavailable"].filter(Boolean).join(" · ")
+    this.imageStatusTarget.classList.add("visually-hidden")
+    this.imageStatusTarget.textContent = capture ? "Preparing image…" : ""
+    this.attachmentTarget.hidden = !capture && !png
+    this.attachmentTarget.style.aspectRatio = `${region.width} / ${region.height}`
+    if (!png) return
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([png], "component.png", {type: "image/png"}))
+    this.fileTarget.files = transfer.files
+    this.fileTarget.disabled = false
+    this.previewURL = URL.createObjectURL(png)
+    this.previewTarget.src = this.previewURL
+    this.previewTarget.hidden = false
+  }
+
+  componentDiscussions(event) {
+    this.show(event.currentTarget.parentElement.querySelector("[data-source-target]"))
+  }
+
+  clearAnnotation() {
+    if (this.previewURL) URL.revokeObjectURL(this.previewURL)
+    this.previewURL = null
+    this.annotation = null
+    this.postAfterCapture = false
+    if (!this.hasRegionTarget) return
+    this.attachmentTarget.hidden = this.discardTarget.hidden = true
+    this.imageStatusTarget.textContent = ""
+    this.regionTarget.disabled = this.fileTarget.disabled = this.previewTarget.hidden = true
+    this.fileTarget.value = this.regionTarget.value = ""
+    this.previewTarget.removeAttribute("src")
   }
 
   commentOnDiagram(event) {
@@ -194,10 +285,11 @@ export default class extends Controller {
     if (event && !this.panelTarget.matches(":popover-open")) return
     event?.preventDefault()
     event?.stopPropagation()
-    if (this.selection) this.drafts.set(this.selection.token, this.bodyTarget.value)
+    this.saveDraft()
     this.saveReplyDrafts()
     this.clearBrowse()
     try { this.panelTarget.hidePopover() } catch {}
+    this.clearAnnotation()
     this.selection = null
     this.openThreadIds = new Set()
     this.showingOutdated = false
@@ -220,8 +312,11 @@ export default class extends Controller {
       return
     }
     if (event.target.contains(this.bodyTarget)) {
+      if (!this.regionTarget.disabled && this.selection) this.quoteTarget.textContent = this.selection.label
+      this.clearAnnotation()
       this.bodyTarget.value = ""
       this.drafts.delete(this.selection?.token)
+      this.annotationDrafts.delete(this.selection?.token)
     } else {
       event.target.querySelectorAll("textarea").forEach(textarea => { textarea.value = "" })
       this.replyDrafts.delete(event.target.closest("[data-thread-id]")?.dataset.threadId)
@@ -315,7 +410,7 @@ export default class extends Controller {
       [thread.dataset.threadId, thread.querySelector(".thread-popover__reply")]))
     const editingComments = new Map(Array.from(this.discussionsTarget.querySelectorAll(".comment:has(.comment__editor:not([hidden]))"))
       .map(comment => [comment.dataset.commentId, comment]))
-    const matches = this.showingOutdated ? this.outdatedThreads() : this.matchingThreads(this.selection)
+    const matches = !this.regionTarget.disabled ? [] : this.showingOutdated ? this.outdatedThreads() : this.matchingThreads(this.selection)
     const openThreads = matches.filter(thread => thread.dataset.threadStatus === "open")
     if (this.openThreadIds?.size && !openThreads.length) {
       this.dismiss()
@@ -351,6 +446,7 @@ export default class extends Controller {
         if (reactions) previous.querySelector(".comment-reactions")?.replaceWith(reactions)
         comment.replaceWith(previous)
       })
+      copy.querySelectorAll("img.component-snapshot").forEach(image => { image.loading = "eager" })
       const previousReply = replies.get(copy.dataset.threadId)
       const nextReply = copy.querySelector(".thread-popover__reply")
       if (previousReply && nextReply) nextReply.replaceWith(previousReply)
@@ -417,6 +513,14 @@ export default class extends Controller {
           !element.closest(".is-comment-mode")
       }
       element.setAttribute("aria-label", `${target.label}. ${threads.length} discussions. Press C or Enter to comment.`)
+      if (target.kind === "component" && element.parentElement.querySelector("[data-component-discussions]")) {
+        const count = element.parentElement.querySelector("[data-component-discussions]")
+        count.hidden = threads.length === 0
+        count.textContent = String(threads.length)
+        count.setAttribute("aria-label", `Open ${threads.length} discussions on ${target.label}`)
+        element.setAttribute("aria-label", `Comment on ${target.label}`)
+        return
+      }
       // Measure before inserting badges so subsequent markers don't shift
       // with the growing SVG group's bounding box.
       if (element.classList.contains("source-edge-label")) return

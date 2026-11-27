@@ -235,3 +235,39 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 @media (prefers-reduced-motion: reduce) {
   .document-editor__upload-placeholder::before { animation: none; }
 }
+
+/* Reuse the document mode switch at the scale of a single component. */
+.document-editor__component > .document-editor__block-header { justify-content: flex-end; padding: 4px 8px; }
+.document-editor__component-mode { padding: 2px; border-radius: 8px; }
+.document-editor__component-mode button[aria-pressed="false"] { color: var(--color-text-muted); }
+.document-editor__component-mode button { min-width: 0; padding: 3px 9px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+.document-editor__component-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-inline-end: auto; min-width: 0; font: 12px/1.5 var(--font-sans, sans-serif); color: var(--color-text-muted); }
+.document-editor__component-settings select, .document-editor__module-button { padding: 3px 7px; border: 1px solid var(--color-border); border-radius: 5px; font: inherit; color: var(--color-text); background: var(--color-surface); }
+.document-editor__module-button { cursor: pointer; }
+.document-editor__module-button::after { content: ""; display: inline-block; width: .4em; height: .4em; margin: 0 2px .2em 7px; border: solid currentColor; border-width: 0 1px 1px 0; transform: rotate(45deg); }
+.document-editor__block-header .document-editor__component-help { border: 0; background: transparent; color: var(--color-text-muted); font: inherit; cursor: pointer; }
+.document-editor__block-header .document-editor__component-help:hover { color: var(--color-primary); text-decoration: underline; }
+.document-editor__component-settings[hidden] { display: none; }
+.document-editor__component-settings select { max-width: min(45vw, 18rem); font-weight: 600; }
+.document-editor__module-picker { box-sizing: border-box; width: max-content; max-width: min(330px, calc(100vw - 16px)); max-height: 16rem; overflow: auto; padding: 4px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); }
+@supports (position-area: bottom) {
+  .document-editor__module-picker { position-area: bottom span-right; position-try-fallbacks: flip-block, flip-inline; inset: auto; margin: 4px 0; justify-self: start; }
+}
+.document-editor__module-picker label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; overflow-wrap: anywhere; }
+.document-editor__module-picker label:hover, .document-editor__module-picker label:focus-within { background: var(--color-interaction-hover-bg); }
+.document-editor__module-picker input { margin: 0; width: auto; accent-color: var(--color-primary); }
+.document-editor__component-code { position: relative; background: var(--color-surface); }
+.document-editor__component-code .document-editor__block-source, .document-editor__component-colors {
+  box-sizing: border-box; margin: 0; border: 0; padding: 12px;
+  font: 14px/1.7 var(--font-mono, monospace); letter-spacing: normal; tab-size: 8;
+  white-space: pre-wrap; overflow-wrap: break-word; text-align: start;
+}
+.document-editor__component-code .document-editor__block-source { position: relative; field-sizing: content; min-height: 8em; max-height: 55vh; }
+.document-editor__component-colors { box-sizing: content-box; position: absolute; inset: 0 auto auto 0; overflow: hidden; pointer-events: none; user-select: none; visibility: hidden; color: var(--color-text); }
+.document-editor__component-code.is-colored .document-editor__component-colors { visibility: visible; }
+.document-editor__component-code.is-colored textarea { background: transparent; color: transparent; caret-color: var(--color-text); }
+.document-editor__component-code.is-colored textarea::selection { background: Highlight; color: HighlightText; }
+@media (forced-colors: active) {
+  .document-editor__component-code.is-colored .document-editor__component-colors { visibility: hidden; }
+  .document-editor__component-code.is-colored textarea { color: CanvasText; background: Canvas; caret-color: auto; }
+}

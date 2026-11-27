@@ -3,6 +3,14 @@ module Coplan
     before_action :set_plan
     before_action :set_thread
 
+    def snapshot
+      authorize!(@plan, :show?)
+      comment = @thread.comments.kept.find(params[:id])
+      return head :not_found unless comment.component_snapshot.attached?
+      response.headers["Cache-Control"] = "private, no-store"
+      send_data comment.component_snapshot.download, type: "image/png", disposition: "inline"
+    end
+
     def create
       authorize!(@plan, :show?)
 

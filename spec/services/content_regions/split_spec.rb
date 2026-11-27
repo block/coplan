@@ -21,6 +21,46 @@ RSpec.describe Coplan::ContentRegions::Split do
     expect(result.canonical_source).to eq(source)
   end
 
+  it "separates script regions from surrounding prose and preserves literal examples" do
+    source = "~~~md\n::: {.component}\n\n:::\n~~~\n\n::: {.component #chart uses=\"a@1 b@2\" title=\"Chart\"}\n\nroot.textContent = 'hello';\n\n:::\n\nAfter"
+    result = described_class.call(source)
+    expect(result.regions.map(&:kind)).to eq(%i[document component document])
+    component = result.regions.second
+    expect(component.attributes).to eq({ "uses" => "a@1 b@2", "title" => "Chart" })
+    expect(component.id).to eq("chart")
+    expect(result.component_mask.index("After")).to eq(source.index("After"))
+    expect(result.canonical_source).not_to include("root.textContent")
+  end
+
+  it "preserves each line ending when masking components and presentation markers" do
+    component = "::: {.component}\r\n\r\n'π'\n\n:::\r\n"
+    presentation = "::: {.presentation}\n\n# Slide\r\n\r\n:::\r\n"
+    result = described_class.call(component + "\r\n" + presentation)
+    blank_component = component.gsub(/[^\r\n]/, " ")
+    blank_markers = presentation.gsub(/^:::[^\r\n]*/) { |marker| " " * marker.length }
+
+    expect(result.component_mask).to eq(blank_component + "\r\n" + presentation)
+    expect(result.canonical_source).to eq(blank_component + "\r\n" + blank_markers)
+  end
+
+  it "treats the body as JavaScript when Markdown-looking strings swallow the closing marker" do
+    source = "::: {.component}\n\nroot.textContent = `\n~~~js\nhello\n`;\n\n:::\n\n::: {.component}\n\nroot.textContent = 'second';\n\n:::\n"
+    expect(described_class.call(source).regions.map(&:kind)).to eq(%i[component component])
+  end
+
+  it "bounds Markdown parsing to the surrounding prose when many scripts contain fence-like text" do
+    block = "::: {.component}\n\nroot.textContent = `\n~~~js\nhello\n`;\n\n:::\n\n"
+    source = ("Example\n\n" + block) * 100
+    parsed_bytes = 0
+    allow(Coplan::Markdown).to receive(:parse).and_wrap_original do |original, text, **options|
+      parsed_bytes += text.bytesize
+      original.call(text, **options)
+    end
+
+    expect(described_class.call(source).regions.count { |r| r.kind == :component }).to eq(100)
+    expect(parsed_bytes).to be <= source.bytesize * 3
+  end
+
   it "keeps a paired presentation region with no slide content" do
     source = "::: {.presentation}\n\n:::"
     result = described_class.call(source)

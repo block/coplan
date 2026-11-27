@@ -1,3 +1,5 @@
+require "coplan/component_frame"
+
 Coplan::Engine.routes.draw do
   # --- The shape of this file ----------------------------------------
   #
@@ -38,6 +40,7 @@ Coplan::Engine.routes.draw do
   # Path-only scope: helper names stay unprefixed, so `settings_path`,
   # `publish_plan_path` and the rest read the same at every call site.
   scope "_" do
+    get "component-frame", to: Coplan::ComponentFrame, as: :component_frame
     get "not-found", to: "errors#not_found", as: :not_found
     # Setup guidance is an app page, not a person's library. Keep its helper
     # unprefixed while reserving the URL outside the handle namespace.
@@ -86,6 +89,7 @@ Coplan::Engine.routes.draw do
           patch :reopen
         end
         resources :comments, only: [ :create, :update, :destroy ] do
+          get :snapshot, on: :member
           # Sets the signed-in person's reaction of one kind on or off.
           resource :reactions, only: [ :update ], controller: "comment_reactions"
         end
@@ -192,6 +196,9 @@ Coplan::Engine.routes.draw do
           post :reply, on: :member
           patch :resolve, on: :member
         end
+        get "comments/:id/attachments/:type", to: "comments#attachment", as: :comment_attachment,
+          constraints: { type: /component_snapshot/ }
+        get "comments/:id/snapshot", to: "comments#attachment", as: :comment_snapshot
         # Presence/state for an agent working this plan (drives the
         # "Claude is editing…" pill and subscribes the token to events).
         resource :agent_session, only: [ :create, :update, :destroy ], controller: "agent_sessions"

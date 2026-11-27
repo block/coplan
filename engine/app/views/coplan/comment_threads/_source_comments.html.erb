@@ -5,11 +5,20 @@
   <%= render "coplan/comment_threads/window_controls", close_action: "coplan--source-comments#dismiss", viewer_id: current_user&.id %>
   <div data-coplan--source-comments-target="discussions"
        data-controller="coplan--viewer-role" data-coplan--viewer-role-viewer-id-value="<%= current_user&.id %>"></div>
-  <%= form_with url: plan_comment_threads_path(plan), method: :post, data: { controller: "coplan--comment-submit", action: "turbo:submit-start->coplan--comment-submit#started turbo:before-fetch-response->coplan--comment-submit#response turbo:fetch-request-error->coplan--comment-submit#failed turbo:submit-end->coplan--comment-submit#finished", "coplan--source-comments-target": "composer" } do %>
+  <%= form_with url: plan_comment_threads_path(plan), method: :post, multipart: true, data: { controller: "coplan--comment-submit", action: "submit->coplan--source-comments#waitForImage turbo:submit-start->coplan--comment-submit#started turbo:before-fetch-response->coplan--comment-submit#response turbo:fetch-request-error->coplan--comment-submit#failed turbo:submit-end->coplan--comment-submit#finished", "coplan--source-comments-target": "composer" } do %>
     <input type="hidden" name="comment_thread[source_token]" data-coplan--source-comments-target="token">
     <div class="comment-form__anchor">
       <span class="text-sm text-muted">Commenting on:</span>
       <blockquote class="comment-form__quote" data-coplan--source-comments-target="quote"></blockquote>
+    </div>
+    <input type="hidden" disabled name="comment_thread[component_selection]" data-coplan--source-comments-target="region">
+    <input type="file" disabled hidden name="comment_thread[component_snapshot]" data-coplan--source-comments-target="file">
+    <button type="button" hidden class="comment-window__action" data-coplan--source-comments-target="discard" data-action="coplan--source-comments#discardAnnotation">Discard annotation</button>
+    <div class="source-comments__attachment" hidden data-coplan--source-comments-target="attachment">
+      <span role="status" class="source-comments__capture-status text-sm text-muted">
+        <span class="visually-hidden" data-coplan--source-comments-target="imageStatus"></span>
+      </span>
+      <img class="component-snapshot" hidden alt="Selected area of the component" data-coplan--source-comments-target="preview">
     </div>
     <%= render "coplan/comment_threads/composer_fields",
           plan: plan, field_id: "source-comment-body", error_id: "source-comment-error",

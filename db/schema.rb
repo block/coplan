@@ -175,6 +175,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_23_151500) do
     t.string "author_type", null: false
     t.text "body_markdown", null: false
     t.string "comment_thread_id", limit: 36, null: false
+    t.json "component_selection"
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
     t.integer "reactions_version", default: 0, null: false
@@ -397,6 +398,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_23_151500) do
     t.text "reason"
     t.integer "revision", null: false
     t.json "writing_provenance"
+    t.json "component_catalog"
     t.index [ "api_token_id" ], name: "index_coplan_plan_versions_on_api_token_id"
     t.index [ "plan_id", "created_at" ], name: "index_coplan_plan_versions_on_plan_id_and_created_at"
     t.index [ "plan_id", "revision" ], name: "index_coplan_plan_versions_on_plan_id_and_revision", unique: true

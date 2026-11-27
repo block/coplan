@@ -36,6 +36,7 @@ module Coplan
       "markdown" => "markdown",
       "presentations" => "presentations",
       "embeds" => "embeds",
+      "components" => "components",
       "creating" => "creating",
       "editing" => "editing",
       "comments" => "comments",
@@ -64,7 +65,7 @@ module Coplan
 
     def guide
       template = GUIDES[params[:guide].to_s]
-      unless template
+      unless template && (template != "components" || Coplan.configuration.components_enabled)
         return render plain: "# Unknown guide\n\nThe guide list is at #{@base}/agent-instructions\n",
           status: :not_found, content_type: "text/markdown"
       end
