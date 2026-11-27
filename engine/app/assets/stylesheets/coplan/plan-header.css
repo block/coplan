@@ -95,11 +95,6 @@
   margin-top: 1px;
 }
 
-/* Center the back arrow (24px hit area) against the title's first line. */
-.page-header--plan .history-back {
-  margin-top: 7px;
-}
-
 .page-header__text {
   min-width: 0;
   display: flex;

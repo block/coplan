@@ -536,6 +536,9 @@ RSpec.describe Coplan::DevelopmentSeed do
       expect(agent_edits.count).to eq(7)
       expect(agent_edits.pluck(:api_token_id)).to all(be_present)
       expect(agent_edits.pluck(:operations_json)).to all(have_attributes(size: 1))
+      expect(seeded_plan("demo-library").current_content).to include("choose v1 in From and v8 in To")
+      expect(agent_edits.find_by!(revision: 7).change_summary).to be_nil
+      expect(agent_edits.find_by!(revision: 8).history_line_changes).to eq([ 1, 1 ])
 
       changed = seeded_plan("changed-review")
       expect(changed.current_revision).to eq(2)
@@ -570,13 +573,18 @@ RSpec.describe Coplan::DevelopmentSeed do
       pending.first.approve!
       thread = seeded_plan("collab-showcase").comment_threads.find_by!(status: "open")
       thread.resolve!(seeded_plan("collab-showcase").created_by_user)
+      edited_content = edited.current_content + "\nA local follow-up after comparing revisions.\n"
+      Coplan::Plans::ReplaceContent.call(plan: edited, new_content: edited_content,
+        base_revision: edited.current_revision, actor_type: "human", actor_id: edited.created_by_user_id)
       described_class.call
       expect(requested.reload.latest_approval).to eq(response)
       expect(requested.review_responses.count).to eq(1)
 
       expect(pending.reload.where(approved_at: nil).count).to eq(1)
       expect(thread.reload.status).to eq("resolved")
-      expect(edited.reload.current_revision).to eq(8)
+      expect(edited.reload.current_revision).to eq(9)
+      expect(edited.current_content).to eq(edited_content)
+      expect(agent_edits.find_by!(revision: 7).change_summary).to be_nil
       expect(retained.reload.current_revision).to eq(2)
       expect(retained.review_requests.pluck(:current_response_id)).to match_array(retained_ids)
       expect(retained.reset_reviews_on_change).to be(false)

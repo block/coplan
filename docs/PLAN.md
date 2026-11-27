@@ -403,7 +403,7 @@ Plan creation is API-only (`POST /api/v1/plans`). The web UI provides index, sho
 |---|---------|-----------------|-------------|
 | 2.1 | Plan + PlanVersion models | Migrations, models, associations. Service object: `Plans::Create.call(title:, content:, user:)` creates plan + version 1. | Models + service pass tests |
 | 2.2 | Plans CRUD UI | Index page (org-scoped, filtered by status). New plan form (title + paste/upload markdown). Show page with current content. Status badge. | Can create and view plans in browser |
-| 2.3 | Version history | Version list sidebar/section on plan show page. Click to view any version. Diff view between adjacent versions using `diffy`. | Can browse full version history |
+| 2.3 | Version history | Click a version to see its changes or choose From and To snapshots to compare their Markdown using `diffy`. | Can browse full version history and compare revisions |
 | 2.4 | Status transitions + visibility | Status update controls (Author only). Enforce brainstorm privacy — 404 for non-collaborators. Collaborator model + invite flow. | Status workflow works, privacy enforced |
 
 ### Phase 3 — Markdown Rendering + Inline Commenting ✅

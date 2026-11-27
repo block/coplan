@@ -1,28 +1,30 @@
-<turbo-frame id="version-diff">
+<turbo-frame id="version-diff" data-coplan--history-target="frame">
   <div class="version-diff-preview">
-    <div class="version-diff-preview__header">
-      <h3>v<%= @version.revision %></h3>
-      <span class="text-sm text-muted">
-        <% if @version.actor_user %>
-          <%= user_avatar(@version.actor_user) %> <%= @version.actor_user.name %> ·
-        <% else %>
-          <%= @version.actor_type %> ·
-        <% end %>
-        <%= time_ago_in_words(@version.created_at) %> ago
-        <% if @version.change_summary.present? %>
-          · <%= @version.change_summary %>
-        <% end %>
-      </span>
-      <%= link_to "View full version →", plan_version_browse_path(@plan, @version), class: "text-sm", data: { turbo_frame: "_top" } %>
+    <div class="version-diff-preview__header version-diff-preview__standalone">
+      <h3><%= @previous_version ? "v#{@previous_version.revision}" : "Empty document" %> → v<%= @version.revision %></h3>
+      <%= link_to "View v#{@version.revision}", plan_version_browse_path(@plan, @version, from: @first_version.revision), class: "text-sm", data: { turbo_frame: "_top" } %>
     </div>
+    <% if @first_version == @version %>
+      <div class="version-diff-preview__header text-sm">
+        <span class="version-diff-preview__byline text-muted">
+          <%= user_avatar(@version.actor_user) if @version.actor_user %>
+          <span><%= @version.actor_user ? history_actor_name(@version) : @version.agent_name.presence || @version.actor_type %> ·
+            <time datetime="<%= @version.created_at.iso8601 %>"><%= time_ago_in_words(@version.created_at) %> ago</time>
+          </span>
+        </span>
+        <% if @version.change_summary.present? %>
+          <span class="version-diff-preview__summary"><%= @version.change_summary %></span>
+        <% end %>
+      </div>
+    <% end %>
 
-    <% if @diff %>
+    <% if @diff.to_s.present? %>
       <div class="diff-view">
         <%= @diff.to_s(:html).html_safe %>
       </div>
     <% else %>
       <div class="text-sm text-muted" style="padding: var(--space-lg) 0;">
-        Initial version — no previous version to compare.
+        No document text changed across these revisions.
       </div>
     <% end %>
   </div>

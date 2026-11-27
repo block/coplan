@@ -92,7 +92,7 @@ look up this key rather than copying generated UUIDs.
 | Key | Expected initial state |
 | --- | --- |
 | untouched-document | One version, no comments or collaborators |
-| many-small-edits | Eight versions: initial draft plus seven small agent edits with token provenance |
+| many-small-edits | Eight versions: initial draft plus seven small agent edits with token provenance. In History, choose v1 in From and v8 in To. Or click v8 and Shift-click v4 to include edits v4 through v8. The version list shows lines added and removed. A fresh seed includes a version without an edit summary. |
 | writing-human / writing-ai / writing-unknown | Person, robot, and unknown icons; lazy source breakdown and reported harness identity |
 | writing-mixed | Human input, unknown imported context, and an agent proposal; opt-in source inspection |
 | writing-word-edit | Agent text with a human-added “not” in v2; hover for Hampton, version, and time |

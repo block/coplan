@@ -179,6 +179,7 @@ module Coplan
     # <document>/history; the actions below are the pages under it.
     def history
       authorize!(@plan, :show?)
+      load_version(revision: params[:to].presence || @plan.current_revision)
       @history_items = @plan.history_items
     end
 
@@ -793,12 +794,17 @@ module Coplan
     # The revision number in the URL, not a version id — see
     # BrowseController's routes. A revision nobody wrote is a 404, the same
     # as any other address that names nothing.
-    def load_version
-      @version = @plan.plan_versions.find_by!(revision: params[:revision])
-      @previous_version = @plan.plan_versions.find_by(revision: @version.revision - 1)
-      return if @previous_version.nil?
+    def load_version(revision: params[:revision])
+      first = params[:from].presence || revision
+      unless [ first, revision ].all? { |value| value.to_s.match?(/\A[1-9]\d*\z/) } && first.to_i <= revision.to_i
+        raise ActiveRecord::RecordNotFound
+      end
 
-      @diff = Diffy::Diff.new(@previous_version.content_markdown, @version.content_markdown,
+      @version = @plan.plan_versions.find_by!(revision: revision)
+      @first_version = @plan.plan_versions.find_by!(revision: first)
+      @previous_version = @plan.plan_versions.find_by!(revision: @first_version.revision - 1) if @first_version.revision > 1
+
+      @diff = Diffy::Diff.new(@previous_version&.content_markdown.to_s, @version.content_markdown,
         include_plus_and_minus_in_html: true, context: 3)
     end
 

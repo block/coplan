@@ -53,6 +53,25 @@ module Coplan
       :version
     end
 
+    def history_line_changes(previous_version: nil)
+      return [ content_markdown.each_line.count, 0 ] if revision == 1
+
+      diff = diff_unified
+      if diff.blank?
+        return unless previous_version
+        return [ 0, 0 ] if previous_version.content_sha256 == content_sha256
+
+        diff = Diffy::Diff.new(previous_version.content_markdown, content_markdown).to_s
+      end
+
+      added = removed = 0
+      diff.each_line do |line|
+        added += 1 if line.start_with?("+")
+        removed += 1 if line.start_with?("-")
+      end
+      [ added, removed ]
+    end
+
     after_create_commit :extract_references
     after_create_commit :broadcast_history_update
     after_create_commit :enqueue_summary_regeneration
@@ -128,17 +147,12 @@ module Coplan
     end
 
     def broadcast_history_update
+      previous_version = plan.plan_versions.find_by(revision: revision - 1) if revision > 1 && diff_unified.blank?
       Broadcaster.prepend_to(
         plan,
         target: "plan-history-list",
         partial: "coplan/plans/version_item",
-        locals: { version: self, plan: plan }
-      )
-      count = plan.plan_versions.count + plan.plan_events.count
-      Broadcaster.replace_to(
-        plan,
-        target: "history-count",
-        html: ApplicationController.helpers.content_tag(:span, ApplicationController.helpers.pluralize(count, "entry"), class: "section-count", id: "history-count")
+        locals: { version: self, plan: plan, previous_version: previous_version }
       )
     end
 

@@ -180,7 +180,7 @@
   background: var(--color-danger-soft);
 }
 
-/* History page (the plan's time machine) */
+/* History page */
 .history-page {
   padding: var(--space-lg);
 }
@@ -198,14 +198,6 @@
   background: var(--color-bg-muted);
 }
 
-.history-title-link {
-  color: inherit;
-  text-decoration: none;
-}
-
-.history-title-link:hover {
-  color: var(--color-primary);
-}
 
 /* References section */
 /* Empty attachment copy hangs under the header, indented past the round "+". */

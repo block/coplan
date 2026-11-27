@@ -323,9 +323,11 @@ module Coplan
     # `#history_kind` so the view can render each appropriately without
     # branching on class. Eager-loads actors for both to avoid N+1.
     def history_items
-      versions = plan_versions.includes(:actor_user).order(revision: :desc).to_a
+      versions = plan_versions.includes(:actor_user).reorder(revision: :desc).to_a
       events = plan_events.includes(:actor_user).order(created_at: :desc).to_a
-      (versions + events).sort_by { |item| -item.created_at.to_f }
+      # MySQL hosts may store timestamps at second precision. Versions made
+      # in the same second must still form a newest-first revision range.
+      (versions + events).sort_by { |item| [ -item.created_at.to_f, item.history_kind == :version ? -item.revision : 0 ] }
     end
 
     private
